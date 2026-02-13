@@ -29,21 +29,38 @@ export async function POST(request: NextRequest) {
 
     // Check for audio/voice attachments
     let transcribedText = '';
+    let hasAudioAttachment = false;
+    const transcriptionErrors: string[] = [];
+
     if (numMedia > 0) {
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = formData.get(`MediaUrl${i}`) as string;
         const mediaType = formData.get(`MediaContentType${i}`) as string;
 
-        console.log(`[SMS] Media ${i}: ${mediaType} → ${mediaUrl}`);
+        console.log(`[SMS] Media ${i}: type="${mediaType}" url="${mediaUrl}"`);
 
         if (mediaType && (mediaType.startsWith('audio/') || mediaType.startsWith('video/'))) {
-          // Transcribe voice memo (voice memos can come as audio/* or video/mp4)
-          try {
-            const text = await transcribeAudio(mediaUrl);
-            transcribedText += (transcribedText ? '\n' : '') + text;
-          } catch (error) {
-            console.error(`[SMS] Transcription failed for media ${i}:`, error);
+          hasAudioAttachment = true;
+
+          // Check if OpenAI key is configured
+          if (!process.env.OPENAI_API_KEY) {
+            console.error(`[SMS] OPENAI_API_KEY not set — cannot transcribe voice memo`);
+            transcriptionErrors.push('OPENAI_API_KEY not configured');
+            continue;
           }
+
+          try {
+            console.log(`[SMS] Starting transcription for media ${i}...`);
+            const text = await transcribeAudio(mediaUrl);
+            console.log(`[SMS] Transcription success: "${text.slice(0, 100)}"`);
+            transcribedText += (transcribedText ? '\n' : '') + text;
+          } catch (error: any) {
+            const errMsg = error?.message || String(error);
+            console.error(`[SMS] Transcription failed for media ${i}: ${errMsg}`);
+            transcriptionErrors.push(errMsg);
+          }
+        } else {
+          console.log(`[SMS] Skipping non-audio media ${i}: ${mediaType}`);
         }
       }
     }
@@ -52,6 +69,26 @@ export async function POST(request: NextRequest) {
     const rawContent = [body.trim(), transcribedText.trim()]
       .filter(Boolean)
       .join('\n\n');
+
+    // If we had audio but transcription failed, still create a signal with a note
+    if (!rawContent && hasAudioAttachment) {
+      console.log(`[SMS] Voice memo received but transcription failed, creating placeholder signal`);
+      const fallbackContent = `[Voice memo — transcription failed: ${transcriptionErrors.join('; ')}]`;
+
+      const signals = await createSignal({
+        rawContent: fallbackContent,
+        channel: 'SMS',
+      });
+
+      if (signals[0]) {
+        await prisma.signal.update({
+          where: { id: signals[0].id },
+          data: { inputType: 'VOICE', title: 'Voice memo (transcription failed)' },
+        });
+      }
+
+      return twimlResponse('Voice memo received but transcription failed.');
+    }
 
     if (!rawContent) {
       return twimlResponse('Empty message received.');

@@ -8,6 +8,9 @@ import OpenAI from 'openai';
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not set');
+    }
     _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
   return _openai;
@@ -30,20 +33,33 @@ const EXT_MAP: Record<string, string> = {
 export async function transcribeAudio(audioUrl: string): Promise<string> {
   console.log(`[Transcribe] Fetching audio from: ${audioUrl}`);
 
-  // Twilio media URLs require auth
-  const response = await fetch(audioUrl, {
-    headers: {
-      Authorization:
-        'Basic ' +
-        Buffer.from(
-          `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-        ).toString('base64'),
-    },
+  // Twilio media URLs require Basic auth.
+  // Note: Twilio URLs may redirect — we first try with auth, then follow redirects without.
+  const twilioAuth =
+    'Basic ' +
+    Buffer.from(
+      `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+    ).toString('base64');
+
+  let response = await fetch(audioUrl, {
+    headers: { Authorization: twilioAuth },
+    redirect: 'manual',  // Handle redirects manually to avoid dropping auth
     signal: AbortSignal.timeout(30000),
   });
 
+  // Follow redirect without auth (Twilio redirects to a signed URL that doesn't need auth)
+  if (response.status >= 300 && response.status < 400) {
+    const redirectUrl = response.headers.get('location');
+    console.log(`[Transcribe] Following redirect to: ${redirectUrl?.slice(0, 80)}`);
+    if (redirectUrl) {
+      response = await fetch(redirectUrl, {
+        signal: AbortSignal.timeout(30000),
+      });
+    }
+  }
+
   if (!response.ok) {
-    throw new Error(`Failed to download audio: ${response.status}`);
+    throw new Error(`Failed to download audio: HTTP ${response.status} ${response.statusText}`);
   }
 
   const audioBuffer = await response.arrayBuffer();
@@ -52,6 +68,10 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
   const ext = EXT_MAP[contentType] || 'ogg';
 
   console.log(`[Transcribe] Audio type: ${contentType}, size: ${audioBuffer.byteLength} bytes`);
+
+  if (audioBuffer.byteLength === 0) {
+    throw new Error('Downloaded audio file is empty (0 bytes)');
+  }
 
   // Create a File object for the OpenAI API
   const audioFile = new File(
