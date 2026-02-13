@@ -1,4 +1,9 @@
 import OpenAI from 'openai';
+import { execFile } from 'child_process';
+import { writeFile, readFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 
 // ──────────────────────────────────────────────
 // VOICE TRANSCRIPTION (OpenAI Whisper)
@@ -29,6 +34,46 @@ const EXT_MAP: Record<string, string> = {
   'video/mp4': 'mp4',
   'video/webm': 'webm',
 };
+
+// Formats OpenAI Whisper accepts
+const WHISPER_SUPPORTED = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']);
+
+// Convert unsupported formats (like AMR) to WAV using ffmpeg
+async function convertToWav(buffer: Buffer, inputExt: string): Promise<Buffer> {
+  const id = randomUUID();
+  const inputPath = join(tmpdir(), `poddit-${id}.${inputExt}`);
+  const outputPath = join(tmpdir(), `poddit-${id}.wav`);
+
+  try {
+    await writeFile(inputPath, buffer);
+
+    await new Promise<void>((resolve, reject) => {
+      execFile('ffmpeg', [
+        '-i', inputPath,
+        '-ar', '16000',      // 16kHz sample rate (good for speech)
+        '-ac', '1',           // mono
+        '-f', 'wav',
+        '-y',                 // overwrite
+        outputPath,
+      ], { timeout: 15000 }, (error, _stdout, stderr) => {
+        if (error) {
+          console.error(`[Transcribe] ffmpeg stderr: ${stderr}`);
+          reject(new Error(`ffmpeg conversion failed: ${error.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const wavBuffer = await readFile(outputPath);
+    console.log(`[Transcribe] Converted ${inputExt} → wav (${wavBuffer.length} bytes)`);
+    return wavBuffer;
+  } finally {
+    // Cleanup temp files
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
 
 export async function transcribeAudio(audioUrl: string): Promise<string> {
   console.log(`[Transcribe] Fetching audio from: ${audioUrl}`);
@@ -73,11 +118,27 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
     throw new Error('Downloaded audio file is empty (0 bytes)');
   }
 
+  // Convert unsupported formats (like AMR from iPhone voice memos) to WAV
+  const rawBuffer = Buffer.alloc(audioBuffer.byteLength);
+  const view = new Uint8Array(audioBuffer);
+  for (let i = 0; i < rawBuffer.length; i++) rawBuffer[i] = view[i];
+
+  let finalExt = ext;
+  let finalMime = contentType;
+  let finalBytes: Buffer = rawBuffer;
+
+  if (!WHISPER_SUPPORTED.has(ext)) {
+    console.log(`[Transcribe] Format "${ext}" not supported by Whisper, converting to WAV...`);
+    finalBytes = await convertToWav(rawBuffer, ext);
+    finalExt = 'wav';
+    finalMime = 'audio/wav';
+  }
+
   // Create a File object for the OpenAI API
   const audioFile = new File(
-    [audioBuffer],
-    `voice.${ext}`,
-    { type: contentType }
+    [new Uint8Array(finalBytes)],
+    `voice.${finalExt}`,
+    { type: finalMime }
   );
 
   const transcription = await getOpenAI().audio.transcriptions.create({
