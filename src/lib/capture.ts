@@ -36,6 +36,22 @@ export function classifyInput(rawContent: string): { type: InputType; urls: stri
 // CONTENT FETCHING (for links)
 // ──────────────────────────────────────────────
 
+function titleFromPath(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname;
+    // Extract the last meaningful path segment, e.g. "congress-jets-off-shutdown"
+    const slug = pathname.split('/').filter(Boolean).pop();
+    if (!slug || slug.length < 3) return null;
+    // Remove file extension and query params
+    const clean = slug.replace(/\.\w+$/, '').replace(/\?.*$/, '');
+    // Convert slug to title: "congress-jets-off-shutdown" → "Congress jets off shutdown"
+    const title = clean.replace(/[-_]/g, ' ').replace(/^\w/, c => c.toUpperCase());
+    return title.length > 3 ? title : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAndExtract(url: string): Promise<{
   title: string | null;
   source: string | null;
@@ -49,7 +65,13 @@ export async function fetchAndExtract(url: string): Promise<{
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) return { title: null, source: null, content: null };
+    const source = new URL(url).hostname.replace('www.', '') || null;
+
+    if (!response.ok) {
+      // Even if blocked, extract title from URL path as fallback
+      const titleFromUrl = titleFromPath(url);
+      return { title: titleFromUrl, source, content: null };
+    }
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -57,13 +79,11 @@ export async function fetchAndExtract(url: string): Promise<{
     // Remove noise
     $('script, style, nav, footer, header, aside, .ad, .advertisement, .sidebar').remove();
 
-    const title = $('meta[property="og:title"]').attr('content') 
-      || $('title').text().trim() 
-      || null;
+    const title = $('meta[property="og:title"]').attr('content')
+      || $('title').text().trim()
+      || titleFromPath(url);
 
-    const source = $('meta[property="og:site_name"]').attr('content')
-      || new URL(url).hostname.replace('www.', '')
-      || null;
+    const ogSource = $('meta[property="og:site_name"]').attr('content');
 
     // Get main content — prefer article tag, fall back to body
     const articleText = $('article').text().trim();
@@ -73,10 +93,11 @@ export async function fetchAndExtract(url: string): Promise<{
     // Truncate to ~4000 words to stay within LLM context limits
     const truncated = content.split(/\s+/).slice(0, 4000).join(' ');
 
-    return { title, source, content: truncated || null };
+    return { title, source: ogSource || source, content: truncated || null };
   } catch (error) {
     console.error(`Failed to fetch ${url}:`, error);
-    return { title: null, source: null, content: null };
+    const source = new URL(url).hostname.replace('www.', '') || null;
+    return { title: titleFromPath(url), source, content: null };
   }
 }
 
@@ -124,6 +145,9 @@ export async function createSignal(params: {
       status: 'QUEUED',
     },
   });
+
+  // Kick off async enrichment + classification
+  enrichSignal(signal.id).catch(console.error);
 
   return [signal];
 }
