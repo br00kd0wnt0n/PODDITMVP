@@ -1,12 +1,15 @@
+// ── Defaults ──
+const DEFAULT_SERVER = 'https://poddit-mvp.up.railway.app';
+
 // ── State ──
 let serverUrl = '';
 let apiKey = '';
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-  // Load settings
+  // Load settings (with sensible defaults)
   const settings = await chrome.storage.sync.get(['serverUrl', 'apiKey']);
-  serverUrl = settings.serverUrl || '';
+  serverUrl = settings.serverUrl || DEFAULT_SERVER;
   apiKey = settings.apiKey || '';
   document.getElementById('serverUrl').value = serverUrl;
   document.getElementById('apiKey').value = apiKey;
@@ -39,13 +42,13 @@ async function sendPage(tab) {
 
   try {
     await capture({ url: tab.url, title: tab.title, source: 'extension' });
-    showStatus('success', '✅ Added to your next Poddit');
-    btn.textContent = '✅ Sent!';
+    showStatus('success', 'Added to your Poddit queue');
+    btn.textContent = 'Sent!';
     setTimeout(() => window.close(), 1500);
   } catch (err) {
-    showStatus('error', `❌ ${err.message}`);
+    showStatus('error', err.message);
     btn.disabled = false;
-    btn.textContent = '📥 Poddit this page';
+    btn.textContent = 'Poddit this page';
   }
 }
 
@@ -60,11 +63,11 @@ async function sendTopic() {
 
   try {
     await capture({ text, source: 'extension' });
-    showStatus('success', '✅ Topic added');
+    showStatus('success', 'Topic added to your queue');
     input.value = '';
     setTimeout(() => window.close(), 1500);
   } catch (err) {
-    showStatus('error', `❌ ${err.message}`);
+    showStatus('error', err.message);
   } finally {
     btn.disabled = false;
   }
@@ -87,7 +90,7 @@ async function capture(data) {
 // ── Settings ──
 function checkSettings() {
   if (!serverUrl || !apiKey) {
-    showStatus('error', '⚙️ Configure server URL and API key first');
+    showStatus('error', 'Set your server URL and API key in Settings');
     document.getElementById('settingsPanel').style.display = 'block';
     return false;
   }
@@ -103,7 +106,7 @@ async function saveSettings() {
   serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
   apiKey = document.getElementById('apiKey').value.trim();
   await chrome.storage.sync.set({ serverUrl, apiKey });
-  showStatus('success', '✅ Settings saved');
+  showStatus('success', 'Settings saved');
 }
 
 // ── UI ──

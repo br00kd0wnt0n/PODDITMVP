@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Poddit",
-  "version": "0.1.0",
-  "description": "Send links and topics to your Poddit.",
+  "name": "Poddit — Save to your personal podcast",
+  "short_name": "Poddit",
+  "version": "1.0.0",
+  "description": "Save links and topics from any page. Poddit turns your curiosity into a personalized audio episode — your world, explained.",
   "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://*.up.railway.app/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

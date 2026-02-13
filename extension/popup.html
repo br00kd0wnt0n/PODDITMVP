@@ -3,57 +3,186 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    :root { --bg: #0a0a0b; --surface: #141416; --border: #2a2a2e; --text: #e8e8ec; --muted: #8e8e96; --accent: #6366f1; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #1a1a1a;
+      --border: #2d2d2d;
+      --text: #e5e5e5;
+      --muted: #737373;
+      --teal: #14b8a6;
+      --teal-hover: #2dd4bf;
+      --violet: #a78bfa;
+      --violet-hover: #c4b5fd;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
-    .brand { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
-    .page-info { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
-    .page-title { font-size: 0.9rem; font-weight: 600; line-height: 1.3; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .page-url { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .topic-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 0.9rem; outline: none; margin-bottom: 12px; resize: none; font-family: inherit; }
-    .topic-input:focus { border-color: var(--accent); }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .header img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+    .brand {
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: white;
+    }
+    .tagline {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .page-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .page-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .page-url {
+      font-size: 0.7rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .topic-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      margin-bottom: 12px;
+      resize: none;
+      font-family: inherit;
+    }
+    .topic-input:focus { border-color: var(--teal); }
     .topic-input::placeholder { color: var(--muted); }
-    .btn { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { background: #818cf8; }
-    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); margin-top: 8px; }
-    .btn-secondary:hover { border-color: var(--accent); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { text-align: center; padding: 8px; font-size: 0.85rem; border-radius: 8px; margin-top: 8px; display: none; }
-    .status.success { display: block; background: #064e3b; color: #6ee7b7; }
-    .status.error { display: block; background: #7f1d1d; color: #fca5a5; }
-    .settings { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
-    .settings input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); font-size: 0.8rem; outline: none; margin-top: 4px; font-family: monospace; }
-    .settings label { font-size: 0.75rem; color: var(--muted); }
-    .divider { text-align: center; color: var(--muted); font-size: 0.75rem; margin: 12px 0; }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--teal);
+      color: #0a0a0a;
+    }
+    .btn-primary:hover { background: var(--teal-hover); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { border-color: var(--violet); color: var(--violet); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status {
+      text-align: center;
+      padding: 8px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+      margin-top: 8px;
+      display: none;
+    }
+    .status.success { display: block; background: rgba(20, 184, 166, 0.1); color: var(--teal); border: 1px solid rgba(20, 184, 166, 0.2); }
+    .status.error { display: block; background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+    .divider {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin: 12px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .settings {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .settings input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      color: var(--text);
+      font-size: 0.75rem;
+      outline: none;
+      margin-top: 4px;
+      font-family: monospace;
+    }
+    .settings input:focus { border-color: var(--teal); }
+    .settings label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
   </style>
 </head>
 <body>
-  <div class="brand">Poddit</div>
+  <div class="header">
+    <img src="icons/icon-48.png" alt="Poddit">
+    <div>
+      <div class="brand">Poddit</div>
+      <div class="tagline">Your world, explained</div>
+    </div>
+  </div>
 
   <div class="page-info" id="pageInfo">
     <div class="page-title" id="pageTitle">Loading...</div>
     <div class="page-url" id="pageUrl"></div>
   </div>
 
-  <button class="btn btn-primary" id="sendPage">📥 Poddit this page</button>
+  <button class="btn btn-primary" id="sendPage">Poddit this page</button>
 
-  <div class="divider">or send a topic</div>
+  <div class="divider">or capture a topic</div>
 
-  <textarea class="topic-input" id="topicInput" rows="2" placeholder="e.g. Neuralink latest trial results"></textarea>
+  <textarea class="topic-input" id="topicInput" rows="2" placeholder="e.g. latest developments in AI agents"></textarea>
   <button class="btn btn-secondary" id="sendTopic">Send topic</button>
 
   <div class="status" id="status"></div>
 
   <div class="settings" id="settingsPanel" style="display:none">
     <label>Server URL</label>
-    <input type="text" id="serverUrl" placeholder="https://your-app.railway.app">
+    <input type="text" id="serverUrl" placeholder="https://poddit-mvp.up.railway.app">
     <label style="margin-top:8px; display:block">API Key</label>
-    <input type="password" id="apiKey" placeholder="Your API key">
-    <button class="btn btn-secondary" id="saveSettings" style="margin-top:8px; font-size:0.8rem">Save settings</button>
+    <input type="password" id="apiKey" placeholder="Your API secret">
+    <button class="btn btn-secondary" id="saveSettings" style="margin-top:8px; font-size:0.75rem">Save settings</button>
   </div>
 
-  <button class="btn btn-secondary" id="toggleSettings" style="font-size:0.75rem; margin-top:8px; background:transparent; border:none; color:var(--muted)">⚙️ Settings</button>
+  <button class="btn btn-secondary" id="toggleSettings" style="font-size:0.7rem; margin-top:8px; background:transparent; border:none; color:var(--muted)">Settings</button>
 
   <script src="popup.js"></script>
 </body>

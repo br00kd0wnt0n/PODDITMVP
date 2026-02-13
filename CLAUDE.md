@@ -114,6 +114,7 @@ curl -X POST http://localhost:3000/api/generate \
 ### Near-term improvements
 - [x] Add "Generate Now" button to the web dashboard
 - [x] Add ability to remove/edit signals in the queue from the UI
+- [ ] Episode delete and share actions (player page + dashboard)
 - [ ] Implement signal deduplication (same URL submitted twice)
 - [ ] Add episode regeneration (re-run synthesis on same signals)
 - [ ] Improve content extraction with readability libraries (like Mozilla's Readability)
