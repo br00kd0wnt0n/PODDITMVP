@@ -303,8 +303,8 @@ function Dashboard() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header — Logo left, capture channels right */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -318,7 +318,41 @@ function Dashboard() {
             <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>
-        {/* Future: settings/profile link */}
+
+        {/* Capture channels */}
+        <div className="flex items-center gap-4 text-xs">
+          <a href="sms:+18555065970" className="flex items-center gap-1.5 text-stone-400 hover:text-teal-400 transition-colors group">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500 group-hover:text-teal-400 transition-colors">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span className="font-mono">(855) 506-5970</span>
+          </a>
+          <span className="text-stone-700">|</span>
+          <a href="https://github.com/br00kd0wnt0n/PODDITMVP/tree/main/extension"
+             target="_blank" rel="noopener noreferrer"
+             className="flex items-center gap-1.5 text-stone-400 hover:text-violet-400 transition-colors group">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500 group-hover:text-violet-400 transition-colors">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="4" />
+              <line x1="21.17" y1="8" x2="12" y2="8" />
+              <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+              <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+            </svg>
+            Chrome extension
+          </a>
+          <span className="text-stone-700">|</span>
+          <span className="flex items-center gap-1.5 text-stone-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            Share sheet
+          </span>
+        </div>
       </div>
 
       {/* ── How It Works ── */}
@@ -334,7 +368,7 @@ function Dashboard() {
           <span className="flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center">2</span>
           <div>
             <p className="text-sm font-medium text-white">Generate</p>
-            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Sunday.</p>
+            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p>
           </div>
         </div>
         <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
@@ -576,7 +610,7 @@ function Dashboard() {
             <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
               <p className="text-stone-400 mb-2">No episodes yet.</p>
               <p className="text-sm text-stone-500">
-                Capture a few signals, then hit Poddit Now &mdash; or sit back and get a weekly roundup every Sunday.
+                Capture a few signals, then hit Poddit Now &mdash; or sit back and get a weekly roundup every Friday.
               </p>
             </div>
           ) : (
@@ -615,6 +649,7 @@ function Dashboard() {
         </section>
 
       </div>
+
     </main>
   );
 }
