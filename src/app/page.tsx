@@ -55,6 +55,31 @@ function Dashboard() {
     return `${mins} min`;
   };
 
+  const deleteSignal = async (id: string) => {
+    try {
+      const res = await fetch(`/api/signals?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSignals((prev) => prev.filter((s) => s.id !== id));
+        // Update counts
+        setSignalCounts((prev) => {
+          const updated = { ...prev };
+          const total = (updated.QUEUED || 0) + (updated.ENRICHED || 0);
+          if (total > 0) {
+            // Approximate: decrement the larger bucket
+            if ((updated.ENRICHED || 0) >= (updated.QUEUED || 0)) {
+              updated.ENRICHED = (updated.ENRICHED || 1) - 1;
+            } else {
+              updated.QUEUED = (updated.QUEUED || 1) - 1;
+            }
+          }
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to delete signal:', error);
+    }
+  };
+
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
@@ -105,9 +130,19 @@ function Dashboard() {
                     <p className="text-xs text-gray-500">{signal.source}</p>
                   )}
                 </div>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-400 whitespace-nowrap">
                   {new Date(signal.createdAt).toLocaleDateString()}
                 </span>
+                <button
+                  onClick={() => deleteSignal(signal.id)}
+                  className="ml-2 text-gray-300 hover:text-red-500 transition-colors p-1 -mr-1"
+                  title="Remove from queue"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
