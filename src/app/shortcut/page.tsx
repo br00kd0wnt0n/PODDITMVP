@@ -31,17 +31,21 @@ export default function ShortcutPage() {
 
       {/* Steps */}
       <div className="space-y-6 mb-10">
-        <Step n={1} title="Open Shortcuts app">
-          Open the <strong className="text-white">Shortcuts</strong> app on your iPhone and tap <strong className="text-white">+</strong> to create a new shortcut.
+        <Step n={1} title="Create a new shortcut">
+          <p>Open the <strong className="text-white">Shortcuts</strong> app &rarr; tap <strong className="text-white">+</strong> in the top-right.</p>
+          <p className="mt-1">Tap the <strong className="text-white">shortcut name</strong> at the top &rarr; <strong className="text-white">Rename</strong> &rarr; type <strong className="text-white">&quot;Send to Poddit&quot;</strong>.</p>
         </Step>
 
-        <Step n={2} title="Accept Share Sheet input">
-          <p>Tap <strong className="text-white">Add Action</strong> &rarr; search for <strong className="text-white">&quot;Share&quot;</strong> &rarr; select <strong className="text-white">&quot;Receive input from Share Sheet&quot;</strong>.</p>
-          <p className="mt-1">Tap the blue <strong className="text-white">&quot;Anywhere&quot;</strong> word and make sure <strong className="text-white">URLs</strong> and <strong className="text-white">Safari web pages</strong> are selected.</p>
+        <Step n={2} title="Enable the share sheet">
+          <p>Tap the <strong className="text-white">shortcut name</strong> at the top again &rarr; tap <strong className="text-white">&quot;Share Sheet&quot;</strong> (or look for the share icon).</p>
+          <p className="mt-1">This tells iOS to show this shortcut when you tap Share in any app.</p>
+          <div className="mt-2 p-3 bg-white/5 border border-white/10 rounded-lg text-xs text-poddit-400">
+            <strong className="text-poddit-300">Note:</strong> On older iOS (pre-16), search for <strong className="text-white">&quot;Receive input from Share Sheet&quot;</strong> as an action instead.
+          </div>
         </Step>
 
-        <Step n={3} title="Set the API URL">
-          <p>Add action &rarr; search <strong className="text-white">&quot;URL&quot;</strong> &rarr; select the <strong className="text-white">URL</strong> action.</p>
+        <Step n={3} title="Add the URL action">
+          <p>Tap <strong className="text-white">Add Action</strong> &rarr; search <strong className="text-white">&quot;URL&quot;</strong> &rarr; select the <strong className="text-white">URL</strong> action.</p>
           <p className="mt-2">Set it to:</p>
           <CopyBlock
             text={apiUrl}
@@ -51,9 +55,9 @@ export default function ShortcutPage() {
           />
         </Step>
 
-        <Step n={4} title="Send the request">
-          <p>Add action &rarr; search <strong className="text-white">&quot;Get Contents&quot;</strong> &rarr; select <strong className="text-white">&quot;Get Contents of URL&quot;</strong>.</p>
-          <p className="mt-2">Tap the blue &quot;URL&quot; to make sure it says <strong className="text-white">&quot;URL&quot;</strong> (from step 3). Then tap <strong className="text-white">&quot;Show More&quot;</strong> and set:</p>
+        <Step n={4} title="Add Get Contents of URL">
+          <p>Tap <strong className="text-white">+</strong> below the URL action &rarr; search <strong className="text-white">&quot;Get Contents&quot;</strong> &rarr; select <strong className="text-white">&quot;Get Contents of URL&quot;</strong>.</p>
+          <p className="mt-2">Make sure it says it will get contents of <strong className="text-white">&quot;URL&quot;</strong> (from step 3). Then tap <strong className="text-white">&quot;Show More&quot;</strong> and configure:</p>
 
           <div className="mt-3 space-y-3 text-sm">
             <div className="flex items-center gap-2">
@@ -113,7 +117,7 @@ export default function ShortcutPage() {
                   <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
                   <span className="text-xs bg-white/10 text-white px-3 py-1.5 rounded font-medium">
                     Shortcut Input
-                    <span className="text-poddit-400 font-normal ml-1">(tap to select variable)</span>
+                    <span className="text-poddit-400 font-normal ml-1">(tap to select the variable)</span>
                   </span>
                 </div>
               </div>
@@ -121,15 +125,13 @@ export default function ShortcutPage() {
           </div>
         </Step>
 
-        <Step n={5} title="Add confirmation">
-          <p>Add action &rarr; search <strong className="text-white">&quot;Notification&quot;</strong> &rarr; select <strong className="text-white">&quot;Show Notification&quot;</strong>.</p>
-          <p className="mt-1">Set the text to: <strong className="text-white">&check; Sent to Poddit</strong></p>
+        <Step n={5} title="Add a notification (optional)">
+          <p>Tap <strong className="text-white">+</strong> &rarr; search <strong className="text-white">&quot;Notification&quot;</strong> &rarr; select <strong className="text-white">&quot;Show Notification&quot;</strong>.</p>
+          <p className="mt-1">Set the text to: <strong className="text-white">Sent to Poddit</strong></p>
         </Step>
 
-        <Step n={6} title="Name it and enable share sheet">
-          <p>Tap the <strong className="text-white">dropdown arrow &#9662;</strong> at the very top &rarr; <strong className="text-white">Rename</strong> &rarr; type <strong className="text-white">&quot;Send to Poddit&quot;</strong>.</p>
-          <p className="mt-1">Then tap the <strong className="text-white">&#9432;</strong> icon &rarr; toggle on <strong className="text-white">&quot;Show in Share Sheet&quot;</strong>.</p>
-          <p className="mt-1">Tap <strong className="text-white">Done</strong>.</p>
+        <Step n={6} title="Done">
+          <p>Tap <strong className="text-white">Done</strong> in the top-right. The shortcut will now appear in your share sheet.</p>
         </Step>
       </div>
 
@@ -138,7 +140,7 @@ export default function ShortcutPage() {
         <h2 className="font-semibold text-white mb-2">Test it</h2>
         <p className="text-sm text-poddit-400">
           Open any article in Safari &rarr; tap <strong className="text-white">Share</strong> &rarr; scroll down to find <strong className="text-white">&quot;Send to Poddit&quot;</strong>.
-          You should see a &quot;&check; Sent to Poddit&quot; notification, and the signal will appear on your dashboard.
+          You should see a notification, and the signal will appear on your dashboard.
         </p>
       </section>
     </main>
@@ -179,7 +181,7 @@ function CopyBlock({ text, label, copied, onCopy, compact }: {
         onClick={() => onCopy(text, label)}
         className="flex-shrink-0 text-xs text-poddit-400 hover:text-white px-2 py-1 transition-colors"
       >
-        {copied === label ? '&check;' : 'Copy'}
+        {copied === label ? '\u2713' : 'Copy'}
       </button>
     </div>
   );
