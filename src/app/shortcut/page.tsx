@@ -37,15 +37,14 @@ export default function ShortcutPage() {
         </Step>
 
         <Step n={2} title="Enable the share sheet">
-          <p>Tap the <strong className="text-white">shortcut name</strong> at the top again &rarr; tap <strong className="text-white">&quot;Share Sheet&quot;</strong> (or look for the share icon).</p>
-          <p className="mt-1">This tells iOS to show this shortcut when you tap Share in any app.</p>
-          <div className="mt-2 p-3 bg-white/5 border border-white/10 rounded-lg text-xs text-poddit-400">
-            <strong className="text-poddit-300">Note:</strong> On older iOS (pre-16), search for <strong className="text-white">&quot;Receive input from Share Sheet&quot;</strong> as an action instead.
-          </div>
+          <p>Tap the <strong className="text-white">shortcut name</strong> at the top again &rarr; tap <strong className="text-white">&quot;Share Sheet&quot;</strong>.</p>
+          <p className="mt-1">You&apos;ll see a screen like &quot;Receive Apps and 18 more from Share Sheet&quot; &mdash; that&apos;s fine, leave the defaults. This tells iOS to show this shortcut when you share from any app.</p>
+          <p className="mt-1">Now <strong className="text-white">go back to the main shortcut editor</strong> to add the actions below.</p>
         </Step>
 
         <Step n={3} title="Add the URL action">
-          <p>Tap <strong className="text-white">Add Action</strong> &rarr; search <strong className="text-white">&quot;URL&quot;</strong> &rarr; select the <strong className="text-white">URL</strong> action.</p>
+          <p>On the main shortcut canvas, tap <strong className="text-white">Add Action</strong> (or the search bar at the bottom) &rarr; search <strong className="text-white">&quot;URL&quot;</strong> &rarr; select the <strong className="text-white">URL</strong> action.</p>
+          <p className="mt-1">A URL block will appear with a default apple.com link. <strong className="text-white">Clear it</strong> and paste:</p>
           <p className="mt-2">Set it to:</p>
           <CopyBlock
             text={apiUrl}
@@ -56,8 +55,8 @@ export default function ShortcutPage() {
         </Step>
 
         <Step n={4} title="Add Get Contents of URL">
-          <p>Tap <strong className="text-white">+</strong> below the URL action &rarr; search <strong className="text-white">&quot;Get Contents&quot;</strong> &rarr; select <strong className="text-white">&quot;Get Contents of URL&quot;</strong>.</p>
-          <p className="mt-2">Make sure it says it will get contents of <strong className="text-white">&quot;URL&quot;</strong> (from step 3). Then tap <strong className="text-white">&quot;Show More&quot;</strong> and configure:</p>
+          <p>Tap <strong className="text-white">Add Action</strong> again &rarr; search <strong className="text-white">&quot;Get Contents&quot;</strong> &rarr; select <strong className="text-white">&quot;Get Contents of URL&quot;</strong>.</p>
+          <p className="mt-1">It should automatically chain to the URL block from step 3. Tap <strong className="text-white">&quot;Show More&quot;</strong> to expand it, then configure:</p>
 
           <div className="mt-3 space-y-3 text-sm">
             <div className="flex items-center gap-2">
