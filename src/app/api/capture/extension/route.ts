@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
 import prisma from '@/lib/db';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// ──────────────────────────────────────────────
+// OPTIONS /api/capture/extension
+// CORS preflight for browser extension
+// ──────────────────────────────────────────────
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 // ──────────────────────────────────────────────
 // POST /api/capture/extension
 // Browser extension sends captured URLs/text
@@ -12,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Simple auth via shared secret
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.API_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
     }
 
     const body = await request.json();
@@ -28,7 +43,7 @@ export async function POST(request: NextRequest) {
     } else if (text) {
       rawContent = text;
     } else {
-      return NextResponse.json({ error: 'No content provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No content provided' }, { status: 400, headers: corsHeaders });
     }
 
     const signals = await createSignal({
@@ -47,10 +62,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       status: 'captured',
       signals: signals.length,
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('[Extension] Error:', error);
-    return NextResponse.json({ error: 'Capture failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Capture failed' }, { status: 500, headers: corsHeaders });
   }
 }
