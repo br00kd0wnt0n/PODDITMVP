@@ -318,12 +318,7 @@ function Dashboard() {
             <p className="text-poddit-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>
-        <a
-          href="/shortcut"
-          className="text-xs text-poddit-400 hover:text-white transition-colors"
-        >
-          iOS Shortcut &rarr;
-        </a>
+{/* Future: settings/profile link */}
       </div>
 
       {/* Share confirmation toast */}
