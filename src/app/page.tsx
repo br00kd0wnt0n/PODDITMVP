@@ -334,7 +334,7 @@ function Dashboard() {
           <span className="flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center">2</span>
           <div>
             <p className="text-sm font-medium text-white">Generate</p>
-            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now and we connect the dots across your signals.</p>
+            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Sunday.</p>
           </div>
         </div>
         <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
@@ -576,7 +576,7 @@ function Dashboard() {
             <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
               <p className="text-stone-400 mb-2">No episodes yet.</p>
               <p className="text-sm text-stone-500">
-                Capture a few signals, then hit Poddit Now. We&apos;ll explain what it all means.
+                Capture a few signals, then hit Poddit Now &mdash; or sit back and get a weekly roundup every Sunday.
               </p>
             </div>
           ) : (
