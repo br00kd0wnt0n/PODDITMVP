@@ -106,22 +106,23 @@ curl -X POST http://localhost:3000/api/generate \
 ### Immediate (get to usable MVP)
 - [ ] Test full capture → generate → play loop end-to-end
 - [ ] Add error handling for TTS failures (fallback to text-only episode)
-- [ ] Add basic loading/generating states to the web UI
-- [ ] Generate placeholder PWA icons (icon-192.png, icon-512.png)
+- [x] Add basic loading/generating states to the web UI
+- [x] Generate PWA icons from brand logo (icon-192.png, icon-512.png, apple-touch-icon)
 - [ ] Test PWA share sheet on iOS and Android
 - [ ] Add Twilio webhook signature validation for security
 
 ### Near-term improvements
-- [ ] Add "Generate Now" button to the web dashboard
-- [ ] Add ability to remove/edit signals in the queue from the UI
+- [x] Add "Generate Now" button to the web dashboard
+- [x] Add ability to remove/edit signals in the queue from the UI
 - [ ] Implement signal deduplication (same URL submitted twice)
 - [ ] Add episode regeneration (re-run synthesis on same signals)
 - [ ] Improve content extraction with readability libraries (like Mozilla's Readability)
-- [ ] Add topic extraction/tagging via Claude (use ENRICHMENT_PROMPT in prompts.ts)
-- [ ] Implement Siri Shortcuts integration (via Apple Shortcuts URL scheme)
+- [x] Add topic extraction/tagging via Claude (use ENRICHMENT_PROMPT in prompts.ts)
+- [x] Dashboard text input + voice recording capture (via /api/capture/quick)
 
-### Future phases
+### Future phases (requires user accounts)
 - [ ] Multi-user auth (NextAuth.js or Clerk)
+- [ ] Voice selection — let users pick from a few ElevenLabs voice options in their settings
 - [ ] User profile/preference learning across episodes
 - [ ] Proactive scouting tier (research topics without user signal)
 - [ ] Cross-topic connection detection
