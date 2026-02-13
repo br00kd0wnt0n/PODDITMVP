@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────
+// Users - single user for now, structured for scale
+// ──────────────────────────────────────────
+model User {
+  id          String   @id @default(uuid())
+  phone       String?  @unique
+  email       String?  @unique
+  name        String?
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  signals  Signal[]
+  episodes Episode[]
+}
+
+// ──────────────────────────────────────────
+// Signals - everything the user sends in
+// ──────────────────────────────────────────
+model Signal {
+  id        String       @id @default(uuid())
+  userId    String       @default("default")
+  user      User         @relation(fields: [userId], references: [id])
+
+  // What came in
+  inputType  InputType
+  channel    Channel
+  rawContent String
+
+  // Extracted data
+  url            String?
+  title          String?
+  source         String?
+  fetchedContent String?   @db.Text
+  topics         String[]  @default([])
+
+  // Processing state
+  status      SignalStatus @default(QUEUED)
+  processedAt DateTime?
+
+  // Organisation
+  episodeId String?
+  episode   Episode?     @relation(fields: [episodeId], references: [id])
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+enum InputType {
+  LINK
+  TOPIC
+  VOICE
+  FORWARDED_EMAIL
+  CLIPBOARD
+}
+
+enum Channel {
+  SMS
+  EMAIL
+  EXTENSION
+  SHARE_SHEET
+  API
+}
+
+enum SignalStatus {
+  PENDING
+  QUEUED
+  ENRICHED
+  USED
+  SKIPPED
+  FAILED
+}
+
+// ──────────────────────────────────────────
+// Episodes - the generated podcasts
+// ──────────────────────────────────────────
+model Episode {
+  id          String        @id @default(uuid())
+  userId      String        @default("default")
+  user        User          @relation(fields: [userId], references: [id])
+
+  // Content
+  title         String?
+  script        String?       @db.Text
+  summary       String?       @db.Text
+  topicsCovered String[]      @default([])
+  periodStart   DateTime?
+  periodEnd     DateTime?
+
+  // Audio
+  audioUrl      String?
+  audioDuration Int?
+
+  // Generation
+  status      EpisodeStatus @default(PENDING)
+  generatedAt DateTime?     @default(now())
+  error       String?
+
+  // Relations
+  signals     Signal[]
+  segments    Segment[]
+  signalCount Int           @default(0)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+enum EpisodeStatus {
+  PENDING
+  SYNTHESIZING
+  GENERATING
+  READY
+  FAILED
+  ARCHIVED
+}
+
+// ──────────────────────────────────────────
+// Segments - per-topic sections within an episode
+// ──────────────────────────────────────────
+model Segment {
+  id        String   @id @default(uuid())
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  order     Int
+  topic     String
+  content   String   @db.Text
+  sources   Json     @default("[]")
+
+  createdAt DateTime @default(now())
+
+  @@index([episodeId, order])
+}

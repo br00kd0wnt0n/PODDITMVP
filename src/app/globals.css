@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #0a0a0a;
+  --background: #fafafa;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Audio player custom styling */
+audio::-webkit-media-controls-panel {
+  background-color: #f0f4ff;
+}
+
+/* Smooth scrolling for segment navigation */
+html {
+  scroll-behavior: smooth;
+}
