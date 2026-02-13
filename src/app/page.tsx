@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface Episode {
@@ -31,6 +31,7 @@ function Dashboard() {
   const searchParams = useSearchParams();
   const shared = searchParams.get('shared');
 
+  // Data state
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
@@ -39,11 +40,41 @@ function Dashboard() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // Input state
+  const [textInput, setTextInput] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [processing, setProcessing] = useState(false);
+  const [inputSuccess, setInputSuccess] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
+
+  // Refs for recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup on unmount
   useEffect(() => {
-    Promise.all([
-      fetch('/api/episodes').then(r => r.json()),
-      fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
-    ]).then(([eps, sigs]) => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  // Load data
+  useEffect(() => {
+    refreshData();
+  }, []);
+
+  const refreshData = async () => {
+    try {
+      const [eps, sigs] = await Promise.all([
+        fetch('/api/episodes').then(r => r.json()),
+        fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
+      ]);
       setEpisodes(Array.isArray(eps) ? eps : []);
       const signalList = sigs.signals || [];
       setSignals(signalList);
@@ -51,9 +82,12 @@ function Dashboard() {
       const counts: Record<string, number> = {};
       (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
       setSignalCounts(counts);
+    } catch {
+      // silent fail on refresh
+    } finally {
       setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    }
+  };
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '';
@@ -61,14 +95,18 @@ function Dashboard() {
     return `${mins} min`;
   };
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // ── Selection ──
+
   const toggleSignal = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   };
@@ -83,16 +121,14 @@ function Dashboard() {
     }
   };
 
+  // ── Delete ──
+
   const deleteSignal = async (id: string) => {
     try {
       const res = await fetch(`/api/signals?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         setSignals((prev) => prev.filter((s) => s.id !== id));
-        setSelectedIds(prev => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
+        setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
         setSignalCounts((prev) => {
           const updated = { ...prev };
           const total = (updated.QUEUED || 0) + (updated.ENRICHED || 0);
@@ -111,6 +147,8 @@ function Dashboard() {
     }
   };
 
+  // ── Generate ──
+
   const generateNow = async () => {
     if (selectedIds.size === 0) return;
     setGenerating(true);
@@ -124,31 +162,143 @@ function Dashboard() {
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Generation failed');
-      }
-
-      // Refresh both episodes and signals
-      const [eps, sigs] = await Promise.all([
-        fetch('/api/episodes').then(r => r.json()),
-        fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
-      ]);
-
-      setEpisodes(Array.isArray(eps) ? eps : []);
-      const signalList = sigs.signals || [];
-      setSignals(signalList);
-      setSelectedIds(new Set(signalList.map((s: Signal) => s.id)));
-
-      const counts: Record<string, number> = {};
-      (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
-      setSignalCounts(counts);
+      await refreshData();
     } catch (error: any) {
       setGenerateError(error.message);
     } finally {
       setGenerating(false);
     }
   };
+
+  // ── Text Input ──
+
+  const submitText = async () => {
+    const text = textInput.trim();
+    if (!text) return;
+    setSubmitting(true);
+    setInputError(null);
+    setInputSuccess(null);
+
+    try {
+      const res = await fetch('/api/capture/quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Capture failed');
+
+      setTextInput('');
+      setInputSuccess(data.type === 'link' ? 'Link added to queue' : `"${text.slice(0, 60)}" added to queue`);
+      setTimeout(() => setInputSuccess(null), 4000);
+
+      // Wait briefly for enrichment + classification, then refresh
+      setTimeout(() => refreshData(), 2000);
+    } catch (error: any) {
+      setInputError(error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitText();
+    }
+  };
+
+  // ── Voice Recording ──
+
+  const startRecording = async () => {
+    try {
+      setInputError(null);
+      setInputSuccess(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : 'audio/mp4';
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const blob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
+        await sendVoiceNote(blob);
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          if (prev >= 119) {
+            // Auto-stop at 2 minutes
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setInputError(
+        err.name === 'NotAllowedError'
+          ? 'Microphone access denied. Allow it in browser settings.'
+          : 'Could not start recording.'
+      );
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setRecording(false);
+  };
+
+  const sendVoiceNote = async (blob: Blob) => {
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('audio', blob, 'voice.webm');
+
+      const res = await fetch('/api/capture/quick', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Voice capture failed');
+
+      setInputSuccess(`"${data.transcript?.slice(0, 60) || 'Voice note'}..." added to queue`);
+      setTimeout(() => setInputSuccess(null), 5000);
+
+      // Wait briefly for classification, then refresh
+      setTimeout(() => refreshData(), 2000);
+    } catch (error: any) {
+      setInputError(error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ── Render ──
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
@@ -181,7 +331,87 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Signal Queue */}
+      {/* ── Capture Input Bar ── */}
+      <section className="mb-6">
+        {/* Input error */}
+        {inputError && (
+          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-center justify-between">
+            <span>{inputError}</span>
+            <button onClick={() => setInputError(null)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+          </div>
+        )}
+
+        {/* Input success */}
+        {inputSuccess && (
+          <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs">
+            ✓ {inputSuccess}
+          </div>
+        )}
+
+        {/* Recording state */}
+        {recording ? (
+          <button
+            onClick={stopRecording}
+            className="w-full py-3 px-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700
+                       hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+            {formatTime(recordingTime)} — Recording...
+            <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
+          </button>
+        ) : processing ? (
+          <div className="w-full py-3 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500
+                          flex items-center justify-center gap-2">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Transcribing...
+          </div>
+        ) : (
+          /* Default: text input + buttons */
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a topic or paste a link..."
+              disabled={submitting}
+              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900
+                         placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                         disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <button
+              onClick={submitText}
+              disabled={submitting || !textInput.trim()}
+              className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg
+                         hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed
+                         transition-colors flex-shrink-0"
+            >
+              {submitting ? '...' : 'Add'}
+            </button>
+            <button
+              onClick={startRecording}
+              disabled={submitting}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-gray-500
+                         hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors flex-shrink-0"
+              title="Record a voice note"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* ── Signal Queue ── */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -237,7 +467,7 @@ function Dashboard() {
           <div className="p-6 bg-gray-50 rounded-lg text-center text-gray-500">
             <p className="mb-2">No signals in the queue yet.</p>
             <p className="text-sm">
-              Text a link or topic to your Poddit number, share from your browser, or forward an email.
+              Add a topic above, record a thought, text your Poddit number, or share from your browser.
             </p>
           </div>
         ) : (
@@ -301,7 +531,7 @@ function Dashboard() {
         )}
       </section>
 
-      {/* Episodes */}
+      {/* ── Episodes ── */}
       <section>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Episodes</h2>
 
