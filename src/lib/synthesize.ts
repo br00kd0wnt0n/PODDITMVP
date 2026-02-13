@@ -26,21 +26,31 @@ export async function generateEpisode(params?: {
   userId?: string;
   since?: Date;
   manual?: boolean;
+  signalIds?: string[];
 }): Promise<string> {
   const userId = params?.userId || 'default';
   const since = params?.since || getLastWeekStart();
 
-  console.log(`[Poddit] Generating episode for ${userId} since ${since.toISOString()}`);
+  console.log(`[Poddit] Generating episode for ${userId}${params?.signalIds ? ` (${params.signalIds.length} selected signals)` : ` since ${since.toISOString()}`}`);
 
-  // 1. Gather all queued/enriched signals since the cutoff
-  const signals = await prisma.signal.findMany({
-    where: {
-      userId,
-      status: { in: ['QUEUED', 'ENRICHED'] },
-      createdAt: { gte: since },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
+  // 1. Gather signals — by IDs if provided, otherwise by date range
+  const signals = params?.signalIds && params.signalIds.length > 0
+    ? await prisma.signal.findMany({
+        where: {
+          id: { in: params.signalIds },
+          userId,
+          status: { in: ['QUEUED', 'ENRICHED'] },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+    : await prisma.signal.findMany({
+        where: {
+          userId,
+          status: { in: ['QUEUED', 'ENRICHED'] },
+          createdAt: { gte: since },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
 
   if (signals.length === 0) {
     console.log('[Poddit] No signals to process');

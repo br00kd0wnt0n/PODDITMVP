@@ -1,6 +1,8 @@
 import prisma from './db';
 import { InputType, Channel } from '@prisma/client';
 import * as cheerio from 'cheerio';
+import Anthropic from '@anthropic-ai/sdk';
+import { ENRICHMENT_PROMPT } from './prompts';
 
 // ──────────────────────────────────────────────
 // URL DETECTION & EXTRACTION
@@ -137,7 +139,7 @@ export async function enrichSignal(signalId: string) {
   try {
     if (signal.inputType === 'LINK' && signal.url) {
       const { title, source, content } = await fetchAndExtract(signal.url);
-      
+
       await prisma.signal.update({
         where: { id: signalId },
         data: {
@@ -159,11 +161,65 @@ export async function enrichSignal(signalId: string) {
         },
       });
     }
+
+    // Auto-classify after enrichment (non-blocking)
+    classifySignal(signalId).catch(err =>
+      console.error(`[Classify] Failed for signal ${signalId}:`, err)
+    );
   } catch (error) {
     console.error(`Failed to enrich signal ${signalId}:`, error);
     await prisma.signal.update({
       where: { id: signalId },
       data: { status: 'FAILED' },
     });
+  }
+}
+
+// ──────────────────────────────────────────────
+// SIGNAL CLASSIFICATION (auto-tagging)
+// ──────────────────────────────────────────────
+
+async function classifySignal(signalId: string) {
+  const signal = await prisma.signal.findUnique({ where: { id: signalId } });
+  if (!signal) return;
+
+  // Build context for classification
+  let context = signal.rawContent;
+  if (signal.title) context = `Title: ${signal.title}\n${context}`;
+  if (signal.source) context = `Source: ${signal.source}\n${context}`;
+  if (signal.fetchedContent) {
+    context += `\n\nContent preview: ${signal.fetchedContent.slice(0, 500)}`;
+  }
+
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-3-5-20241022',
+    max_tokens: 200,
+    messages: [{
+      role: 'user',
+      content: `${ENRICHMENT_PROMPT}\n\n---\n\n${context}`,
+    }],
+  });
+
+  const textContent = response.content.find(c => c.type === 'text');
+  if (!textContent || textContent.type !== 'text') return;
+
+  try {
+    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+
+    const result = JSON.parse(jsonMatch[0]);
+    const topics = Array.isArray(result.topics) ? result.topics.slice(0, 5) : [];
+
+    if (topics.length > 0) {
+      await prisma.signal.update({
+        where: { id: signalId },
+        data: { topics },
+      });
+      console.log(`[Classify] Signal ${signalId} tagged: ${topics.join(', ')}`);
+    }
+  } catch {
+    console.error(`[Classify] Failed to parse classification for signal ${signalId}`);
   }
 }
