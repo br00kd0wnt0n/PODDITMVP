@@ -312,7 +312,7 @@ function Dashboard() {
             className="rounded-lg"
           />
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">PODDIT</h1>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
             <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>
