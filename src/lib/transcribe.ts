@@ -79,7 +79,7 @@ export async function transcribeAudioBuffer(
   const ext = EXT_MAP[contentType] || 'webm';
 
   const audioFile = new File(
-    [buffer],
+    [new Uint8Array(buffer)],
     `voice.${ext}`,
     { type: contentType }
   );
