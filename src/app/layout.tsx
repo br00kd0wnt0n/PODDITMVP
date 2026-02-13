@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Poddit — Your Week, Compressed',
-  description: 'AI-powered personal podcast that turns your captured links and topics into a weekly audio briefing.',
+  title: 'Poddit — Your World, Explained',
+  description: 'Save what catches your eye. Poddit explains what it all means — connecting the dots, weighing the evidence, cutting through the noise.',
   manifest: '/manifest.json',
 };
 

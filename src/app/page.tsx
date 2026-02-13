@@ -315,7 +315,7 @@ function Dashboard() {
           />
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">PODDIT</h1>
-            <p className="text-poddit-400 text-xs tracking-widest uppercase">Your week, compressed</p>
+            <p className="text-poddit-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>
         <a
@@ -386,7 +386,7 @@ function Dashboard() {
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a topic or paste a link..."
+              placeholder="Save a link, topic, or thought..."
               disabled={submitting}
               className="flex-1 px-4 py-2.5 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-white
                          placeholder:text-poddit-500 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-poddit-500
@@ -458,7 +458,7 @@ function Dashboard() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Generating your episode...
+                Connecting the dots...
               </>
             ) : (
               <>Poddit Now ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
@@ -475,9 +475,9 @@ function Dashboard() {
 
         {signals.length === 0 ? (
           <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
-            <p className="text-poddit-400 mb-2">No signals in the queue yet.</p>
+            <p className="text-poddit-400 mb-2">Your queue is empty.</p>
             <p className="text-sm text-poddit-500">
-              Add a topic above, record a thought, text your Poddit number, or share from your browser.
+              Save what catches your eye &mdash; a link, a topic, a voice note. Poddit meets you wherever your curiosity happens.
             </p>
           </div>
         ) : (
@@ -551,7 +551,10 @@ function Dashboard() {
           <div className="p-6 text-center text-poddit-500">Loading...</div>
         ) : episodes.length === 0 ? (
           <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
-            <p className="text-poddit-400">No episodes yet. Capture some signals and generate your first one.</p>
+            <p className="text-poddit-400 mb-2">No episodes yet.</p>
+            <p className="text-sm text-poddit-500">
+              Capture a few signals, then hit Poddit Now. We&apos;ll explain what it all means.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
