@@ -246,7 +246,6 @@ function Dashboard() {
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
           if (prev >= 119) {
-            // Auto-stop at 2 minutes
             stopRecording();
             return prev;
           }
@@ -290,7 +289,6 @@ function Dashboard() {
       setInputSuccess(`"${data.transcript?.slice(0, 60) || 'Voice note'}..." added to queue`);
       setTimeout(() => setInputSuccess(null), 5000);
 
-      // Wait briefly for classification, then refresh
       setTimeout(() => refreshData(), 2000);
     } catch (error: any) {
       setInputError(error.message);
@@ -315,15 +313,15 @@ function Dashboard() {
           />
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight">PODDIT</h1>
-            <p className="text-poddit-400 text-xs tracking-widest uppercase">Your world, explained</p>
+            <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>
-{/* Future: settings/profile link */}
+        {/* Future: settings/profile link */}
       </div>
 
       {/* Share confirmation toast */}
       {shared === 'success' && (
-        <div className="mb-6 p-3 bg-white/5 border border-white/10 rounded-lg text-poddit-200 text-sm">
+        <div className="mb-6 p-3 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-sm">
           Captured! It&apos;ll show up in your next episode.
         </div>
       )}
@@ -348,7 +346,7 @@ function Dashboard() {
 
         {/* Input success */}
         {inputSuccess && (
-          <div className="mb-2 p-2 bg-white/5 border border-white/10 rounded-lg text-poddit-300 text-xs">
+          <div className="mb-2 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs">
             &check; {inputSuccess}
           </div>
         )}
@@ -365,9 +363,9 @@ function Dashboard() {
             <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
           </button>
         ) : processing ? (
-          <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-poddit-400
+          <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
                           flex items-center justify-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <svg className="animate-spin h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
@@ -383,15 +381,15 @@ function Dashboard() {
               onKeyDown={handleKeyDown}
               placeholder="Save a link, topic, or thought..."
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-white
-                         placeholder:text-poddit-500 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-poddit-500
+              className="flex-1 px-4 py-2.5 bg-poddit-900 border border-stone-800 rounded-xl text-sm text-white
+                         placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-amber-400/30 focus:border-stone-600
                          disabled:opacity-40 transition-all"
             />
             <button
               onClick={submitText}
               disabled={submitting || !textInput.trim()}
-              className="px-4 py-2.5 bg-white text-poddit-950 text-sm font-semibold rounded-xl
-                         hover:bg-poddit-100 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
+              className="px-4 py-2.5 bg-amber-400 text-poddit-950 text-sm font-semibold rounded-xl
+                         hover:bg-amber-300 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
                          transition-colors flex-shrink-0"
             >
               {submitting ? '...' : 'Add'}
@@ -399,8 +397,8 @@ function Dashboard() {
             <button
               onClick={startRecording}
               disabled={submitting}
-              className="px-3 py-2.5 border border-poddit-700 rounded-xl text-poddit-400
-                         hover:border-poddit-400 hover:text-white hover:bg-white/5
+              className="px-3 py-2.5 border border-stone-800 rounded-xl text-stone-400
+                         hover:border-steel-500 hover:text-steel-400 hover:bg-steel-500/5
                          disabled:opacity-40 disabled:cursor-not-allowed
                          transition-all flex-shrink-0"
               title="Record a voice note"
@@ -419,10 +417,10 @@ function Dashboard() {
       {/* ── Signal Queue ── */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-poddit-300 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">
             Queue
             {(signalCounts.QUEUED || signalCounts.ENRICHED) ? (
-              <span className="ml-2 text-xs font-normal text-poddit-500 normal-case tracking-normal">
+              <span className="ml-2 text-xs font-normal text-stone-500 normal-case tracking-normal">
                 {(signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0)} signals waiting
               </span>
             ) : null}
@@ -431,7 +429,7 @@ function Dashboard() {
             <button
               onClick={toggleAll}
               disabled={generating}
-              className="text-xs text-poddit-400 hover:text-white disabled:text-poddit-600 transition-colors"
+              className="text-xs text-steel-400 hover:text-steel-300 disabled:text-poddit-600 transition-colors"
             >
               {allSelected ? 'Deselect All' : 'Select All'}
             </button>
@@ -443,8 +441,8 @@ function Dashboard() {
           <button
             onClick={generateNow}
             disabled={generating || selectedIds.size === 0}
-            className="w-full mb-4 py-3 px-4 bg-white text-poddit-950 text-sm font-bold rounded-xl
-                       hover:bg-poddit-100 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
+            className="w-full mb-4 py-3 px-4 bg-amber-400 text-poddit-950 text-sm font-bold rounded-xl
+                       hover:bg-amber-300 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
                        transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
           >
             {generating ? (
@@ -463,15 +461,15 @@ function Dashboard() {
 
         {/* Selection count */}
         {signals.length > 0 && !allSelected && selectedIds.size > 0 && (
-          <p className="text-xs text-poddit-500 mb-3">
+          <p className="text-xs text-stone-500 mb-3">
             {selectedIds.size} of {signals.length} selected
           </p>
         )}
 
         {signals.length === 0 ? (
-          <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
-            <p className="text-poddit-400 mb-2">Your queue is empty.</p>
-            <p className="text-sm text-poddit-500">
+          <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
+            <p className="text-stone-400 mb-2">Your queue is empty.</p>
+            <p className="text-sm text-stone-500">
               Save what catches your eye &mdash; a link, a topic, a voice note. Poddit meets you wherever your curiosity happens.
             </p>
           </div>
@@ -482,8 +480,8 @@ function Dashboard() {
                 key={signal.id}
                 className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
                   selectedIds.has(signal.id)
-                    ? 'bg-white/5 border border-white/10'
-                    : 'bg-poddit-900/30 border border-transparent hover:border-poddit-800'
+                    ? 'bg-amber-400/5 border border-amber-400/15'
+                    : 'bg-poddit-900/30 border border-transparent hover:border-stone-800'
                 }`}
               >
                 <input
@@ -491,11 +489,11 @@ function Dashboard() {
                   checked={selectedIds.has(signal.id)}
                   onChange={() => toggleSignal(signal.id)}
                   disabled={generating}
-                  className="w-4 h-4 rounded border-poddit-600 mt-0.5 flex-shrink-0"
+                  className="w-4 h-4 rounded border-stone-600 mt-0.5 flex-shrink-0 accent-amber-400"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-mono bg-poddit-800 text-poddit-400 px-1.5 py-0.5 rounded flex-shrink-0">
+                    <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
                       {signal.channel}
                     </span>
                     <p className="text-sm text-poddit-100 truncate">
@@ -503,14 +501,14 @@ function Dashboard() {
                     </p>
                   </div>
                   {signal.source && (
-                    <p className="text-xs text-poddit-500 ml-0">{signal.source}</p>
+                    <p className="text-xs text-stone-500 ml-0">{signal.source}</p>
                   )}
                   {signal.topics.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {signal.topics.map((topic) => (
                         <span
                           key={topic}
-                          className="text-xs bg-white/10 text-poddit-300 px-2 py-0.5 rounded-full"
+                          className="text-xs bg-steel-500/15 text-steel-300 px-2 py-0.5 rounded-full"
                         >
                           {topic}
                         </span>
@@ -518,7 +516,7 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-poddit-600 whitespace-nowrap flex-shrink-0">
+                <span className="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">
                   {new Date(signal.createdAt).toLocaleDateString()}
                 </span>
                 <button
@@ -540,14 +538,14 @@ function Dashboard() {
 
       {/* ── Episodes ── */}
       <section>
-        <h2 className="text-sm font-semibold text-poddit-300 uppercase tracking-wider mb-4">Episodes</h2>
+        <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Episodes</h2>
 
         {loading ? (
-          <div className="p-6 text-center text-poddit-500">Loading...</div>
+          <div className="p-6 text-center text-stone-500">Loading...</div>
         ) : episodes.length === 0 ? (
-          <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
-            <p className="text-poddit-400 mb-2">No episodes yet.</p>
-            <p className="text-sm text-poddit-500">
+          <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
+            <p className="text-stone-400 mb-2">No episodes yet.</p>
+            <p className="text-sm text-stone-500">
               Capture a few signals, then hit Poddit Now. We&apos;ll explain what it all means.
             </p>
           </div>
@@ -557,26 +555,26 @@ function Dashboard() {
               <a
                 key={ep.id}
                 href={`/player/${ep.id}`}
-                className="block p-4 bg-poddit-900/50 border border-poddit-800 rounded-xl
-                           hover:border-poddit-600 hover:bg-poddit-900 transition-all group"
+                className="block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
+                           hover:border-steel-500/30 hover:bg-poddit-900 transition-all group"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-white group-hover:text-white">{ep.title}</h3>
-                    <p className="text-sm text-poddit-400 mt-1">{ep.summary?.slice(0, 120)}...</p>
+                    <h3 className="font-semibold text-white group-hover:text-steel-300 transition-colors">{ep.title}</h3>
+                    <p className="text-sm text-stone-400 mt-1">{ep.summary?.slice(0, 120)}...</p>
                   </div>
-                  <span className="text-sm text-poddit-500 whitespace-nowrap ml-4">
+                  <span className="text-sm text-stone-500 whitespace-nowrap ml-4">
                     {formatDuration(ep.audioDuration)}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-3 text-xs text-poddit-500">
+                <div className="flex items-center gap-3 mt-3 text-xs text-stone-500">
                   <span>{ep.signalCount} signals</span>
-                  <span>&middot;</span>
+                  <span className="text-amber-400/40">&bull;</span>
                   <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
                   {ep.topicsCovered.length > 0 && (
                     <>
-                      <span>&middot;</span>
-                      <span className="text-poddit-400">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
+                      <span className="text-amber-400/40">&bull;</span>
+                      <span className="text-stone-400">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
                     </>
                   )}
                 </div>
@@ -591,7 +589,7 @@ function Dashboard() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-poddit-500">Loading...</div>}>
+    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-stone-500">Loading...</div>}>
       <Dashboard />
     </Suspense>
   );
