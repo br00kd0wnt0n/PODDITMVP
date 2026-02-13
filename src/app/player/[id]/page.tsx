@@ -142,7 +142,7 @@ export default function PlayerPage() {
               onClick={() => setActiveSegment(i)}
               className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap transition-all ${
                 activeSegment === i
-                  ? 'bg-white text-poddit-950 font-semibold'
+                  ? 'bg-teal-500 text-poddit-950 font-semibold'
                   : 'bg-poddit-800 text-poddit-400 hover:bg-poddit-700 hover:text-poddit-200'
               }`}
             >
@@ -171,7 +171,7 @@ export default function PlayerPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-start gap-2 p-3 bg-poddit-900 border border-poddit-800 rounded-lg
-                               hover:border-poddit-600 transition-all text-sm group"
+                               hover:border-violet-400/30 transition-all text-sm group"
                   >
                     <span className="text-white font-medium group-hover:underline">{source.name}</span>
                     <span className="text-poddit-600">&mdash;</span>
@@ -194,7 +194,7 @@ export default function PlayerPage() {
                 {signal.channel}
               </span>
               {signal.url ? (
-                <a href={signal.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline truncate">
+                <a href={signal.url} target="_blank" rel="noopener noreferrer" className="text-violet-300 hover:underline truncate">
                   {signal.title || signal.url}
                 </a>
               ) : (
