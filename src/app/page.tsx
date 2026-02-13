@@ -38,7 +38,7 @@ function Dashboard() {
   useEffect(() => {
     Promise.all([
       fetch('/api/episodes').then(r => r.json()),
-      fetch('/api/signals?status=queued&limit=20').then(r => r.json()),
+      fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
     ]).then(([eps, sigs]) => {
       setEpisodes(Array.isArray(eps) ? eps : []);
       setSignals(sigs.signals || []);

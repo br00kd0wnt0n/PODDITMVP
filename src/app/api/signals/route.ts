@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
 
   const where: any = {};
   if (status) {
-    where.status = status.toUpperCase();
+    // Support comma-separated statuses: ?status=queued,enriched
+    const statuses = status.split(',').map(s => s.trim().toUpperCase());
+    where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
   }
 
   const signals = await prisma.signal.findMany({
