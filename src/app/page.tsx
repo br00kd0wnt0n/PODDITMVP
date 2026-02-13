@@ -299,10 +299,12 @@ function Dashboard() {
 
   // ── Render ──
 
+  const totalQueued = (signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0);
+
   return (
-    <main className="max-w-2xl mx-auto px-4 py-8">
+    <main className="max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -317,6 +319,31 @@ function Dashboard() {
           </div>
         </div>
         {/* Future: settings/profile link */}
+      </div>
+
+      {/* ── How It Works ── */}
+      <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
+          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center">1</span>
+          <div>
+            <p className="text-sm font-medium text-white">Capture</p>
+            <p className="text-xs text-stone-500 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
+          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center">2</span>
+          <div>
+            <p className="text-sm font-medium text-white">Generate</p>
+            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now and we connect the dots across your signals.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
+          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center">3</span>
+          <div>
+            <p className="text-sm font-medium text-white">Listen</p>
+            <p className="text-xs text-stone-500 mt-0.5">Get a personalized audio episode explaining what it all means.</p>
+          </div>
+        </div>
       </div>
 
       {/* Share confirmation toast */}
@@ -414,182 +441,187 @@ function Dashboard() {
         )}
       </section>
 
-      {/* ── Signal Queue ── */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">
-            Queue
-            {(signalCounts.QUEUED || signalCounts.ENRICHED) ? (
-              <span className="ml-2 text-xs font-normal text-stone-500 normal-case tracking-normal">
-                {(signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0)} signals waiting
-              </span>
-            ) : null}
-          </h2>
+      {/* ── Two-Column Layout (desktop) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        {/* ── Left: Signal Queue ── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">
+              Queue
+              {totalQueued > 0 && (
+                <span className="ml-2 text-xs font-normal text-stone-500 normal-case tracking-normal">
+                  {totalQueued} signal{totalQueued !== 1 ? 's' : ''} waiting
+                </span>
+              )}
+            </h2>
+            {signals.length > 0 && (
+              <button
+                onClick={toggleAll}
+                disabled={generating}
+                className="text-xs text-violet-400 hover:text-violet-300 disabled:text-poddit-600 transition-colors"
+              >
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </button>
+            )}
+          </div>
+
+          {/* Poddit Now button */}
           {signals.length > 0 && (
             <button
-              onClick={toggleAll}
-              disabled={generating}
-              className="text-xs text-violet-400 hover:text-violet-300 disabled:text-poddit-600 transition-colors"
+              onClick={generateNow}
+              disabled={generating || selectedIds.size === 0}
+              className="w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                         hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
+                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
             >
-              {allSelected ? 'Deselect All' : 'Select All'}
+              {generating ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Connecting the dots...
+                </>
+              ) : (
+                <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+              )}
             </button>
           )}
-        </div>
 
-        {/* Poddit Now button */}
-        {signals.length > 0 && (
-          <button
-            onClick={generateNow}
-            disabled={generating || selectedIds.size === 0}
-            className="w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                       hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
-                       transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
-          >
-            {generating ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Connecting the dots...
-              </>
-            ) : (
-              <>Poddit Now ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
-            )}
-          </button>
-        )}
-
-        {/* Selection count */}
-        {signals.length > 0 && !allSelected && selectedIds.size > 0 && (
-          <p className="text-xs text-stone-500 mb-3">
-            {selectedIds.size} of {signals.length} selected
-          </p>
-        )}
-
-        {signals.length === 0 ? (
-          <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
-            <p className="text-stone-400 mb-2">Your queue is empty.</p>
-            <p className="text-sm text-stone-500">
-              Save what catches your eye &mdash; a link, a topic, a voice note. Poddit meets you wherever your curiosity happens.
+          {/* Selection count */}
+          {signals.length > 0 && !allSelected && selectedIds.size > 0 && (
+            <p className="text-xs text-stone-500 mb-3">
+              {selectedIds.size} of {signals.length} selected
             </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {signals.map((signal) => (
-              <div
-                key={signal.id}
-                className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
-                  selectedIds.has(signal.id)
-                    ? 'bg-teal-500/5 border border-teal-500/15'
-                    : 'bg-poddit-900/30 border border-transparent hover:border-stone-800'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(signal.id)}
-                  onChange={() => toggleSignal(signal.id)}
-                  disabled={generating}
-                  className="w-4 h-4 rounded border-stone-600 mt-0.5 flex-shrink-0 accent-teal-500"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
-                      {signal.channel}
-                    </span>
-                    <p className="text-sm text-poddit-100 truncate">
-                      {signal.title || signal.rawContent.slice(0, 80)}
-                    </p>
-                  </div>
-                  {signal.source && (
-                    <p className="text-xs text-stone-500 ml-0">{signal.source}</p>
-                  )}
-                  {signal.topics.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {signal.topics.map((topic) => (
-                        <span
-                          key={topic}
-                          className="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full"
-                        >
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <span className="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">
-                  {new Date(signal.createdAt).toLocaleDateString()}
-                </span>
-                <button
-                  onClick={() => deleteSignal(signal.id)}
-                  disabled={generating}
-                  className="text-poddit-700 hover:text-red-400 disabled:hover:text-poddit-700 transition-colors p-1 -mr-1 flex-shrink-0"
-                  title="Remove from queue"
+          )}
+
+          {signals.length === 0 ? (
+            <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
+              <p className="text-stone-400 mb-2">Your queue is empty.</p>
+              <p className="text-sm text-stone-500">
+                Save what catches your eye &mdash; a link, a topic, a voice note.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {signals.map((signal) => (
+                <div
+                  key={signal.id}
+                  className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
+                    selectedIds.has(signal.id)
+                      ? 'bg-teal-500/5 border border-teal-500/15'
+                      : 'bg-poddit-900/30 border border-transparent hover:border-stone-800'
+                  }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ── Episodes ── */}
-      <section>
-        <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Episodes</h2>
-
-        {loading ? (
-          <div className="p-6 text-center text-stone-500">Loading...</div>
-        ) : episodes.length === 0 ? (
-          <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
-            <p className="text-stone-400 mb-2">No episodes yet.</p>
-            <p className="text-sm text-stone-500">
-              Capture a few signals, then hit Poddit Now. We&apos;ll explain what it all means.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {episodes.map((ep) => (
-              <a
-                key={ep.id}
-                href={`/player/${ep.id}`}
-                className="block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
-                           hover:border-violet-400/30 hover:bg-poddit-900 transition-all group"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{ep.title}</h3>
-                    <p className="text-sm text-stone-400 mt-1">{ep.summary?.slice(0, 120)}...</p>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(signal.id)}
+                    onChange={() => toggleSignal(signal.id)}
+                    disabled={generating}
+                    className="w-4 h-4 rounded border-stone-600 mt-0.5 flex-shrink-0 accent-teal-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
+                        {signal.channel}
+                      </span>
+                      <p className="text-sm text-poddit-100 truncate">
+                        {signal.title || signal.rawContent.slice(0, 80)}
+                      </p>
+                    </div>
+                    {signal.source && (
+                      <p className="text-xs text-stone-500 ml-0">{signal.source}</p>
+                    )}
+                    {signal.topics.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {signal.topics.map((topic) => (
+                          <span
+                            key={topic}
+                            className="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full"
+                          >
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-stone-500 whitespace-nowrap ml-4">
-                    {formatDuration(ep.audioDuration)}
+                  <span className="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">
+                    {new Date(signal.createdAt).toLocaleDateString()}
                   </span>
+                  <button
+                    onClick={() => deleteSignal(signal.id)}
+                    disabled={generating}
+                    className="text-poddit-700 hover:text-red-400 disabled:hover:text-poddit-700 transition-colors p-1 -mr-1 flex-shrink-0"
+                    title="Remove from queue"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
                 </div>
-                <div className="flex items-center gap-3 mt-3 text-xs text-stone-500">
-                  <span>{ep.signalCount} signals</span>
-                  <span className="text-teal-500/40">&bull;</span>
-                  <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
-                  {ep.topicsCovered.length > 0 && (
-                    <>
-                      <span className="text-teal-500/40">&bull;</span>
-                      <span className="text-stone-400">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
-                    </>
-                  )}
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── Right: Episodes ── */}
+        <section>
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-3">Episodes</h2>
+
+          {loading ? (
+            <div className="p-6 text-center text-stone-500">Loading...</div>
+          ) : episodes.length === 0 ? (
+            <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
+              <p className="text-stone-400 mb-2">No episodes yet.</p>
+              <p className="text-sm text-stone-500">
+                Capture a few signals, then hit Poddit Now. We&apos;ll explain what it all means.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {episodes.map((ep) => (
+                <a
+                  key={ep.id}
+                  href={`/player/${ep.id}`}
+                  className="block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
+                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{ep.title}</h3>
+                      <p className="text-sm text-stone-400 mt-1 line-clamp-2">{ep.summary?.slice(0, 120)}...</p>
+                    </div>
+                    <span className="text-sm text-stone-500 whitespace-nowrap ml-4 flex-shrink-0">
+                      {formatDuration(ep.audioDuration)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-3 text-xs text-stone-500">
+                    <span>{ep.signalCount} signals</span>
+                    <span className="text-teal-500/40">&bull;</span>
+                    <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
+                    {ep.topicsCovered.length > 0 && (
+                      <>
+                        <span className="text-teal-500/40">&bull;</span>
+                        <span className="text-stone-400 truncate">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
+                      </>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+
+      </div>
     </main>
   );
 }
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-stone-500">Loading...</div>}>
+    <Suspense fallback={<div className="max-w-5xl mx-auto px-4 py-8 text-stone-500">Loading...</div>}>
       <Dashboard />
     </Suspense>
   );
