@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function ShortcutPage() {
   const [showKey, setShowKey] = useState(false);
@@ -17,27 +18,30 @@ export default function ShortcutPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <a href="/" className="text-sm text-indigo-500 hover:text-indigo-600">← Back to Dashboard</a>
+        <a href="/" className="text-sm text-poddit-500 hover:text-white inline-flex items-center gap-2 transition-colors">
+          <Image src="/logo.png" alt="Poddit" width={20} height={20} className="rounded" />
+          &larr; Back to Dashboard
+        </a>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">iOS Share Shortcut</h1>
-      <p className="text-gray-500 mb-8">
+      <h1 className="text-2xl font-extrabold text-white mb-2">iOS Share Shortcut</h1>
+      <p className="text-poddit-400 mb-8">
         Add &quot;Send to Poddit&quot; to your iPhone share sheet. Takes about 2 minutes.
       </p>
 
       {/* Steps */}
       <div className="space-y-6 mb-10">
         <Step n={1} title="Open Shortcuts app">
-          Open the <strong>Shortcuts</strong> app on your iPhone and tap <strong>+</strong> to create a new shortcut.
+          Open the <strong className="text-white">Shortcuts</strong> app on your iPhone and tap <strong className="text-white">+</strong> to create a new shortcut.
         </Step>
 
         <Step n={2} title="Accept Share Sheet input">
-          <p>Tap <strong>Add Action</strong> → search for <strong>&quot;Share&quot;</strong> → select <strong>&quot;Receive input from Share Sheet&quot;</strong>.</p>
-          <p className="mt-1">Tap the blue <strong>&quot;Anywhere&quot;</strong> word and make sure <strong>URLs</strong> and <strong>Safari web pages</strong> are selected.</p>
+          <p>Tap <strong className="text-white">Add Action</strong> &rarr; search for <strong className="text-white">&quot;Share&quot;</strong> &rarr; select <strong className="text-white">&quot;Receive input from Share Sheet&quot;</strong>.</p>
+          <p className="mt-1">Tap the blue <strong className="text-white">&quot;Anywhere&quot;</strong> word and make sure <strong className="text-white">URLs</strong> and <strong className="text-white">Safari web pages</strong> are selected.</p>
         </Step>
 
         <Step n={3} title="Set the API URL">
-          <p>Add action → search <strong>&quot;URL&quot;</strong> → select the <strong>URL</strong> action.</p>
+          <p>Add action &rarr; search <strong className="text-white">&quot;URL&quot;</strong> &rarr; select the <strong className="text-white">URL</strong> action.</p>
           <p className="mt-2">Set it to:</p>
           <CopyBlock
             text={apiUrl}
@@ -48,24 +52,24 @@ export default function ShortcutPage() {
         </Step>
 
         <Step n={4} title="Send the request">
-          <p>Add action → search <strong>&quot;Get Contents&quot;</strong> → select <strong>&quot;Get Contents of URL&quot;</strong>.</p>
-          <p className="mt-2">Tap the blue &quot;URL&quot; to make sure it says <strong>&quot;URL&quot;</strong> (from step 3). Then tap <strong>&quot;Show More&quot;</strong> and set:</p>
+          <p>Add action &rarr; search <strong className="text-white">&quot;Get Contents&quot;</strong> &rarr; select <strong className="text-white">&quot;Get Contents of URL&quot;</strong>.</p>
+          <p className="mt-2">Tap the blue &quot;URL&quot; to make sure it says <strong className="text-white">&quot;URL&quot;</strong> (from step 3). Then tap <strong className="text-white">&quot;Show More&quot;</strong> and set:</p>
 
           <div className="mt-3 space-y-3 text-sm">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 w-16">Method:</span>
-              <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">POST</span>
+              <span className="font-medium text-white w-16">Method:</span>
+              <span className="font-mono bg-poddit-800 text-poddit-300 px-2 py-1 rounded text-xs">POST</span>
             </div>
 
             <div>
-              <span className="font-medium text-gray-900">Headers</span> — add two:
+              <span className="font-medium text-white">Headers</span> &mdash; add two:
               <div className="mt-2 space-y-2 ml-2">
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
                   <CopyBlock text="Authorization" label="auth-key" copied={copied} onCopy={copyText} compact />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
                   <div className="flex-1">
                     {showKey ? (
                       <CopyBlock
@@ -78,7 +82,7 @@ export default function ShortcutPage() {
                     ) : (
                       <button
                         onClick={() => setShowKey(true)}
-                        className="text-xs bg-gray-100 px-3 py-1.5 rounded text-indigo-600 hover:bg-gray-200 transition-colors"
+                        className="text-xs bg-poddit-800 px-3 py-1.5 rounded text-white hover:bg-poddit-700 transition-colors"
                       >
                         Tap to reveal API key
                       </button>
@@ -88,28 +92,28 @@ export default function ShortcutPage() {
               </div>
               <div className="mt-3 space-y-2 ml-2">
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
                   <CopyBlock text="Content-Type" label="ct-key" copied={copied} onCopy={copyText} compact />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
                   <CopyBlock text="application/json" label="ct-value" copied={copied} onCopy={copyText} compact />
                 </div>
               </div>
             </div>
 
             <div>
-              <span className="font-medium text-gray-900">Request Body</span> — set to <strong>JSON</strong>, then add:
+              <span className="font-medium text-white">Request Body</span> &mdash; set to <strong className="text-white">JSON</strong>, then add:
               <div className="mt-2 ml-2 space-y-2">
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Key:</span>
                   <CopyBlock text="url" label="body-key" copied={copied} onCopy={copyText} compact />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
-                  <span className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded font-medium">
+                  <span className="text-poddit-500 text-xs w-12 mt-1 flex-shrink-0">Value:</span>
+                  <span className="text-xs bg-white/10 text-white px-3 py-1.5 rounded font-medium">
                     Shortcut Input
-                    <span className="text-indigo-400 font-normal ml-1">(tap to select variable)</span>
+                    <span className="text-poddit-400 font-normal ml-1">(tap to select variable)</span>
                   </span>
                 </div>
               </div>
@@ -118,23 +122,23 @@ export default function ShortcutPage() {
         </Step>
 
         <Step n={5} title="Add confirmation">
-          <p>Add action → search <strong>&quot;Notification&quot;</strong> → select <strong>&quot;Show Notification&quot;</strong>.</p>
-          <p className="mt-1">Set the text to: <strong>✓ Sent to Poddit</strong></p>
+          <p>Add action &rarr; search <strong className="text-white">&quot;Notification&quot;</strong> &rarr; select <strong className="text-white">&quot;Show Notification&quot;</strong>.</p>
+          <p className="mt-1">Set the text to: <strong className="text-white">&check; Sent to Poddit</strong></p>
         </Step>
 
         <Step n={6} title="Name it and enable share sheet">
-          <p>Tap the <strong>dropdown arrow ▾</strong> at the very top → <strong>Rename</strong> → type <strong>&quot;Send to Poddit&quot;</strong>.</p>
-          <p className="mt-1">Then tap the <strong>ⓘ</strong> icon → toggle on <strong>&quot;Show in Share Sheet&quot;</strong>.</p>
-          <p className="mt-1">Tap <strong>Done</strong>.</p>
+          <p>Tap the <strong className="text-white">dropdown arrow &#9662;</strong> at the very top &rarr; <strong className="text-white">Rename</strong> &rarr; type <strong className="text-white">&quot;Send to Poddit&quot;</strong>.</p>
+          <p className="mt-1">Then tap the <strong className="text-white">&#9432;</strong> icon &rarr; toggle on <strong className="text-white">&quot;Show in Share Sheet&quot;</strong>.</p>
+          <p className="mt-1">Tap <strong className="text-white">Done</strong>.</p>
         </Step>
       </div>
 
       {/* Test it */}
-      <section className="p-5 bg-green-50 border border-green-200 rounded-lg">
-        <h2 className="font-semibold text-gray-900 mb-2">Test it</h2>
-        <p className="text-sm text-gray-600">
-          Open any article in Safari → tap <strong>Share</strong> → scroll down to find <strong>&quot;Send to Poddit&quot;</strong>.
-          You should see a &quot;✓ Sent to Poddit&quot; notification, and the signal will appear on your dashboard.
+      <section className="p-5 bg-white/5 border border-white/10 rounded-xl">
+        <h2 className="font-semibold text-white mb-2">Test it</h2>
+        <p className="text-sm text-poddit-400">
+          Open any article in Safari &rarr; tap <strong className="text-white">Share</strong> &rarr; scroll down to find <strong className="text-white">&quot;Send to Poddit&quot;</strong>.
+          You should see a &quot;&check; Sent to Poddit&quot; notification, and the signal will appear on your dashboard.
         </p>
       </section>
     </main>
@@ -144,12 +148,12 @@ export default function ShortcutPage() {
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">
+      <div className="flex-shrink-0 w-7 h-7 rounded-full bg-white text-poddit-950 text-sm font-bold flex items-center justify-center mt-0.5">
         {n}
       </div>
       <div className="flex-1">
-        <h3 className="font-semibold text-gray-900">{title}</h3>
-        <div className="text-sm text-gray-600 mt-1">{children}</div>
+        <h3 className="font-semibold text-white">{title}</h3>
+        <div className="text-sm text-poddit-400 mt-1">{children}</div>
       </div>
     </div>
   );
@@ -167,15 +171,15 @@ function CopyBlock({ text, label, copied, onCopy, compact }: {
       className={`flex items-center gap-2 ${compact ? '' : 'mt-2'}`}
     >
       <code
-        className={`flex-1 bg-gray-100 rounded text-xs break-all select-all ${compact ? 'px-3 py-1.5' : 'p-2.5'}`}
+        className={`flex-1 bg-poddit-800 text-poddit-200 rounded text-xs break-all select-all ${compact ? 'px-3 py-1.5' : 'p-2.5'}`}
       >
         {text}
       </code>
       <button
         onClick={() => onCopy(text, label)}
-        className="flex-shrink-0 text-xs text-indigo-500 hover:text-indigo-600 px-2 py-1"
+        className="flex-shrink-0 text-xs text-poddit-400 hover:text-white px-2 py-1 transition-colors"
       >
-        {copied === label ? '✓' : 'Copy'}
+        {copied === label ? '&check;' : 'Copy'}
       </button>
     </div>
   );

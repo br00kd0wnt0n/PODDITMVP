@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 
 interface Episode {
   id: string;
@@ -303,48 +304,57 @@ function Dashboard() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Poddit</h1>
-          <p className="text-gray-500 mt-1">Your week, compressed.</p>
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Poddit"
+            width={44}
+            height={44}
+            className="rounded-lg"
+          />
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">PODDIT</h1>
+            <p className="text-poddit-400 text-xs tracking-widest uppercase">Your week, compressed</p>
+          </div>
         </div>
         <a
           href="/shortcut"
-          className="text-xs text-indigo-500 hover:text-indigo-600 mt-2"
+          className="text-xs text-poddit-400 hover:text-white transition-colors"
         >
-          iOS Shortcut →
+          iOS Shortcut &rarr;
         </a>
       </div>
 
       {/* Share confirmation toast */}
       {shared === 'success' && (
-        <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+        <div className="mb-6 p-3 bg-white/5 border border-white/10 rounded-lg text-poddit-200 text-sm">
           Captured! It&apos;ll show up in your next episode.
         </div>
       )}
 
       {/* Generate error toast */}
       {generateError && (
-        <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm flex items-center justify-between">
+        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
           <span>Generation failed: {generateError}</span>
-          <button onClick={() => setGenerateError(null)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+          <button onClick={() => setGenerateError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
         </div>
       )}
 
       {/* ── Capture Input Bar ── */}
-      <section className="mb-6">
+      <section className="mb-8">
         {/* Input error */}
         {inputError && (
-          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-center justify-between">
+          <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
             <span>{inputError}</span>
-            <button onClick={() => setInputError(null)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+            <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
           </div>
         )}
 
         {/* Input success */}
         {inputSuccess && (
-          <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs">
-            ✓ {inputSuccess}
+          <div className="mb-2 p-2 bg-white/5 border border-white/10 rounded-lg text-poddit-300 text-xs">
+            &check; {inputSuccess}
           </div>
         )}
 
@@ -352,15 +362,15 @@ function Dashboard() {
         {recording ? (
           <button
             onClick={stopRecording}
-            className="w-full py-3 px-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700
-                       hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
+                       hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
           >
             <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-            {formatTime(recordingTime)} — Recording...
+            {formatTime(recordingTime)} &mdash; Recording...
             <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
           </button>
         ) : processing ? (
-          <div className="w-full py-3 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500
+          <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-poddit-400
                           flex items-center justify-center gap-2">
             <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -378,15 +388,15 @@ function Dashboard() {
               onKeyDown={handleKeyDown}
               placeholder="Type a topic or paste a link..."
               disabled={submitting}
-              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900
-                         placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                         disabled:bg-gray-50 disabled:text-gray-400"
+              className="flex-1 px-4 py-2.5 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-white
+                         placeholder:text-poddit-500 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-poddit-500
+                         disabled:opacity-40 transition-all"
             />
             <button
               onClick={submitText}
               disabled={submitting || !textInput.trim()}
-              className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg
-                         hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed
+              className="px-4 py-2.5 bg-white text-poddit-950 text-sm font-semibold rounded-xl
+                         hover:bg-poddit-100 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
                          transition-colors flex-shrink-0"
             >
               {submitting ? '...' : 'Add'}
@@ -394,10 +404,10 @@ function Dashboard() {
             <button
               onClick={startRecording}
               disabled={submitting}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-gray-500
-                         hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors flex-shrink-0"
+              className="px-3 py-2.5 border border-poddit-700 rounded-xl text-poddit-400
+                         hover:border-poddit-400 hover:text-white hover:bg-white/5
+                         disabled:opacity-40 disabled:cursor-not-allowed
+                         transition-all flex-shrink-0"
               title="Record a voice note"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -414,10 +424,10 @@ function Dashboard() {
       {/* ── Signal Queue ── */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-sm font-semibold text-poddit-300 uppercase tracking-wider">
             Queue
             {(signalCounts.QUEUED || signalCounts.ENRICHED) ? (
-              <span className="ml-2 text-sm font-normal text-gray-500">
+              <span className="ml-2 text-xs font-normal text-poddit-500 normal-case tracking-normal">
                 {(signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0)} signals waiting
               </span>
             ) : null}
@@ -426,7 +436,7 @@ function Dashboard() {
             <button
               onClick={toggleAll}
               disabled={generating}
-              className="text-xs text-indigo-500 hover:text-indigo-600 disabled:text-gray-300"
+              className="text-xs text-poddit-400 hover:text-white disabled:text-poddit-600 transition-colors"
             >
               {allSelected ? 'Deselect All' : 'Select All'}
             </button>
@@ -438,9 +448,9 @@ function Dashboard() {
           <button
             onClick={generateNow}
             disabled={generating || selectedIds.size === 0}
-            className="w-full mb-4 py-2.5 px-4 bg-indigo-600 text-white text-sm font-medium rounded-lg
-                       hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed
-                       transition-colors flex items-center justify-center gap-2"
+            className="w-full mb-4 py-3 px-4 bg-white text-poddit-950 text-sm font-bold rounded-xl
+                       hover:bg-poddit-100 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
+                       transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
           >
             {generating ? (
               <>
@@ -458,15 +468,15 @@ function Dashboard() {
 
         {/* Selection count */}
         {signals.length > 0 && !allSelected && selectedIds.size > 0 && (
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-poddit-500 mb-3">
             {selectedIds.size} of {signals.length} selected
           </p>
         )}
 
         {signals.length === 0 ? (
-          <div className="p-6 bg-gray-50 rounded-lg text-center text-gray-500">
-            <p className="mb-2">No signals in the queue yet.</p>
-            <p className="text-sm">
+          <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
+            <p className="text-poddit-400 mb-2">No signals in the queue yet.</p>
+            <p className="text-sm text-poddit-500">
               Add a topic above, record a thought, text your Poddit number, or share from your browser.
             </p>
           </div>
@@ -475,8 +485,10 @@ function Dashboard() {
             {signals.map((signal) => (
               <div
                 key={signal.id}
-                className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                  selectedIds.has(signal.id) ? 'bg-indigo-50 border border-indigo-200' : 'bg-gray-50 border border-transparent'
+                className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
+                  selectedIds.has(signal.id)
+                    ? 'bg-white/5 border border-white/10'
+                    : 'bg-poddit-900/30 border border-transparent hover:border-poddit-800'
                 }`}
               >
                 <input
@@ -484,26 +496,26 @@ function Dashboard() {
                   checked={selectedIds.has(signal.id)}
                   onChange={() => toggleSignal(signal.id)}
                   disabled={generating}
-                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-0.5 flex-shrink-0"
+                  className="w-4 h-4 rounded border-poddit-600 mt-0.5 flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-mono bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded flex-shrink-0">
+                    <span className="text-xs font-mono bg-poddit-800 text-poddit-400 px-1.5 py-0.5 rounded flex-shrink-0">
                       {signal.channel}
                     </span>
-                    <p className="text-sm text-gray-900 truncate">
+                    <p className="text-sm text-poddit-100 truncate">
                       {signal.title || signal.rawContent.slice(0, 80)}
                     </p>
                   </div>
                   {signal.source && (
-                    <p className="text-xs text-gray-500 ml-0">{signal.source}</p>
+                    <p className="text-xs text-poddit-500 ml-0">{signal.source}</p>
                   )}
                   {signal.topics.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {signal.topics.map((topic) => (
                         <span
                           key={topic}
-                          className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"
+                          className="text-xs bg-white/10 text-poddit-300 px-2 py-0.5 rounded-full"
                         >
                           {topic}
                         </span>
@@ -511,13 +523,13 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                <span className="text-xs text-poddit-600 whitespace-nowrap flex-shrink-0">
                   {new Date(signal.createdAt).toLocaleDateString()}
                 </span>
                 <button
                   onClick={() => deleteSignal(signal.id)}
                   disabled={generating}
-                  className="text-gray-300 hover:text-red-500 disabled:hover:text-gray-300 transition-colors p-1 -mr-1 flex-shrink-0"
+                  className="text-poddit-700 hover:text-red-400 disabled:hover:text-poddit-700 transition-colors p-1 -mr-1 flex-shrink-0"
                   title="Remove from queue"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -533,39 +545,40 @@ function Dashboard() {
 
       {/* ── Episodes ── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Episodes</h2>
+        <h2 className="text-sm font-semibold text-poddit-300 uppercase tracking-wider mb-4">Episodes</h2>
 
         {loading ? (
-          <div className="p-6 text-center text-gray-400">Loading...</div>
+          <div className="p-6 text-center text-poddit-500">Loading...</div>
         ) : episodes.length === 0 ? (
-          <div className="p-6 bg-gray-50 rounded-lg text-center text-gray-500">
-            <p>No episodes yet. Capture some signals and generate your first one.</p>
+          <div className="p-8 bg-poddit-900/50 border border-poddit-800 rounded-xl text-center">
+            <p className="text-poddit-400">No episodes yet. Capture some signals and generate your first one.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {episodes.map((ep) => (
               <a
                 key={ep.id}
                 href={`/player/${ep.id}`}
-                className="block p-4 bg-white border border-gray-200 rounded-lg hover:border-poddit-300 hover:shadow-sm transition-all"
+                className="block p-4 bg-poddit-900/50 border border-poddit-800 rounded-xl
+                           hover:border-poddit-600 hover:bg-poddit-900 transition-all group"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-medium text-gray-900">{ep.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{ep.summary?.slice(0, 120)}...</p>
+                    <h3 className="font-semibold text-white group-hover:text-white">{ep.title}</h3>
+                    <p className="text-sm text-poddit-400 mt-1">{ep.summary?.slice(0, 120)}...</p>
                   </div>
-                  <span className="text-sm text-gray-400 whitespace-nowrap ml-4">
+                  <span className="text-sm text-poddit-500 whitespace-nowrap ml-4">
                     {formatDuration(ep.audioDuration)}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-3 text-xs text-gray-400">
+                <div className="flex items-center gap-3 mt-3 text-xs text-poddit-500">
                   <span>{ep.signalCount} signals</span>
                   <span>&middot;</span>
                   <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
                   {ep.topicsCovered.length > 0 && (
                     <>
                       <span>&middot;</span>
-                      <span>{ep.topicsCovered.slice(0, 3).join(', ')}</span>
+                      <span className="text-poddit-400">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
                     </>
                   )}
                 </div>
@@ -580,7 +593,7 @@ function Dashboard() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-gray-400">Loading...</div>}>
+    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-poddit-500">Loading...</div>}>
       <Dashboard />
     </Suspense>
   );

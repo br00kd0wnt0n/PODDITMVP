@@ -4,9 +4,14 @@ import OpenAI from 'openai';
 // VOICE TRANSCRIPTION (OpenAI Whisper)
 // ──────────────────────────────────────────────
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-init so the build doesn't fail when OPENAI_API_KEY is missing
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 const EXT_MAP: Record<string, string> = {
   'audio/ogg': 'ogg',
@@ -55,7 +60,7 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
     { type: contentType }
   );
 
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getOpenAI().audio.transcriptions.create({
     file: audioFile,
     model: 'whisper-1',
     language: 'en',
@@ -84,7 +89,7 @@ export async function transcribeAudioBuffer(
     { type: contentType }
   );
 
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getOpenAI().audio.transcriptions.create({
     file: audioFile,
     model: 'whisper-1',
     language: 'en',
