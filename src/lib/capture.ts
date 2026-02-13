@@ -218,7 +218,7 @@ async function classifySignal(signalId: string) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-3-5-20241022',
+    model: 'claude-3-5-haiku-20241022',
     max_tokens: 200,
     messages: [{
       role: 'user',
