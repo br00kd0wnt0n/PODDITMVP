@@ -83,9 +83,17 @@ function Dashboard() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Poddit</h1>
-        <p className="text-gray-500 mt-1">Your week, compressed.</p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Poddit</h1>
+          <p className="text-gray-500 mt-1">Your week, compressed.</p>
+        </div>
+        <a
+          href="/shortcut"
+          className="text-xs text-indigo-500 hover:text-indigo-600 mt-2"
+        >
+          iOS Shortcut →
+        </a>
       </div>
 
       {/* Share confirmation toast */}
