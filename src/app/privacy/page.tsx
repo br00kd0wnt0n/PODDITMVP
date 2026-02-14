@@ -117,8 +117,8 @@ export default function PrivacyPolicy() {
           <h2 className="text-white font-semibold mb-2">Contact</h2>
           <p>
             If you have questions about this privacy policy, contact us at{' '}
-            <a href="mailto:brook@poddit.com" className="text-teal-400 hover:text-teal-300 transition-colors">
-              brook@poddit.com
+            <a href="mailto:Hello@poddit.com" className="text-teal-400 hover:text-teal-300 transition-colors">
+              Hello@poddit.com
             </a>.
           </p>
           <p className="mt-2 text-stone-500 text-xs">

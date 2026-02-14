@@ -173,8 +173,8 @@ export default function TermsOfService() {
           <h2 className="text-white font-semibold mb-2">14. Contact</h2>
           <p>
             For questions about these Terms, contact us at{' '}
-            <a href="mailto:brook@poddit.com" className="text-teal-400 hover:text-teal-300 transition-colors">
-              brook@poddit.com
+            <a href="mailto:Hello@poddit.com" className="text-teal-400 hover:text-teal-300 transition-colors">
+              Hello@poddit.com
             </a>.
           </p>
           <p className="mt-2 text-stone-500 text-xs">

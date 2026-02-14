@@ -56,7 +56,7 @@ export default function RootLayout({
                 <Link href="/privacy" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
                   Privacy
                 </Link>
-                <a href="mailto:brook@poddit.com" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                <a href="mailto:Hello@poddit.com" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
                   Contact
                 </a>
               </div>
