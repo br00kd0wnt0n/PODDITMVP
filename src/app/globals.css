@@ -13,6 +13,30 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* Ambient background glow — warm lens-flare inspired from glass P logo */
+body::before {
+  content: '';
+  position: fixed;
+  bottom: -20%;
+  left: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(ellipse at center, rgba(217, 149, 56, 0.04) 0%, rgba(20, 184, 166, 0.02) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  top: -30%;
+  right: -15%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* Selection styling */
 ::selection {
   background: rgba(255, 255, 255, 0.15);

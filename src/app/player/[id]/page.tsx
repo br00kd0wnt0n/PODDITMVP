@@ -424,7 +424,7 @@ export default function PlayerPage() {
               onClick={() => setActiveSegment(i)}
               className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap transition-all ${
                 activeSegment === i
-                  ? 'bg-teal-500 text-poddit-950 font-semibold'
+                  ? 'bg-teal-500 text-poddit-950 font-semibold shadow-[0_0_12px_rgba(20,184,166,0.25),0_0_4px_rgba(217,149,56,0.15)]'
                   : 'bg-poddit-800 text-poddit-400 hover:bg-poddit-700 hover:text-poddit-200'
               }`}
             >
