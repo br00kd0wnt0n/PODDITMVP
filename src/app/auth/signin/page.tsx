@@ -6,29 +6,30 @@ import Image from 'next/image';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !code.trim()) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const result = await signIn('nodemailer', {
+      const result = await signIn('credentials', {
         email: email.trim(),
+        code: code.trim(),
         redirect: false,
         callbackUrl: '/',
       });
 
       if (result?.error) {
-        setError('Failed to send magic link. Please try again.');
+        setError('Invalid email or access code.');
         setLoading(false);
       } else if (result?.url) {
-        // Redirect to the verify page
-        window.location.href = '/auth/verify';
+        window.location.href = result.url;
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -64,9 +65,22 @@ export default function SignInPage() {
                        placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30
                        focus:border-stone-600 mb-4"
           />
+
+          <label className="block text-xs text-stone-500 mb-1.5">Access code</label>
+          <input
+            type="password"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Enter access code"
+            required
+            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
+                       placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30
+                       focus:border-stone-600 mb-4"
+          />
+
           <button
             type="submit"
-            disabled={loading || !email.trim()}
+            disabled={loading || !email.trim() || !code.trim()}
             className="w-full py-2.5 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                        hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500
                        disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
@@ -77,15 +91,15 @@ export default function SignInPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Sending...
+                Signing in...
               </>
             ) : (
-              'Send magic link'
+              'Sign in'
             )}
           </button>
 
           <p className="text-xs text-stone-600 text-center mt-4">
-            We&apos;ll email you a link to sign in. No password needed.
+            Early access — ask Brook for the code.
           </p>
         </div>
       </form>

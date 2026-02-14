@@ -1,37 +1,65 @@
 import NextAuth from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import Nodemailer from 'next-auth/providers/nodemailer';
+import Credentials from 'next-auth/providers/credentials';
 import prisma from './db';
 
+// ──────────────────────────────────────────────
+// TEMPORARY AUTH: Email + Access Code
+// Replace with magic link (Nodemailer provider) once
+// domain is verified in SendGrid.
+// ──────────────────────────────────────────────
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers: [
-    Nodemailer({
-      server: {
-        host: process.env.SENDGRID_SMTP_HOST || 'smtp.sendgrid.net',
-        port: 587,
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY,
-        },
+    Credentials({
+      name: 'Access Code',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        code: { label: 'Access Code', type: 'password' },
       },
-      from: process.env.EMAIL_FROM || 'noreply@poddit.com',
+      async authorize(credentials) {
+        const email = (credentials?.email as string)?.trim().toLowerCase();
+        const code = credentials?.code as string;
+
+        if (!email || !code) return null;
+
+        // Validate access code
+        if (code !== process.env.ACCESS_CODE) {
+          return null;
+        }
+
+        // Find or create user by email
+        let user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+          user = await prisma.user.create({
+            data: { email, emailVerified: new Date() },
+          });
+          console.log(`[Auth] New user created: ${email} (${user.id})`);
+        }
+
+        return { id: user.id, email: user.email, name: user.name };
+      },
     }),
   ],
   pages: {
     signIn: '/auth/signin',
-    verifyRequest: '/auth/verify',
   },
   callbacks: {
-    session({ session, user }) {
-      // Attach the database user.id to the session so API routes can use it
-      if (session.user) {
-        session.user.id = user.id;
+    jwt({ token, user }) {
+      // On first sign-in, persist the DB user ID into the JWT
+      if (user) {
+        token.userId = user.id;
+      }
+      return token;
+    },
+    session({ session, token }) {
+      // Expose userId on session.user so API routes can use it
+      if (session.user && token.userId) {
+        session.user.id = token.userId as string;
       }
       return session;
     },
   },
   session: {
-    strategy: 'database',
+    strategy: 'jwt',
   },
 });
