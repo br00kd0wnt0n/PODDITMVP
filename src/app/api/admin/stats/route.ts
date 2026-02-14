@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
       recentSignals,
       failedSignals,
       failedEpisodes,
+      totalFeedback,
+      newFeedbackCount,
+      recentFeedback,
     ] = await Promise.all([
       prisma.signal.count(),
       prisma.episode.count(),
@@ -79,6 +82,23 @@ export async function GET(request: NextRequest) {
         take: 10,
         select: { id: true, title: true, error: true, createdAt: true },
       }),
+      // Feedback queries
+      prisma.feedback.count(),
+      prisma.feedback.count({ where: { status: 'NEW' } }),
+      prisma.feedback.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          type: true,
+          content: true,
+          status: true,
+          createdAt: true,
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      }),
     ]);
 
     return NextResponse.json({
@@ -99,6 +119,11 @@ export async function GET(request: NextRequest) {
         byStatus: episodesByStatus.map(s => ({ status: s.status, count: s._count })),
       },
       recentSignals,
+      feedback: {
+        total: totalFeedback,
+        new: newFeedbackCount,
+        recent: recentFeedback,
+      },
       health: {
         failedSignals,
         failedEpisodes,

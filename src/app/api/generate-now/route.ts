@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEpisode } from '@/lib/synthesize';
 import { requireSession } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 import prisma from '@/lib/db';
 
 // Allow up to 2 minutes for generation (Claude + TTS + upload)
@@ -16,6 +17,15 @@ export async function POST(request: NextRequest) {
     const sessionResult = await requireSession();
     if (sessionResult instanceof NextResponse) return sessionResult;
     const { userId } = sessionResult;
+
+    // Rate limit: 1 generation per 5 minutes per user
+    const { allowed, retryAfterMs } = rateLimit(`generate:${userId}`, 1, 300_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Please wait a few minutes before generating another episode.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+      );
+    }
 
     const body = await request.json();
     const { signalIds } = body;

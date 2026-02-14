@@ -86,14 +86,35 @@ function Dashboard() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Welcome banner state
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+
+  // Feedback state
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackRecording, setFeedbackRecording] = useState(false);
+  const [feedbackRecordingTime, setFeedbackRecordingTime] = useState(0);
+  const [feedbackProcessing, setFeedbackProcessing] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  // Feedback recording refs (separate from signal recording)
+  const fbMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const fbChunksRef = useRef<Blob[]>([]);
+  const fbTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (fbTimerRef.current) clearInterval(fbTimerRef.current);
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
+      }
+      if (fbMediaRecorderRef.current?.state === 'recording') {
+        fbMediaRecorderRef.current.stop();
       }
     };
   }, []);
@@ -374,6 +395,116 @@ function Dashboard() {
     }
   };
 
+  // ── Feedback Handlers ──
+
+  const submitFeedback = async () => {
+    const text = feedbackText.trim();
+    if (!text) return;
+    setFeedbackSubmitting(true);
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit feedback');
+
+      setFeedbackText('');
+      setFeedbackSuccess('Thank you! Your feedback has been submitted.');
+      setTimeout(() => setFeedbackSuccess(null), 5000);
+    } catch (error: any) {
+      setFeedbackError(error.message);
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const startFeedbackRecording = async () => {
+    try {
+      setFeedbackError(null);
+      setFeedbackSuccess(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : 'audio/mp4';
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      fbMediaRecorderRef.current = mediaRecorder;
+      fbChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) fbChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const blob = new Blob(fbChunksRef.current, { type: mediaRecorder.mimeType });
+        await sendFeedbackVoice(blob);
+      };
+
+      mediaRecorder.start();
+      setFeedbackRecording(true);
+      setFeedbackRecordingTime(0);
+      fbTimerRef.current = setInterval(() => {
+        setFeedbackRecordingTime(prev => {
+          if (prev >= 119) {
+            stopFeedbackRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setFeedbackError(
+        err.name === 'NotAllowedError'
+          ? 'Microphone access denied. Allow it in browser settings.'
+          : 'Could not start recording.'
+      );
+    }
+  };
+
+  const stopFeedbackRecording = () => {
+    if (fbMediaRecorderRef.current && fbMediaRecorderRef.current.state === 'recording') {
+      fbMediaRecorderRef.current.stop();
+    }
+    if (fbTimerRef.current) {
+      clearInterval(fbTimerRef.current);
+      fbTimerRef.current = null;
+    }
+    setFeedbackRecording(false);
+  };
+
+  const sendFeedbackVoice = async (blob: Blob) => {
+    setFeedbackProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('audio', blob, 'feedback.webm');
+
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Voice feedback failed');
+
+      setFeedbackSuccess('Voice feedback submitted — thank you!');
+      setTimeout(() => setFeedbackSuccess(null), 5000);
+    } catch (error: any) {
+      setFeedbackError(error.message);
+    } finally {
+      setFeedbackProcessing(false);
+    }
+  };
+
   // ── Render ──
 
   const totalQueued = (signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0);
@@ -574,6 +705,33 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Welcome Banner (first-time users) ── */}
+      {!loading && !welcomeDismissed && episodes.length === 0 && signals.length === 0 && (
+        <div className="mb-6 p-4 rounded-xl border border-teal-500/15 bg-gradient-to-r from-teal-500/[0.06] via-violet-400/[0.04] to-amber-500/[0.06]
+                        relative overflow-hidden opacity-0 animate-fade-in-up" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
+          <button
+            onClick={() => setWelcomeDismissed(true)}
+            className="absolute top-3 right-3 text-stone-600 hover:text-stone-400 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <h3 className="text-sm font-semibold text-white mb-1.5">Welcome to Poddit!</h3>
+          <p className="text-xs text-stone-400 leading-relaxed max-w-lg">
+            Start by saving anything that catches your eye — a link, a topic, or a voice note.
+            When you&apos;re ready, hit <span className="text-teal-400 font-medium">Poddit Now</span> to
+            turn your signals into a personalized audio episode. Head to{' '}
+            <Link href="/settings" className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
+              Settings
+            </Link>{' '}
+            to customize your experience.
+          </p>
+        </div>
+      )}
 
       {/* Share confirmation toast */}
       {shared === 'success' && (
@@ -863,6 +1021,103 @@ function Dashboard() {
         </section>
 
       </div>
+
+      {/* ── Early Access Support + Feedback ── */}
+      <section className="mt-12 mb-4">
+        <div className="p-5 bg-poddit-950/60 border border-amber-500/10 rounded-xl relative overflow-hidden">
+          {/* Subtle amber glow */}
+          <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-amber-500/[0.03] blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-32 h-32 rounded-full bg-amber-400/[0.02] blur-2xl pointer-events-none" />
+
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-amber-400/60" />
+              <h3 className="text-sm font-semibold text-amber-300/80 uppercase tracking-wider">Early Access Feedback</h3>
+            </div>
+            <p className="text-xs text-stone-500 mb-4">
+              Found a bug? Have an idea? We&apos;d love to hear from you — text or voice.
+            </p>
+
+            {/* Feedback error */}
+            {feedbackError && (
+              <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
+                <span>{feedbackError}</span>
+                <button onClick={() => setFeedbackError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+              </div>
+            )}
+
+            {/* Feedback success */}
+            {feedbackSuccess && (
+              <div className="mb-3 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs">
+                {'\u2713'} {feedbackSuccess}
+              </div>
+            )}
+
+            {/* Feedback recording state */}
+            {feedbackRecording ? (
+              <button
+                onClick={stopFeedbackRecording}
+                className="w-full py-2.5 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
+                           hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                {formatTime(feedbackRecordingTime)} &mdash; Recording feedback...
+                <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
+              </button>
+            ) : feedbackProcessing ? (
+              <div className="w-full py-2.5 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
+                              flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Transcribing feedback...
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="What's on your mind? Bugs, ideas, anything..."
+                  disabled={feedbackSubmitting}
+                  rows={2}
+                  className="flex-1 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
+                             placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30
+                             disabled:opacity-40 transition-all resize-none"
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={submitFeedback}
+                    disabled={feedbackSubmitting || !feedbackText.trim()}
+                    className="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg
+                               hover:bg-amber-500/25 hover:border-amber-500/30
+                               disabled:bg-poddit-800/50 disabled:text-poddit-600 disabled:border-stone-800/30 disabled:cursor-not-allowed
+                               transition-all flex-shrink-0"
+                  >
+                    {feedbackSubmitting ? '...' : 'Send'}
+                  </button>
+                  <button
+                    onClick={startFeedbackRecording}
+                    disabled={feedbackSubmitting}
+                    className="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500
+                               hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5
+                               disabled:opacity-40 disabled:cursor-not-allowed
+                               transition-all flex-shrink-0 flex items-center justify-center"
+                    title="Record voice feedback"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" x2="12" y1="19" y2="22" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
     </main>
   );

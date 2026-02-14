@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSignal } from '@/lib/capture';
 import { requireSession } from '@/lib/auth';
 import { transcribeAudioBuffer } from '@/lib/transcribe';
 import { rateLimit } from '@/lib/rate-limit';
@@ -9,8 +8,8 @@ import prisma from '@/lib/db';
 export const maxDuration = 30;
 
 // ──────────────────────────────────────────────
-// POST /api/capture/quick
-// Dashboard capture — handles both text and voice
+// POST /api/feedback
+// Submit text or voice feedback from the dashboard
 // ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -19,37 +18,30 @@ export async function POST(request: NextRequest) {
     if (sessionResult instanceof NextResponse) return sessionResult;
     const { userId } = sessionResult;
 
-    // Rate limit: 10 per minute per user
-    const { allowed, retryAfterMs } = rateLimit(`capture:${userId}`, 10, 60_000);
+    // Rate limit: 5 per minute per user
+    const { allowed, retryAfterMs } = rateLimit(`feedback:${userId}`, 5, 60_000);
     if (!allowed) {
       return NextResponse.json(
-        { error: 'Too many captures. Please wait a moment.' },
+        { error: 'Too many submissions. Please wait a moment.' },
         { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
       );
     }
 
     const contentType = request.headers.get('content-type') || '';
 
-    // Voice recording (FormData with audio blob)
+    // Voice feedback (FormData with audio blob)
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const audioFile = formData.get('audio') as File | null;
-      const textField = formData.get('text') as string | null;
 
-      // Text submitted via FormData
-      if (textField && !audioFile) {
-        return await handleText(textField.trim(), userId);
-      }
-
-      // Audio submitted
       if (!audioFile) {
         return NextResponse.json(
-          { error: 'No audio file or text provided' },
+          { error: 'No audio file provided' },
           { status: 400 }
         );
       }
 
-      console.log(`[Quick] Voice: ${audioFile.type}, ${audioFile.size} bytes`);
+      console.log(`[Feedback] Voice: ${audioFile.type}, ${audioFile.size} bytes`);
 
       const arrayBuffer = await audioFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -63,62 +55,60 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create signal with transcribed text
-      const signals = await createSignal({
-        rawContent: transcript,
-        channel: 'API',
-        userId,
+      const feedback = await prisma.feedback.create({
+        data: {
+          userId,
+          type: 'VOICE',
+          content: transcript,
+        },
       });
 
-      // Mark as VOICE input type
-      if (signals[0]) {
-        await prisma.signal.update({
-          where: { id: signals[0].id },
-          data: { inputType: 'VOICE' },
-        });
-      }
+      console.log(`[Feedback] Voice submitted by ${userId}: "${transcript.slice(0, 80)}"`);
 
       return NextResponse.json({
-        status: 'captured',
-        type: 'voice',
+        status: 'submitted',
+        feedbackId: feedback.id,
         transcript,
-        signalId: signals[0]?.id,
       });
     }
 
-    // Text submission (JSON body)
+    // Text feedback (JSON body)
     const body = await request.json().catch(() => ({}));
-    const text = body.text?.trim();
+    const content = body.content?.trim();
 
-    if (!text) {
+    if (!content) {
       return NextResponse.json(
-        { error: 'No text provided' },
+        { error: 'No feedback content provided' },
         { status: 400 }
       );
     }
 
-    return await handleText(text, userId);
+    if (content.length > 5000) {
+      return NextResponse.json(
+        { error: 'Feedback is too long (max 5000 characters)' },
+        { status: 400 }
+      );
+    }
+
+    const feedback = await prisma.feedback.create({
+      data: {
+        userId,
+        type: 'TEXT',
+        content,
+      },
+    });
+
+    console.log(`[Feedback] Text submitted by ${userId}: "${content.slice(0, 80)}"`);
+
+    return NextResponse.json({
+      status: 'submitted',
+      feedbackId: feedback.id,
+    });
   } catch (error: any) {
-    console.error('[Quick] Error:', error);
+    console.error('[Feedback] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Capture failed' },
+      { error: error.message || 'Failed to submit feedback' },
       { status: 500 }
     );
   }
-}
-
-async function handleText(text: string, userId: string) {
-  console.log(`[Quick] Text: "${text.slice(0, 100)}"`);
-
-  const signals = await createSignal({
-    rawContent: text,
-    channel: 'API',
-    userId,
-  });
-
-  return NextResponse.json({
-    status: 'captured',
-    type: signals[0]?.inputType === 'LINK' ? 'link' : 'topic',
-    signalId: signals[0]?.id,
-  });
 }

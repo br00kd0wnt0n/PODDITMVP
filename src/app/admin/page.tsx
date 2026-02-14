@@ -43,6 +43,18 @@ interface AdminStats {
     status: string;
     createdAt: string;
   }>;
+  feedback: {
+    total: number;
+    new: number;
+    recent: Array<{
+      id: string;
+      type: string;
+      content: string;
+      status: string;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+  };
   health: {
     failedSignals: Array<{
       id: string;
@@ -301,12 +313,13 @@ function AdminDashboard() {
       </div>
 
       {/* ── Key Metrics ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
         <MetricCard label="Total Signals" value={stats.totals.signals} accent="teal" />
         <MetricCard label="Total Episodes" value={stats.totals.episodes} accent="violet" />
         <MetricCard label="Total Users" value={stats.totals.users} accent="stone" />
         <MetricCard label="Signals / Week" value={stats.totals.signalsThisWeek} accent="teal" subtitle="last 7 days" />
         <MetricCard label="Episodes / Week" value={stats.totals.episodesThisWeek} accent="violet" subtitle="last 7 days" />
+        <MetricCard label="Feedback" value={stats.feedback.total} accent="amber" subtitle={`${stats.feedback.new} new`} />
       </div>
 
       {/* ── Two-Column: Signals + Episodes ── */}
@@ -517,19 +530,60 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Support Tickets (Placeholder) ── */}
+      {/* ── User Feedback ── */}
       <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-        <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-3">Support Tickets</h2>
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-               className="text-stone-600 mb-3">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-            <polyline points="22,6 12,13 2,6" />
-          </svg>
-          <p className="text-stone-500 text-sm">Coming soon</p>
-          <p className="text-stone-600 text-xs mt-1">Support ticket tracking will appear here</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400/60" />
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">User Feedback</h2>
+            {stats.feedback.new > 0 && (
+              <span className="text-xs bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full">
+                {stats.feedback.new} new
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-stone-600">{stats.feedback.total} total</span>
         </div>
+
+        {stats.feedback.recent.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                 className="text-stone-600 mb-3">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <p className="text-stone-500 text-sm">No feedback yet</p>
+            <p className="text-stone-600 text-xs mt-1">User feedback will appear here once submitted</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {stats.feedback.recent.map((fb) => (
+              <div key={fb.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {/* Type badge */}
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                    fb.type === 'VOICE' ? 'bg-violet-500/15 text-violet-300' : 'bg-teal-500/15 text-teal-300'
+                  }`}>
+                    {fb.type}
+                  </span>
+                  {/* Status badge */}
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    fb.status === 'NEW' ? 'bg-amber-500/15 text-amber-300'
+                    : fb.status === 'REVIEWED' ? 'bg-stone-800 text-stone-400'
+                    : 'bg-teal-500/10 text-teal-400'
+                  }`}>
+                    {fb.status}
+                  </span>
+                  <span className="text-xs text-stone-600 ml-auto">{timeAgo(fb.createdAt)}</span>
+                </div>
+                <p className="text-sm text-poddit-100 line-clamp-2">{fb.content}</p>
+                <p className="text-xs text-stone-600 mt-1.5">
+                  {fb.user.name || fb.user.email || 'Unknown user'}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
@@ -542,11 +596,12 @@ function AdminDashboard() {
 function MetricCard({ label, value, accent, subtitle }: {
   label: string;
   value: number;
-  accent: 'teal' | 'violet' | 'stone';
+  accent: 'teal' | 'violet' | 'stone' | 'amber';
   subtitle?: string;
 }) {
   const accentBorder = accent === 'teal' ? 'border-t-teal-500'
     : accent === 'violet' ? 'border-t-violet-400'
+    : accent === 'amber' ? 'border-t-amber-400'
     : 'border-t-stone-500';
 
   return (

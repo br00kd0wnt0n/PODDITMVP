@@ -25,6 +25,7 @@ model User {
   sessions Session[]
   signals  Signal[]
   episodes Episode[]
+  feedback Feedback[]
 }
 
 // ──────────────────────────────────────────
@@ -191,4 +192,34 @@ model Segment {
   createdAt DateTime @default(now())
 
   @@index([episodeId, order])
+}
+
+// ──────────────────────────────────────────
+// Feedback — user feedback during early access
+// ──────────────────────────────────────────
+model Feedback {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      FeedbackType
+  content   String         @db.Text
+  status    FeedbackStatus @default(NEW)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+enum FeedbackType {
+  TEXT
+  VOICE
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  RESOLVED
 }
