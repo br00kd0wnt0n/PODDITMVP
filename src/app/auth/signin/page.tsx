@@ -8,6 +8,7 @@ export default function SignInPage() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exiting, setExiting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +29,12 @@ export default function SignInPage() {
         setError('Invalid email or access code.');
         setLoading(false);
       } else if (result?.url) {
-        window.location.href = result.url;
+        // Trigger fade-out, then navigate after animation
+        setExiting(true);
+        const targetUrl = result.url;
+        setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 450);
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -37,7 +43,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
+    <div className={`min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden transition-all ${exiting ? 'page-exit' : ''}`}>
       {/* Extra bokeh for signin — more prominent than global */}
       <div className="absolute top-[15%] -right-16 w-80 h-80 rounded-full bg-amber-500/[0.06] blur-3xl" />
       <div className="absolute top-[25%] right-24 w-40 h-40 rounded-full bg-amber-400/[0.08] blur-2xl" />

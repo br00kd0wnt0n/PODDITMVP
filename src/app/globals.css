@@ -112,3 +112,24 @@ input[type="checkbox"] {
 .animate-pulse-ring {
   animation: pulse-ring 1.5s ease-out infinite;
 }
+
+/* Page transition — sign-in exit */
+@keyframes page-fade-out {
+  0% { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(1.02); filter: blur(6px); }
+}
+
+.page-exit {
+  animation: page-fade-out 0.5s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* Page transition — dashboard entrance */
+@keyframes page-fade-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: page-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

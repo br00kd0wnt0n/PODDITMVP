@@ -392,7 +392,7 @@ function Dashboard() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
+    <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
@@ -460,8 +460,12 @@ function Dashboard() {
       </div>
 
       {/* ── Send Signals Module ── */}
-      <div className="mb-8 p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-        <p className="text-xs text-stone-400 mb-3">
+      <div className="mb-8 p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl relative overflow-hidden
+                       opacity-0 animate-fade-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
+        {/* Subtle inner glow */}
+        <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.04] blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-amber-500/[0.03] blur-2xl pointer-events-none" />
+        <p className="text-xs text-stone-400 mb-3 relative">
           <span className="text-white font-medium">Send signals to Poddit</span> via
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -539,23 +543,35 @@ function Dashboard() {
 
       {/* ── How It Works ── */}
       <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
-          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center">1</span>
-          <div>
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
+                        relative overflow-hidden group hover:border-teal-500/20 transition-all
+                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center
+                          shadow-[0_0_8px_rgba(20,184,166,0.1)]">1</span>
+          <div className="relative">
             <p className="text-sm font-medium text-white">Capture</p>
             <p className="text-xs text-stone-500 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
-          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center">2</span>
-          <div>
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
+                        relative overflow-hidden group hover:border-violet-400/20 transition-all
+                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-400/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center
+                          shadow-[0_0_8px_rgba(139,92,246,0.1)]">2</span>
+          <div className="relative">
             <p className="text-sm font-medium text-white">Generate</p>
             <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40">
-          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center">3</span>
-          <div>
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
+                        relative overflow-hidden group hover:border-amber-500/20 transition-all
+                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold flex items-center justify-center
+                          shadow-[0_0_8px_rgba(217,149,56,0.1)]">3</span>
+          <div className="relative">
             <p className="text-sm font-medium text-white">Listen</p>
             <p className="text-xs text-stone-500 mt-0.5">Get a personalized audio episode explaining what it all means.</p>
           </div>

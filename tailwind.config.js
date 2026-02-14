@@ -91,12 +91,17 @@ module.exports = {
           '0%, 100%': { boxShadow: '0 0 8px rgba(20, 184, 166, 0.06)' },
           '50%': { boxShadow: '0 0 14px rgba(20, 184, 166, 0.12)' },
         },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slide-in': 'slide-in 0.5s ease-out forwards',
         'episode-reveal': 'episode-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'signal-collapse': 'signal-collapse 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards',
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+        'fade-in-up': 'fade-in-up 0.6s ease-out forwards',
       },
     },
   },
