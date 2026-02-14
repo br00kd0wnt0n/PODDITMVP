@@ -796,7 +796,7 @@ function Dashboard() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-3 text-xs text-stone-500">
-                    <span>{ep.signalCount} signals</span>
+                    <span>{ep.signalCount} signal{ep.signalCount !== 1 ? 's' : ''}</span>
                     <span className="text-teal-500/40">&bull;</span>
                     <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
                     {ep.topicsCovered.length > 0 && (

@@ -231,9 +231,14 @@ export default function PlayerPage() {
       <header className="mb-8">
         <h1 className="text-2xl font-extrabold text-white">{episode.title}</h1>
         <div className="flex items-center gap-3 mt-2 text-sm text-poddit-400">
-          <span>{formatDate(episode.periodStart)} &mdash; {formatDate(episode.periodEnd)}</span>
+          <span>
+            {formatDate(episode.periodStart) === formatDate(episode.periodEnd)
+              ? formatDate(episode.periodStart)
+              : <>{formatDate(episode.periodStart)} &mdash; {formatDate(episode.periodEnd)}</>
+            }
+          </span>
           <span>&bull;</span>
-          <span>{episode.signalCount} signals</span>
+          <span>{episode.signalCount} signal{episode.signalCount !== 1 ? 's' : ''}</span>
           {episode.audioDuration && (
             <>
               <span>&bull;</span>
