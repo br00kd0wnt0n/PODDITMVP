@@ -557,7 +557,7 @@ function Dashboard() {
         {/* Input success */}
         {inputSuccess && (
           <div className="mb-2 p-2 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-xs">
-            &check; {inputSuccess}
+            {'\u2713'} {inputSuccess}
           </div>
         )}
 
