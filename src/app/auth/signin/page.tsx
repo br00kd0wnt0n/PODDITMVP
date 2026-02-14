@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import Image from 'next/image';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -38,17 +37,29 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
       {/* Horizontal lens flare streak — signin-specific */}
-      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/[0.08] to-transparent" />
+      <div className="absolute top-[38%] left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/[0.08] to-transparent" />
 
+      {/* Hero lockup: animated logo + title + subtitle */}
+      <div className="relative z-10 flex flex-col items-center mb-10">
+        <div className="w-28 h-28 rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.08] mb-6">
+          <video
+            src="/logo_loop.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <h1 className="text-4xl font-extrabold text-white tracking-tight font-display mb-1">PODDIT</h1>
+        <p className="text-stone-400 text-sm tracking-widest uppercase">Your world, explained</p>
+      </div>
+
+      {/* Sign-in form */}
       <form onSubmit={handleSubmit} className="w-full max-w-sm relative z-10">
         <div className="p-6 bg-poddit-900/60 border border-stone-800/60 rounded-xl backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Image src="/logo.png" alt="Poddit" width={32} height={32} className="rounded-lg" />
-            <h1 className="text-xl font-extrabold text-white font-display">PODDIT</h1>
-          </div>
-          <p className="text-stone-500 text-sm mb-6">Sign in to your personal podcast</p>
 
           {error && (
             <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
