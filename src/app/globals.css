@@ -13,29 +13,42 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* Ambient background glow — warm lens-flare inspired from glass P logo */
-body::before {
-  content: '';
-  position: fixed;
-  bottom: -20%;
-  left: -10%;
-  width: 60%;
-  height: 60%;
-  background: radial-gradient(ellipse at center, rgba(217, 149, 56, 0.04) 0%, rgba(20, 184, 166, 0.02) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
+/* Ambient drifting bokeh — GPU-accelerated via transform/opacity only */
+@keyframes bokeh-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(8vw, -6vh) scale(1.1); }
+  50% { transform: translate(-4vw, 10vh) scale(0.95); }
+  75% { transform: translate(12vw, 4vh) scale(1.05); }
 }
-body::after {
-  content: '';
-  position: fixed;
-  top: -30%;
-  right: -15%;
-  width: 50%;
-  height: 50%;
-  background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.03) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
+@keyframes bokeh-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-10vw, 8vh) scale(1.08); }
+  66% { transform: translate(6vw, -12vh) scale(0.92); }
 }
+@keyframes bokeh-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  20% { transform: translate(14vw, 6vh) scale(1.12); opacity: 1; }
+  50% { transform: translate(-6vw, -8vh) scale(0.88); opacity: 0.7; }
+  80% { transform: translate(4vw, 14vh) scale(1.06); opacity: 0.9; }
+}
+@keyframes bokeh-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-8vw, -10vh) scale(1.15); }
+  60% { transform: translate(10vw, 6vh) scale(0.9); }
+  90% { transform: translate(-3vw, -4vh) scale(1.05); }
+}
+@keyframes bokeh-drift-5 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+  40% { transform: translate(6vw, 12vh) scale(1.1); opacity: 0.6; }
+  70% { transform: translate(-12vw, -4vh) scale(0.95); opacity: 1; }
+}
+
+.bokeh-orb { will-change: transform; }
+.bokeh-1 { animation: bokeh-drift-1 45s ease-in-out infinite; }
+.bokeh-2 { animation: bokeh-drift-2 55s ease-in-out infinite; }
+.bokeh-3 { animation: bokeh-drift-3 60s ease-in-out infinite; }
+.bokeh-4 { animation: bokeh-drift-4 50s ease-in-out infinite; }
+.bokeh-5 { animation: bokeh-drift-5 65s ease-in-out infinite; }
 
 /* Selection styling */
 ::selection {

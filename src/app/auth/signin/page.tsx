@@ -39,12 +39,7 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Bokeh orbs — mirroring the glass P logo's warm out-of-focus circles */}
-      <div className="absolute top-1/4 -right-12 w-64 h-64 rounded-full bg-amber-500/[0.04] blur-3xl" />
-      <div className="absolute top-1/3 right-16 w-32 h-32 rounded-full bg-amber-400/[0.06] blur-2xl" />
-      <div className="absolute bottom-1/4 -left-8 w-48 h-48 rounded-full bg-teal-500/[0.04] blur-3xl" />
-      <div className="absolute bottom-1/3 left-20 w-20 h-20 rounded-full bg-amber-300/[0.05] blur-xl" />
-      {/* Horizontal lens flare streak */}
+      {/* Horizontal lens flare streak — signin-specific */}
       <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/[0.08] to-transparent" />
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm relative z-10">
