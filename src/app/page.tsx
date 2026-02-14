@@ -1,8 +1,19 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+
+const STATUS_PHRASES = [
+  'Connecting the dots...',
+  'Weaving your story...',
+  'Synthesizing insights...',
+  'Building your episode...',
+  'Researching your signals...',
+  'Finding the threads...',
+  'Crafting your narrative...',
+  'Almost there...',
+];
 
 interface Episode {
   id: string;
@@ -50,6 +61,14 @@ function Dashboard() {
   const [inputSuccess, setInputSuccess] = useState<string | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
 
+  // Generation theatre state
+  const [statusPhrase, setStatusPhrase] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [signalsCollapsing, setSignalsCollapsing] = useState(false);
+  const [newEpisodeId, setNewEpisodeId] = useState<string | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Refs for recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -59,6 +78,8 @@ function Dashboard() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
@@ -148,12 +169,46 @@ function Dashboard() {
     }
   };
 
-  // ── Generate ──
+  // ── Generate (with theatre) ──
+
+  const startTheatre = useCallback(() => {
+    // Collapse signals animation
+    setSignalsCollapsing(true);
+
+    // Rotating status phrases
+    setStatusPhrase(0);
+    statusIntervalRef.current = setInterval(() => {
+      setStatusPhrase(prev => (prev + 1) % STATUS_PHRASES.length);
+    }, 4000);
+
+    // Progress bar (simulated — fast start, slows down, never reaches 100%)
+    setProgress(0);
+    let elapsed = 0;
+    progressIntervalRef.current = setInterval(() => {
+      elapsed += 1;
+      // Logarithmic curve: fast early, slow later, caps at ~92%
+      setProgress(Math.min(92, Math.log(elapsed + 1) * 18));
+    }, 1000);
+  }, []);
+
+  const stopTheatre = useCallback(() => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setProgress(100);
+  }, []);
 
   const generateNow = async () => {
     if (selectedIds.size === 0) return;
     setGenerating(true);
     setGenerateError(null);
+    setNewEpisodeId(null);
+    startTheatre();
 
     try {
       const res = await fetch('/api/generate-now', {
@@ -165,11 +220,19 @@ function Dashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
 
+      stopTheatre();
+      setNewEpisodeId(data.episodeId);
+
+      // Brief pause to show 100%, then refresh
+      await new Promise(r => setTimeout(r, 800));
       await refreshData();
     } catch (error: any) {
+      stopTheatre();
       setGenerateError(error.message);
     } finally {
       setGenerating(false);
+      setSignalsCollapsing(false);
+      setProgress(0);
     }
   };
 
@@ -538,21 +601,30 @@ function Dashboard() {
             <button
               onClick={generateNow}
               disabled={generating || selectedIds.size === 0}
-              className="w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+              className="relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                          hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
-                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
+                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden"
             >
-              {generating ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Connecting the dots...
-                </>
-              ) : (
-                <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+              {/* Progress bar overlay */}
+              {generating && (
+                <div
+                  className="absolute inset-0 bg-teal-400/30 transition-all duration-1000 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
               )}
+              <span className="relative z-10 flex items-center gap-2">
+                {generating ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="transition-opacity duration-500">{STATUS_PHRASES[statusPhrase]}</span>
+                  </>
+                ) : (
+                  <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+                )}
+              </span>
             </button>
           )}
 
@@ -571,8 +643,8 @@ function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {signals.map((signal) => (
+            <div className={`space-y-2 transition-all duration-700 ${signalsCollapsing ? 'opacity-0 scale-95 -translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+              {signals.map((signal, idx) => (
                 <div
                   key={signal.id}
                   className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
@@ -580,6 +652,11 @@ function Dashboard() {
                       ? 'bg-teal-500/5 border border-teal-500/15'
                       : 'bg-poddit-900/30 border border-transparent hover:border-stone-800'
                   }`}
+                  style={signalsCollapsing ? {
+                    transitionDelay: `${idx * 60}ms`,
+                    transform: 'scale(0.9) translateY(-8px)',
+                    opacity: 0,
+                  } : undefined}
                 >
                   <input
                     type="checkbox"
@@ -652,8 +729,9 @@ function Dashboard() {
                 <a
                   key={ep.id}
                   href={`/player/${ep.id}`}
-                  className="block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
-                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group"
+                  className={`block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
+                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group
+                             ${ep.id === newEpisodeId ? 'animate-slide-in ring-1 ring-teal-500/30' : ''}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">

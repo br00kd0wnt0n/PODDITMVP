@@ -72,6 +72,15 @@ module.exports = {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
       },
+      keyframes: {
+        'slide-in': {
+          '0%': { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+      },
+      animation: {
+        'slide-in': 'slide-in 0.5s ease-out forwards',
+      },
     },
   },
   plugins: [require('@tailwindcss/typography')],
