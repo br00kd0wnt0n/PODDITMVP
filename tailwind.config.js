@@ -77,9 +77,26 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
           '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
+        'episode-reveal': {
+          '0%': { opacity: '0', transform: 'translateY(24px) scale(0.95)', filter: 'blur(4px)' },
+          '50%': { opacity: '0.8', transform: 'translateY(4px) scale(0.99)', filter: 'blur(1px)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)', filter: 'blur(0)' },
+        },
+        'signal-collapse': {
+          '0%': { opacity: '1', transform: 'translateY(0) scale(1)', maxHeight: '100px' },
+          '40%': { opacity: '0.6', transform: 'translateY(-8px) scale(0.92)' },
+          '100%': { opacity: '0', transform: 'translateY(-40px) scale(0.3)', maxHeight: '0px', margin: '0', padding: '0', borderWidth: '0' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 12px rgba(20, 184, 166, 0.15)' },
+          '50%': { boxShadow: '0 0 24px rgba(20, 184, 166, 0.35)' },
+        },
       },
       animation: {
         'slide-in': 'slide-in 0.5s ease-out forwards',
+        'episode-reveal': 'episode-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'signal-collapse': 'signal-collapse 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards',
+        'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
       },
     },
   },

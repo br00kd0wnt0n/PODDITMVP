@@ -655,9 +655,10 @@ function Dashboard() {
             <button
               onClick={generateNow}
               disabled={generating || selectedIds.size === 0}
-              className="relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+              className={`relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                          hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
-                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden"
+                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden
+                         ${generating ? 'animate-glow-pulse' : ''}`}
             >
               {/* Progress bar overlay */}
               {generating && (
@@ -697,19 +698,20 @@ function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className={`space-y-2 transition-all duration-700 ${signalsCollapsing ? 'opacity-0 scale-95 -translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+            <div className="space-y-2">
               {signals.map((signal, idx) => (
                 <div
                   key={signal.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
-                    selectedIds.has(signal.id)
-                      ? 'bg-teal-500/5 border border-teal-500/15'
-                      : 'bg-poddit-900/30 border border-transparent hover:border-stone-800'
+                  className={`flex items-start gap-3 p-3 rounded-xl overflow-hidden ${
+                    signalsCollapsing && selectedIds.has(signal.id)
+                      ? 'animate-signal-collapse'
+                      : selectedIds.has(signal.id)
+                        ? 'bg-teal-500/5 border border-teal-500/15 transition-all'
+                        : 'bg-poddit-900/30 border border-transparent hover:border-stone-800 transition-all'
                   }`}
-                  style={signalsCollapsing ? {
-                    transitionDelay: `${idx * 60}ms`,
-                    transform: 'scale(0.9) translateY(-8px)',
-                    opacity: 0,
+                  style={signalsCollapsing && selectedIds.has(signal.id) ? {
+                    animationDelay: `${idx * 80}ms`,
+                    animationFillMode: 'forwards',
                   } : undefined}
                 >
                   <input
@@ -785,7 +787,7 @@ function Dashboard() {
                   href={`/player/${ep.id}`}
                   className={`block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
                              hover:border-violet-400/30 hover:bg-poddit-900 transition-all group
-                             ${ep.id === newEpisodeId ? 'animate-slide-in ring-1 ring-teal-500/30' : ''}`}
+                             ${ep.id === newEpisodeId ? 'animate-episode-reveal ring-1 ring-teal-500/30' : ''}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">

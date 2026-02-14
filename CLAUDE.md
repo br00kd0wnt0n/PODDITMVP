@@ -50,18 +50,19 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 ### Copyright Safety (CRITICAL)
 Poddit treats captured links as **topic indicators**, NOT content to reproduce. The synthesis prompt instructs Claude to discuss topics across multiple sources and general knowledge, never to summarize or closely paraphrase any single article. This is a deliberate legal architecture — see the one-pager for full rationale. **Never change the prompts to summarize individual articles.**
 
-### Single-User MVP
-The current architecture defaults `userId` to `"default"` everywhere. The schema supports multi-user (userId fields exist on all models), but auth is not implemented yet. The API_SECRET env var provides basic protection for the extension and generate endpoints.
+### Multi-User Auth
+NextAuth.js v5 with Credentials provider (access code login). JWT strategy — Session/Account/VerificationToken Prisma models exist but are unused. Middleware protects `/`, `/player/*`, `/settings`. All API endpoints use `requireSession()` for session-based auth with userId filtering. Capture routes (SMS, email) look up users by phone/email. Extension requires explicit `userId` in body.
 
 ### Signal Processing Flow
 1. Signal arrives via any channel → `createSignal()` in capture.ts
 2. Links get async enrichment (fetch page, extract title/source/content)
 3. Topics are marked as enriched immediately (synthesis handles research)
-4. `generateEpisode()` pulls all QUEUED/ENRICHED signals for the period
+4. `generateEpisode()` locks signals atomically in a `$transaction` to prevent race conditions
 5. Builds a structured prompt with copyright-safe instructions
-6. Claude returns JSON with segments, sources, and summary
-7. Script goes to ElevenLabs for TTS → uploaded to R2
+6. Claude returns JSON with segments, sources, and summary (with truncation detection + validation)
+7. Script goes to ElevenLabs for TTS → uploaded to R2 (both with retry + exponential backoff)
 8. User notified via SMS with player link
+9. On failure, signals are released back to QUEUED for retry
 
 ### Episode Structure
 Episodes contain Segments (per-topic sections), each with source attribution. The player shows segment tabs, written content, and source cards linking back to original publishers. This drives traffic to sources rather than replacing them.
@@ -113,29 +114,49 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] Test full capture → generate → play loop end-to-end
 - [x] Chrome extension submitted to Web Store (unlisted)
 - [x] SMS voice memo transcription (AMR → WAV → Whisper)
+- [x] **Multi-user auth** — NextAuth.js v5 with access code login, per-user signals/episodes
+- [x] **Settings / preferences page** — voice selection (4 voices), episode length, display name, phone
+- [x] **Custom audio player** — styled controls, seek/volume bars with touch support
+- [x] **Intro music** — 4s lead-in before narration, outro music overlay
+- [x] **Voice attribution** — "Read by Gandalf" on episode page
 
-### Sprint: Episode Polish (prompt + UX)
-- [ ] **Personalized intro** — short, natural welcome line ("Welcome to your Poddit from Feb 14, built from 5 sources...") — varied each time, no clichés
-- [ ] **Informal segment transitions** — natural bridging phrases between topics ("Now, moving on to...", "Speaking of which...", "Shifting gears...") — varied, not formulaic
-- [ ] **Provocative outro** — replace generic wrap-up with "A few things to think about..." tailored to user interests, designed to spark real-life conversation
-- [ ] **Multi-source segments** — instruct Claude to synthesize 2-3+ sources per segment for balanced research, not just one article per topic
-- [ ] **Pronunciation hints** — add SSML or phonetic hints for unusual proper nouns (e.g., "Jmail" → "Jay Mail")
+### Sprint: Episode Polish (prompt + UX) ✅
+- [x] **Personalized intro** — varied welcome line with date + signal count, user name when set, Poddit Now vs weekly framing
+- [x] **Informal segment transitions** — natural bridging phrases woven into segment content, varied per episode
+- [x] **Provocative outro** — subtle lingering thought, implied not stated, no explicit takeaway list
+- [x] **Multi-source segments** — Claude instructed to synthesize 2-3+ sources per segment, sources array reflects all inputs
+- [x] **Pronunciation hints** — inline phonetic cues for TTS-confusing proper nouns
+
+### Sprint: Stability + Consistency ✅
+- [x] Remove all hardcoded 'default' userId (schema + API routes)
+- [x] Atomic signal locking in $transaction (prevent duplicate episodes)
+- [x] Rollback signals to QUEUED on generation failure
+- [x] Retry with exponential backoff (Claude API, ElevenLabs, S3)
+- [x] maxDuration on generate (300s) and cron (600s) routes
+- [x] Claude response truncation detection (stop_reason check)
+- [x] JSON schema validation on Claude synthesis response
+- [x] Bumped max_tokens 8000→12000
+- [x] onDelete cascades (Signal→User, Episode→User, Signal→Episode)
+- [x] Fixed amix volume normalization (weights parameter)
+- [x] Converted all `<a>` to Next.js `<Link>` (7 instances, 5 pages)
+- [x] Touch event support on player seek/volume bars
+- [x] DB indexes (Signal.episodeId, Episode.generatedAt, Episode.status)
+- [x] Fixed generatedAt to set on READY not creation
+- [x] Fixed generate route to pass userId to notifyEpisodeReady
+- [x] Fixed findFirst→findUnique on SMS + email capture routes
+- [x] Exported getLastWeekStart from synthesize.ts, removed duplicate from cron
+- [x] Added AUTH_SECRET + ACCESS_CODE to .env.example
 
 ### Sprint: Generation UX ("theatre")
+- [x] **Rotating status phrases** — cycle through phrases during generation
+- [x] **Progress bar in button** — loading bar within Poddit Now button
 - [ ] **Signal roll-up animation** — when Poddit Now is pressed, animate signals visually collapsing into the button
-- [ ] **Rotating status phrases** — cycle through phrases during generation ("Connecting the dots...", "Weaving your story...", "Synthesizing insights...", etc.)
-- [ ] **Progress bar in button** — show compilation progress as a loading bar within the Poddit Now button
 - [ ] **Episode entrance animation** — new episode appears with a smooth reveal animation
 
-### Sprint: User Accounts + Settings
-- [ ] **Multi-user auth** (NextAuth.js or Clerk) — sign up, login, per-user signals/episodes
-- [ ] **Settings / preferences page** (`/settings`) — per-user configuration stored in DB
-  - **Voice selection** — pick from 3 ElevenLabs voices (need voice IDs)
-  - **Episode length** — target duration: Short (~5 min), Medium (~10 min), Long (~15 min)
-  - **Name** — used in personalized intro ("Welcome to your Poddit, Brook...")
-  - Future: **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
-  - Future: **Interest emphasis** — weight certain topics higher in synthesis
-- [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them for fresh research
+### Upcoming
+- [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them
+- [ ] **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
+- [ ] **Interest emphasis** — weight certain topics higher in synthesis
 
 ### Backlog
 - [ ] Add error handling for TTS failures (fallback to text-only episode)
@@ -149,12 +170,16 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Proactive scouting tier (research topics without user signal)
 - [ ] Cross-topic connection detection
 - [ ] Episode analytics (which segments get replayed)
+- [ ] Service worker for PWA offline support
+- [ ] Audio player ARIA attributes for accessibility
 - [ ] Native iOS app (React Native or Swift)
 
 ## Environment Variables
 
 See `.env.example` for all required variables. Critical ones:
 - `DATABASE_URL` — Railway provides this automatically
+- `AUTH_SECRET` — NextAuth.js session signing (generate with `openssl rand -base64 32`)
+- `ACCESS_CODE` — Login access code for Credentials provider
 - `ANTHROPIC_API_KEY` — For synthesis
 - `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` — For TTS
 - `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` — For SMS
