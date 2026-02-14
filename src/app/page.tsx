@@ -375,13 +375,16 @@ function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="Poddit"
-            width={44}
-            height={44}
-            className="rounded-lg"
-          />
+          <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+            <video
+              src="/logo_loop.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          </div>
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
             <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
