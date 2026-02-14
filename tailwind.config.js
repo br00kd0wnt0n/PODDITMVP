@@ -88,8 +88,8 @@ module.exports = {
           '100%': { opacity: '0', transform: 'translateY(-40px) scale(0.3)', maxHeight: '0px', margin: '0', padding: '0', borderWidth: '0' },
         },
         'glow-pulse': {
-          '0%, 100%': { boxShadow: '0 0 12px rgba(20, 184, 166, 0.15)' },
-          '50%': { boxShadow: '0 0 24px rgba(20, 184, 166, 0.35)' },
+          '0%, 100%': { boxShadow: '0 0 8px rgba(20, 184, 166, 0.06)' },
+          '50%': { boxShadow: '0 0 14px rgba(20, 184, 166, 0.12)' },
         },
       },
       animation: {
