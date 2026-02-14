@@ -27,6 +27,14 @@ interface Signal {
   channel: string;
 }
 
+// Voice display names (matches keys in tts.ts VOICES)
+const VOICE_NAMES: Record<string, string> = {
+  gandalf: 'Gandalf',
+  jon: 'Jon',
+  ivy: 'Ivy',
+  marcus: 'Marcus',
+};
+
 interface Episode {
   id: string;
   title: string;
@@ -34,6 +42,7 @@ interface Episode {
   script: string;
   audioUrl: string | null;
   audioDuration: number | null;
+  voiceKey: string | null;
   signalCount: number;
   topicsCovered: string[];
   generatedAt: string;
@@ -243,6 +252,12 @@ export default function PlayerPage() {
             <>
               <span>&bull;</span>
               <span>{Math.round(episode.audioDuration / 60)} min</span>
+            </>
+          )}
+          {episode.voiceKey && VOICE_NAMES[episode.voiceKey] && (
+            <>
+              <span>&bull;</span>
+              <span>Read by {VOICE_NAMES[episode.voiceKey]}</span>
             </>
           )}
         </div>

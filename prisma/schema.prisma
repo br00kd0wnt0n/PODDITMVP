@@ -145,6 +145,7 @@ model Episode {
   // Audio
   audioUrl      String?
   audioDuration Int?
+  voiceKey      String?
 
   // Generation
   status      EpisodeStatus @default(PENDING)

@@ -37,6 +37,9 @@ const OUTRO_MUSIC = join(process.cwd(), 'public/audio/poddit_Outro.mp3');
 // Music volume relative to narration (0.0–1.0)
 const MUSIC_VOLUME = 0.14;
 
+// Seconds of intro music that plays solo before voiceover begins
+const INTRO_LEAD_IN = 4;
+
 // ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
 // ──────────────────────────────────────────────
@@ -145,8 +148,8 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     console.log(`[TTS] Narration duration: ${narrationDuration}s`);
 
     // Build the ffmpeg filter graph
-    // Strategy: overlay intro music at the start and outro music at the end
-    // Music plays at reduced volume underneath the narration voice
+    // Strategy: intro music plays solo for INTRO_LEAD_IN seconds, then narration
+    // starts with music underneath. Outro music overlays near the end.
     const inputs: string[] = ['-i', narrationPath];
     let inputCount = 1;
     const introIdx = hasIntro ? inputCount++ : -1;
@@ -161,11 +164,25 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
 
     // Build filter complex
     // [0] = narration, [1] = intro (if exists), [2 or 1] = outro (if exists)
-    let filterParts: string[] = [];
-    let mixInputs: string[] = ['[0:a]'];
+    const filterParts: string[] = [];
+    const mixInputs: string[] = [];
+
+    // Narration: delay by INTRO_LEAD_IN seconds so intro music plays solo first
+    const narrationDelayMs = hasIntro ? INTRO_LEAD_IN * 1000 : 0;
+    if (narrationDelayMs > 0) {
+      filterParts.push(
+        `[0:a]adelay=${narrationDelayMs}|${narrationDelayMs}[narr_delayed]`
+      );
+      mixInputs.push('[narr_delayed]');
+    } else {
+      mixInputs.push('[0:a]');
+    }
+
+    // Total duration of the final mix (narration + lead-in offset)
+    const totalDuration = narrationDuration + (hasIntro ? INTRO_LEAD_IN : 0);
 
     if (hasIntro) {
-      // Intro: play from the start, reduce volume, pad to narration length
+      // Intro: play from the very start, reduce volume
       filterParts.push(
         `[${introIdx}:a]volume=${MUSIC_VOLUME}[intro_vol]`
       );
@@ -173,10 +190,9 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     }
 
     if (hasOutro) {
-      // Outro: delay to start near the end of narration
-      // Get outro duration to calculate when to start it
+      // Outro: delay to start near the end (account for narration offset)
       const outroDuration = await getAudioDuration(OUTRO_MUSIC);
-      const outroDelay = Math.max(0, narrationDuration - outroDuration);
+      const outroDelay = Math.max(0, totalDuration - outroDuration);
       const outroDelayMs = Math.round(outroDelay * 1000);
 
       filterParts.push(
@@ -185,11 +201,11 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
       mixInputs.push('[outro_vol]');
     }
 
-    // Mix all inputs together — amix with duration set to "first" (narration length)
+    // Mix all inputs together — duration=longest so the intro lead-in is preserved
     const mixCount = mixInputs.length;
     const filterComplex = [
       ...filterParts,
-      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=first:dropout_transition=2[out]`
+      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=longest:dropout_transition=2[out]`
     ].join(';');
 
     const ffmpegArgs: string[] = [

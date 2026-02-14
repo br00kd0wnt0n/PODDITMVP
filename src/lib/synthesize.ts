@@ -162,12 +162,13 @@ export async function generateEpisode(params: {
     console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
     const { audioUrl, duration } = await generateAudio(fullScript, episode.id, voiceKey);
 
-    // 11. Finalize episode
+    // 11. Finalize episode (store voice used for attribution)
     await prisma.episode.update({
       where: { id: episode.id },
       data: {
         audioUrl,
         audioDuration: duration,
+        voiceKey: voiceKey || 'gandalf',
         status: 'READY',
       },
     });
