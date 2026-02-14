@@ -13,6 +13,7 @@ const anthropic = new Anthropic({
 
 export interface EpisodeData {
   title: string;
+  intro: string;
   segments: {
     topic: string;
     content: string;
@@ -20,6 +21,7 @@ export interface EpisodeData {
   }[];
   summary: string;
   connections: string;
+  outro: string;
 }
 
 export async function generateEpisode(params?: {
@@ -177,17 +179,29 @@ export async function generateEpisode(params?: {
 // ──────────────────────────────────────────────
 
 function buildFullScript(data: EpisodeData): string {
-  let script = '';
-  
+  const parts: string[] = [];
+
+  // Intro
+  if (data.intro) {
+    parts.push(data.intro);
+  }
+
+  // Segments (transitions are woven into each segment's content)
   for (const segment of data.segments) {
-    script += segment.content + '\n\n';
+    parts.push(segment.content);
   }
 
+  // Connections
   if (data.connections) {
-    script += data.connections + '\n';
+    parts.push(data.connections);
   }
 
-  return script.trim();
+  // Outro
+  if (data.outro) {
+    parts.push(data.outro);
+  }
+
+  return parts.join('\n\n');
 }
 
 function getLastWeekStart(): Date {

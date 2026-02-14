@@ -103,27 +103,48 @@ curl -X POST http://localhost:3000/api/generate \
 
 ## Priority Development Tasks
 
-### Immediate (get to usable MVP)
-- [ ] Test full capture → generate → play loop end-to-end
-- [ ] Add error handling for TTS failures (fallback to text-only episode)
+### Completed
 - [x] Add basic loading/generating states to the web UI
 - [x] Generate PWA icons from brand logo (icon-192.png, icon-512.png, apple-touch-icon)
-- [ ] Test PWA share sheet on iOS and Android
-- [ ] Add Twilio webhook signature validation for security
-
-### Near-term improvements
 - [x] Add "Generate Now" button to the web dashboard
 - [x] Add ability to remove/edit signals in the queue from the UI
+- [x] Add topic extraction/tagging via Claude (use ENRICHMENT_PROMPT in prompts.ts)
+- [x] Dashboard text input + voice recording capture (via /api/capture/quick)
+- [x] Test full capture → generate → play loop end-to-end
+- [x] Chrome extension submitted to Web Store (unlisted)
+- [x] SMS voice memo transcription (AMR → WAV → Whisper)
+
+### Sprint: Episode Polish (prompt + UX)
+- [ ] **Personalized intro** — short, natural welcome line ("Welcome to your Poddit from Feb 14, built from 5 sources...") — varied each time, no clichés
+- [ ] **Informal segment transitions** — natural bridging phrases between topics ("Now, moving on to...", "Speaking of which...", "Shifting gears...") — varied, not formulaic
+- [ ] **Provocative outro** — replace generic wrap-up with "A few things to think about..." tailored to user interests, designed to spark real-life conversation
+- [ ] **Multi-source segments** — instruct Claude to synthesize 2-3+ sources per segment for balanced research, not just one article per topic
+- [ ] **Pronunciation hints** — add SSML or phonetic hints for unusual proper nouns (e.g., "Jmail" → "Jay Mail")
+
+### Sprint: Generation UX ("theatre")
+- [ ] **Signal roll-up animation** — when Poddit Now is pressed, animate signals visually collapsing into the button
+- [ ] **Rotating status phrases** — cycle through phrases during generation ("Connecting the dots...", "Weaving your story...", "Synthesizing insights...", etc.)
+- [ ] **Progress bar in button** — show compilation progress as a loading bar within the Poddit Now button
+- [ ] **Episode entrance animation** — new episode appears with a smooth reveal animation
+
+### Sprint: User Accounts + Settings
+- [ ] **Multi-user auth** (NextAuth.js or Clerk) — sign up, login, per-user signals/episodes
+- [ ] **Settings / preferences page** (`/settings`) — per-user configuration stored in DB
+  - **Voice selection** — pick from 3 ElevenLabs voices (need voice IDs)
+  - **Episode length** — target duration: Short (~5 min), Medium (~10 min), Long (~15 min)
+  - **Name** — used in personalized intro ("Welcome to your Poddit, Brook...")
+  - Future: **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
+  - Future: **Interest emphasis** — weight certain topics higher in synthesis
+- [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them for fresh research
+
+### Backlog
+- [ ] Add error handling for TTS failures (fallback to text-only episode)
+- [ ] Test PWA share sheet on iOS and Android
+- [ ] Add Twilio webhook signature validation for security
 - [ ] Episode delete and share actions (player page + dashboard)
 - [ ] Implement signal deduplication (same URL submitted twice)
 - [ ] Add episode regeneration (re-run synthesis on same signals)
 - [ ] Improve content extraction with readability libraries (like Mozilla's Readability)
-- [x] Add topic extraction/tagging via Claude (use ENRICHMENT_PROMPT in prompts.ts)
-- [x] Dashboard text input + voice recording capture (via /api/capture/quick)
-
-### Future phases (requires user accounts)
-- [ ] Multi-user auth (NextAuth.js or Clerk)
-- [ ] Voice selection — let users pick from a few ElevenLabs voice options in their settings
 - [ ] User profile/preference learning across episodes
 - [ ] Proactive scouting tier (research topics without user signal)
 - [ ] Cross-topic connection detection
