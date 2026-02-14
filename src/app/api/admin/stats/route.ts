@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAdminAuth } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
@@ -8,8 +8,8 @@ import prisma from '@/lib/db';
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth: requires API_SECRET (stronger than dashboard auth)
-  const authError = requireAuth(request);
+  // Auth: requires ADMIN_SECRET (falls back to API_SECRET if not set)
+  const authError = requireAdminAuth(request);
   if (authError) return authError;
 
   try {

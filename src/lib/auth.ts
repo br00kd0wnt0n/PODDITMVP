@@ -36,6 +36,20 @@ export function requireAuth(request: NextRequest): NextResponse | null {
 }
 
 /**
+ * Verify ADMIN_SECRET from Authorization header.
+ * Falls back to API_SECRET if ADMIN_SECRET is not set.
+ * Returns null if authorized, or a 401 NextResponse if not.
+ */
+export function requireAdminAuth(request: NextRequest): NextResponse | null {
+  const authHeader = request.headers.get('authorization');
+  const adminSecret = process.env.ADMIN_SECRET || process.env.API_SECRET;
+  if (adminSecret && authHeader === `Bearer ${adminSecret}`) {
+    return null;
+  }
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+
+/**
  * Verify CRON_SECRET from Authorization header ONLY (no query params).
  * Returns null if authorized, or a 401 NextResponse if not.
  */
