@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -44,8 +44,16 @@ interface Signal {
 function Dashboard() {
   const searchParams = useSearchParams();
   const shared = searchParams.get('shared');
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Client-side auth guard — redirect if no session
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/auth/signin');
+    }
+  }, [status, router]);
 
   // Data state
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -369,6 +377,19 @@ function Dashboard() {
   // ── Render ──
 
   const totalQueued = (signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0);
+
+  // Don't render dashboard until session is confirmed
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-10 bg-poddit-800 rounded w-1/4" />
+          <div className="h-24 bg-poddit-800 rounded" />
+          <div className="h-48 bg-poddit-800 rounded" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
