@@ -93,9 +93,10 @@ function Dashboard() {
 
   const refreshData = async () => {
     try {
+      const headers = { 'x-poddit-dashboard': 'true' };
       const [eps, sigs] = await Promise.all([
-        fetch('/api/episodes').then(r => r.json()),
-        fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
+        fetch('/api/episodes', { headers }).then(r => r.json()),
+        fetch('/api/signals?status=queued,enriched,pending&limit=20', { headers }).then(r => r.json()),
       ]);
       setEpisodes(Array.isArray(eps) ? eps : []);
       const signalList = sigs.signals || [];
@@ -147,7 +148,10 @@ function Dashboard() {
 
   const deleteSignal = async (id: string) => {
     try {
-      const res = await fetch(`/api/signals?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/signals?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'x-poddit-dashboard': 'true' },
+      });
       if (res.ok) {
         setSignals((prev) => prev.filter((s) => s.id !== id));
         setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
@@ -213,7 +217,7 @@ function Dashboard() {
     try {
       const res = await fetch('/api/generate-now', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-poddit-dashboard': 'true' },
         body: JSON.stringify({ signalIds: Array.from(selectedIds) }),
       });
 
@@ -248,7 +252,7 @@ function Dashboard() {
     try {
       const res = await fetch('/api/capture/quick', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-poddit-dashboard': 'true' },
         body: JSON.stringify({ text }),
       });
 
@@ -343,6 +347,7 @@ function Dashboard() {
 
       const res = await fetch('/api/capture/quick', {
         method: 'POST',
+        headers: { 'x-poddit-dashboard': 'true' },
         body: formData,
       });
 

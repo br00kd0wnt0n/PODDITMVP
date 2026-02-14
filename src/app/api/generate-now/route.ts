@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEpisode } from '@/lib/synthesize';
+import { requireDashboard } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // Allow up to 2 minutes for generation (Claude + TTS + upload)
@@ -12,6 +13,10 @@ export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth: dashboard-only endpoint
+    const authError = requireDashboard(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const { signalIds } = body;
 

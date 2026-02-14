@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireDashboard } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
@@ -7,6 +8,10 @@ import prisma from '@/lib/db';
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // Auth: dashboard-only endpoint
+  const authError = requireDashboard(request);
+  if (authError) return authError;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 

@@ -4,6 +4,9 @@ import * as cheerio from 'cheerio';
 import Anthropic from '@anthropic-ai/sdk';
 import { ENRICHMENT_PROMPT } from './prompts';
 
+// Singleton Anthropic client for signal classification
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
 // ──────────────────────────────────────────────
 // URL DETECTION & EXTRACTION
 // ──────────────────────────────────────────────
@@ -95,8 +98,14 @@ export async function fetchAndExtract(url: string): Promise<{
 
     return { title, source: ogSource || source, content: truncated || null };
   } catch (error) {
-    console.error(`Failed to fetch ${url}:`, error);
-    const source = new URL(url).hostname.replace('www.', '') || null;
+    console.error(`[Capture] Failed to fetch ${url}:`, error);
+    // Safe URL parsing — catch malformed URLs in catch block
+    let source: string | null = null;
+    try {
+      source = new URL(url).hostname.replace('www.', '') || null;
+    } catch {
+      // URL is malformed — leave source as null
+    }
     return { title: titleFromPath(url), source, content: null };
   }
 }
@@ -214,8 +223,6 @@ async function classifySignal(signalId: string) {
   if (signal.fetchedContent) {
     context += `\n\nContent preview: ${signal.fetchedContent.slice(0, 500)}`;
   }
-
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const response = await anthropic.messages.create({
     model: 'claude-3-5-haiku-20241022',

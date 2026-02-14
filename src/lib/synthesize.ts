@@ -114,17 +114,16 @@ export async function generateEpisode(params?: {
     // 6. Build the full script for TTS
     const fullScript = buildFullScript(episodeData);
 
-    // 7. Create segment records
-    for (let i = 0; i < episodeData.segments.length; i++) {
-      const seg = episodeData.segments[i];
-      await prisma.segment.create({
-        data: {
+    // 7. Create segment records (batch for efficiency)
+    if (episodeData.segments.length > 0) {
+      await prisma.segment.createMany({
+        data: episodeData.segments.map((seg, i) => ({
           episodeId: episode.id,
           order: i,
           topic: seg.topic,
           content: seg.content,
           sources: seg.sources,
-        },
+        })),
       });
     }
 

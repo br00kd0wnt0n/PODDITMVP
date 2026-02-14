@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
+import { requireDashboard } from '@/lib/auth';
 import { transcribeAudioBuffer } from '@/lib/transcribe';
 import prisma from '@/lib/db';
 
@@ -13,6 +14,10 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth: dashboard-only endpoint
+    const authError = requireDashboard(request);
+    if (authError) return authError;
+
     const contentType = request.headers.get('content-type') || '';
 
     // Voice recording (FormData with audio blob)

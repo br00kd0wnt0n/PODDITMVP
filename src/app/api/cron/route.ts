@@ -13,15 +13,9 @@ import prisma from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret (Railway cron or external trigger)
+    // Verify cron secret (header only — no query params for security)
     const authHeader = request.headers.get('authorization');
-    const cronSecret = request.nextUrl.searchParams.get('secret');
-    
-    const isAuthorized = 
-      authHeader === `Bearer ${process.env.CRON_SECRET}` ||
-      cronSecret === process.env.CRON_SECRET;
-
-    if (!isAuthorized) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

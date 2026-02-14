@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireDashboard } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
@@ -7,6 +8,10 @@ import prisma from '@/lib/db';
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // Auth: dashboard-only endpoint
+  const authError = requireDashboard(request);
+  if (authError) return authError;
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const limit = parseInt(searchParams.get('limit') || '50');
@@ -50,6 +55,10 @@ export async function GET(request: NextRequest) {
 // ──────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
+  // Auth: dashboard-only endpoint
+  const authError = requireDashboard(request);
+  if (authError) return authError;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 
@@ -57,6 +66,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Signal ID required' }, { status: 400 });
   }
 
-  await prisma.signal.delete({ where: { id } });
-  return NextResponse.json({ status: 'deleted' });
+  try {
+    await prisma.signal.delete({ where: { id } });
+    return NextResponse.json({ status: 'deleted' });
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: 'Signal not found' }, { status: 404 });
+    }
+    console.error('[Signals] Delete error:', error);
+    return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
+  }
 }
