@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireDashboard } from '@/lib/auth';
+import { requireSession } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
 // GET /api/episodes
-// List episodes or get a specific one
+// List episodes or get a specific one (filtered by user)
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth: dashboard-only endpoint
-  const authError = requireDashboard(request);
-  if (authError) return authError;
+  const sessionResult = await requireSession();
+  if (sessionResult instanceof NextResponse) return sessionResult;
+  const { userId } = sessionResult;
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
 
   if (id) {
-    // Get specific episode with segments
-    const episode = await prisma.episode.findUnique({
-      where: { id },
+    // Get specific episode with segments (verify ownership)
+    const episode = await prisma.episode.findFirst({
+      where: { id, userId },
       include: {
         segments: { orderBy: { order: 'asc' } },
         signals: {
@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(episode);
   }
 
-  // List recent episodes
+  // List recent episodes for this user
   const episodes = await prisma.episode.findMany({
-    where: { status: 'READY' },
+    where: { userId, status: 'READY' },
     orderBy: { generatedAt: 'desc' },
     take: 20,
     select: {

@@ -20,6 +20,7 @@ export async function OPTIONS() {
 // ──────────────────────────────────────────────
 // POST /api/capture/extension
 // Browser extension sends captured URLs/text
+// Auth: Bearer API_SECRET + optional userId in body
 // ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url, title, text, selectedText } = body;
+    const { url, title, text, selectedText, userId } = body;
+
+    // Resolve userId — if provided, validate it exists; otherwise fall back to 'default'
+    let resolvedUserId = 'default';
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        resolvedUserId = user.id;
+      } else {
+        return NextResponse.json({ error: 'User not found' }, { status: 404, headers: corsHeaders });
+      }
+    }
 
     // Build raw content from what the extension sends
     let rawContent = '';
@@ -49,6 +61,7 @@ export async function POST(request: NextRequest) {
     const signals = await createSignal({
       rawContent,
       channel: 'EXTENSION',
+      userId: resolvedUserId,
     });
 
     // If title was provided by the extension, update the signal

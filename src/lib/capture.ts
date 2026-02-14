@@ -19,18 +19,18 @@ export function extractUrls(text: string): string[] {
 
 export function classifyInput(rawContent: string): { type: InputType; urls: string[] } {
   const urls = extractUrls(rawContent);
-  
+
   if (urls.length > 0) {
     return { type: 'LINK', urls };
   }
-  
+
   // Check if it looks like a forwarded email (has common forward indicators)
-  if (rawContent.includes('---------- Forwarded message') || 
+  if (rawContent.includes('---------- Forwarded message') ||
       rawContent.includes('Begin forwarded message') ||
       (rawContent.includes('From:') && rawContent.includes('Subject:'))) {
     return { type: 'FORWARDED_EMAIL', urls: [] };
   }
-  
+
   // Otherwise it's a topic/thought
   return { type: 'TOPIC', urls: [] };
 }
@@ -117,9 +117,14 @@ export async function fetchAndExtract(url: string): Promise<{
 export async function createSignal(params: {
   rawContent: string;
   channel: Channel;
-  userId?: string;
+  userId: string;
 }) {
-  const { rawContent, channel, userId = 'default' } = params;
+  const { rawContent, channel, userId } = params;
+
+  if (!userId) {
+    throw new Error('[Capture] userId is required to create a signal');
+  }
+
   const { type, urls } = classifyInput(rawContent);
 
   // If it's a link, create one signal per URL

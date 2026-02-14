@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
-import { requireDashboard } from '@/lib/auth';
+import { requireSession } from '@/lib/auth';
 import { transcribeAudioBuffer } from '@/lib/transcribe';
 import prisma from '@/lib/db';
 
@@ -14,9 +14,9 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth: dashboard-only endpoint
-    const authError = requireDashboard(request);
-    if (authError) return authError;
+    const sessionResult = await requireSession();
+    if (sessionResult instanceof NextResponse) return sessionResult;
+    const { userId } = sessionResult;
 
     const contentType = request.headers.get('content-type') || '';
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
       // Text submitted via FormData
       if (textField && !audioFile) {
-        return await handleText(textField.trim());
+        return await handleText(textField.trim(), userId);
       }
 
       // Audio submitted
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       const signals = await createSignal({
         rawContent: transcript,
         channel: 'API',
+        userId,
       });
 
       // Mark as VOICE input type
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return await handleText(text);
+    return await handleText(text, userId);
   } catch (error: any) {
     console.error('[Quick] Error:', error);
     return NextResponse.json(
@@ -96,12 +97,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleText(text: string) {
+async function handleText(text: string, userId: string) {
   console.log(`[Quick] Text: "${text.slice(0, 100)}"`);
 
   const signals = await createSignal({
     rawContent: text,
     channel: 'API',
+    userId,
   });
 
   return NextResponse.json({

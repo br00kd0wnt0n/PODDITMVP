@@ -24,19 +24,31 @@ export interface EpisodeData {
   outro: string;
 }
 
-export async function generateEpisode(params?: {
-  userId?: string;
+export async function generateEpisode(params: {
+  userId: string;
   since?: Date;
   manual?: boolean;
   signalIds?: string[];
 }): Promise<string> {
-  const userId = params?.userId || 'default';
-  const since = params?.since || getLastWeekStart();
+  const { userId } = params;
 
-  console.log(`[Poddit] Generating episode for ${userId}${params?.signalIds ? ` (${params.signalIds.length} selected signals)` : ` since ${since.toISOString()}`}`);
+  if (!userId) {
+    throw new Error('[Poddit] userId is required to generate an episode');
+  }
+
+  const since = params.since || getLastWeekStart();
+
+  console.log(`[Poddit] Generating episode for ${userId}${params.signalIds ? ` (${params.signalIds.length} selected signals)` : ` since ${since.toISOString()}`}`);
+
+  // Fetch user preferences for voice + name
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const preferences = (user?.preferences as Record<string, string>) || {};
+  const voiceKey = preferences.voice || undefined;
+  const userName = user?.name || undefined;
+  const episodeLength = preferences.episodeLength || undefined;
 
   // 1. Gather signals — by IDs if provided, otherwise by date range
-  const signals = params?.signalIds && params.signalIds.length > 0
+  const signals = params.signalIds && params.signalIds.length > 0
     ? await prisma.signal.findMany({
         where: {
           id: { in: params.signalIds },
@@ -75,7 +87,7 @@ export async function generateEpisode(params?: {
   });
 
   try {
-    // 3. Build the synthesis prompt
+    // 3. Build the synthesis prompt (pass user prefs for personalization)
     const synthesisPrompt = buildSynthesisPrompt(
       signals.map(s => ({
         inputType: s.inputType,
@@ -86,7 +98,7 @@ export async function generateEpisode(params?: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params?.manual }
+      { manual: params.manual, userName, episodeLength }
     );
 
     // 4. Call Claude for synthesis
@@ -146,9 +158,9 @@ export async function generateEpisode(params?: {
       data: { status: 'USED', episodeId: episode.id },
     });
 
-    // 10. Generate audio
-    console.log('[Poddit] Generating audio...');
-    const { audioUrl, duration } = await generateAudio(fullScript, episode.id);
+    // 10. Generate audio (pass user's voice preference)
+    console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
+    const { audioUrl, duration } = await generateAudio(fullScript, episode.id, voiceKey);
 
     // 11. Finalize episode
     await prisma.episode.update({

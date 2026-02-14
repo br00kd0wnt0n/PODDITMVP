@@ -8,6 +8,7 @@ import prisma from '@/lib/db';
 // POST /api/capture/sms
 // Twilio webhook for incoming SMS/MMS messages
 // Handles: text messages, links, and voice memos
+// Routes to user by phone number lookup
 // ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -20,12 +21,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`[SMS] Received from ${from}: body="${body.slice(0, 100)}" media=${numMedia}`);
 
-    // Optional: Validate sender is the authorized user
-    const authorizedNumber = process.env.USER_PHONE_NUMBER;
-    if (authorizedNumber && from !== authorizedNumber) {
-      console.log(`[SMS] Unauthorized sender: ${from}`);
-      return twimlResponse('Unauthorized.');
+    // Look up user by phone number
+    const user = await prisma.user.findFirst({ where: { phone: from } });
+    if (!user) {
+      console.log(`[SMS] Unknown sender: ${from} — no user with this phone`);
+      return twimlResponse('This number isn\'t registered with Poddit. Sign up at poddit.com first.');
     }
+    const userId = user.id;
 
     // Check for audio/voice attachments
     let transcribedText = '';
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
       const signals = await createSignal({
         rawContent: fallbackContent,
         channel: 'SMS',
+        userId,
       });
 
       if (signals[0]) {
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest) {
     const signals = await createSignal({
       rawContent,
       channel: 'SMS',
+      userId,
     });
 
     // If it was a voice note, update the signal's inputType to VOICE

@@ -81,12 +81,14 @@ export function buildSynthesisPrompt(signals: {
   source: string | null;
   fetchedContent: string | null;
   topics: string[];
-}[], options?: { manual?: boolean }): string {
+}[], options?: { manual?: boolean; userName?: string; episodeLength?: string }): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
   const emailSignals = signals.filter(s => s.inputType === 'FORWARDED_EMAIL');
 
   const isManual = options?.manual ?? false;
+  const userName = options?.userName;
+  const episodeLength = options?.episodeLength || 'medium';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   // Context-aware episode framing
@@ -94,7 +96,12 @@ export function buildSynthesisPrompt(signals: {
     ? `This is a PODDIT NOW episode — an on-demand briefing. Frame the intro as direct and energetic. Don't reference "this week" — this is right now, built from the ${signals.length} signals in the queue. Keep it natural, like jumping straight into a conversation.`
     : `This is a weekly Poddit episode — the user's regular weekly briefing. Frame the intro with the week's feel, like "It's been a full week" or "Here's what your week added up to." Reference the time period naturally.`;
 
-  let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}\n\n`;
+  // Personalization
+  const nameContext = userName
+    ? `\nThe listener's name is ${userName}. You may use their name naturally in the intro (e.g., "Hey ${userName}") — but don't force it. Use it once, at most, and only if it sounds natural.`
+    : '';
+
+  let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}${nameContext}\n\n`;
 
   // ── LINKS ──
   if (linkSignals.length > 0) {
@@ -128,9 +135,17 @@ export function buildSynthesisPrompt(signals: {
     prompt += `\n`;
   }
 
+  // ── LENGTH TARGETS ──
+  const lengthTargets: Record<string, string> = {
+    short: '5-8 minutes of spoken audio (roughly 750-1200 words of script)',
+    medium: '10-15 minutes of spoken audio (roughly 1500-2500 words of script)',
+    long: '15-25 minutes of spoken audio (roughly 2000-3500 words of script)',
+  };
+  const targetLength = lengthTargets[episodeLength] || lengthTargets.medium;
+
   // ── INSTRUCTIONS ──
   prompt += `## EPISODE GUIDELINES
-- Target length: 15-25 minutes of spoken audio (roughly 2000-3500 words of script)
+- Target length: ${targetLength}
 - Group related signals into coherent segments (3-6 segments typical)
 - For link-based topics: discuss the TOPIC using multiple perspectives and 2-3+ sources, not just the specific article
 - For voice-captured topics: research and discuss as an analyst would, citing relevant sources

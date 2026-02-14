@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireDashboard } from '@/lib/auth';
+import { requireSession } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
 // GET /api/signals
-// View captured signals (queue)
+// View captured signals for the current user
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // Auth: dashboard-only endpoint
-  const authError = requireDashboard(request);
-  if (authError) return authError;
+  const sessionResult = await requireSession();
+  if (sessionResult instanceof NextResponse) return sessionResult;
+  const { userId } = sessionResult;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const limit = parseInt(searchParams.get('limit') || '50');
 
-  const where: any = {};
+  const where: any = { userId };
   if (status) {
-    // Support comma-separated statuses: ?status=queued,enriched
     const statuses = status.split(',').map(s => s.trim().toUpperCase());
     where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
   }
@@ -43,6 +42,7 @@ export async function GET(request: NextRequest) {
 
   const counts = await prisma.signal.groupBy({
     by: ['status'],
+    where: { userId },
     _count: true,
   });
 
@@ -51,13 +51,13 @@ export async function GET(request: NextRequest) {
 
 // ──────────────────────────────────────────────
 // DELETE /api/signals
-// Remove a signal from the queue
+// Remove a signal from the queue (verify ownership)
 // ──────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
-  // Auth: dashboard-only endpoint
-  const authError = requireDashboard(request);
-  if (authError) return authError;
+  const sessionResult = await requireSession();
+  if (sessionResult instanceof NextResponse) return sessionResult;
+  const { userId } = sessionResult;
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -67,12 +67,17 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    // Verify ownership before deleting
+    const signal = await prisma.signal.findFirst({
+      where: { id, userId },
+    });
+    if (!signal) {
+      return NextResponse.json({ error: 'Signal not found' }, { status: 404 });
+    }
+
     await prisma.signal.delete({ where: { id } });
     return NextResponse.json({ status: 'deleted' });
   } catch (error: any) {
-    if (error?.code === 'P2025') {
-      return NextResponse.json({ error: 'Signal not found' }, { status: 404 });
-    }
     console.error('[Signals] Delete error:', error);
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
   }

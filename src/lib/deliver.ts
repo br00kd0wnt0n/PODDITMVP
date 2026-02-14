@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import prisma from './db';
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -14,13 +15,30 @@ export async function notifyEpisodeReady(params: {
   title: string;
   signalCount: number;
   duration?: number;
+  userPhone?: string;
+  userId?: string;
 }) {
   const { episodeId, title, signalCount, duration } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://poddit.com';
   const playerUrl = `${appUrl}/player/${episodeId}`;
 
-  const durationStr = duration 
-    ? `${Math.round(duration / 60)} min` 
+  // Resolve phone number: explicit param > look up by userId > env fallback
+  let phone = params.userPhone;
+  if (!phone && params.userId) {
+    const user = await prisma.user.findUnique({ where: { id: params.userId } });
+    phone = user?.phone || undefined;
+  }
+  if (!phone) {
+    phone = process.env.USER_PHONE_NUMBER;
+  }
+
+  if (!phone) {
+    console.log(`[Deliver] No phone number for episode ${episodeId} — skipping SMS`);
+    return;
+  }
+
+  const durationStr = duration
+    ? `${Math.round(duration / 60)} min`
     : '';
 
   const message = `🎧 Your Poddit is ready!\n\n"${title}"\n${signalCount} signals → ${durationStr}\n\n${playerUrl}`;
@@ -29,9 +47,9 @@ export async function notifyEpisodeReady(params: {
     await client.messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER,
-      to: process.env.USER_PHONE_NUMBER || '',
+      to: phone,
     });
-    console.log(`[Deliver] SMS sent for episode ${episodeId}`);
+    console.log(`[Deliver] SMS sent for episode ${episodeId} to ${phone}`);
   } catch (error) {
     console.error('[Deliver] SMS failed:', error);
   }

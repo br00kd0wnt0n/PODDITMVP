@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 
 const STATUS_PHRASES = [
@@ -42,6 +43,8 @@ interface Signal {
 function Dashboard() {
   const searchParams = useSearchParams();
   const shared = searchParams.get('shared');
+  const { data: session } = useSession();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Data state
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -93,10 +96,9 @@ function Dashboard() {
 
   const refreshData = async () => {
     try {
-      const headers = { 'x-poddit-dashboard': 'true' };
       const [eps, sigs] = await Promise.all([
-        fetch('/api/episodes', { headers }).then(r => r.json()),
-        fetch('/api/signals?status=queued,enriched,pending&limit=20', { headers }).then(r => r.json()),
+        fetch('/api/episodes').then(r => r.json()),
+        fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
       ]);
       setEpisodes(Array.isArray(eps) ? eps : []);
       const signalList = sigs.signals || [];
@@ -150,7 +152,6 @@ function Dashboard() {
     try {
       const res = await fetch(`/api/signals?id=${id}`, {
         method: 'DELETE',
-        headers: { 'x-poddit-dashboard': 'true' },
       });
       if (res.ok) {
         setSignals((prev) => prev.filter((s) => s.id !== id));
@@ -217,7 +218,7 @@ function Dashboard() {
     try {
       const res = await fetch('/api/generate-now', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-poddit-dashboard': 'true' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signalIds: Array.from(selectedIds) }),
       });
 
@@ -252,7 +253,7 @@ function Dashboard() {
     try {
       const res = await fetch('/api/capture/quick', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-poddit-dashboard': 'true' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
 
@@ -347,7 +348,6 @@ function Dashboard() {
 
       const res = await fetch('/api/capture/quick', {
         method: 'POST',
-        headers: { 'x-poddit-dashboard': 'true' },
         body: formData,
       });
 
@@ -372,18 +372,66 @@ function Dashboard() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <Image
-          src="/logo.png"
-          alt="Poddit"
-          width={44}
-          height={44}
-          className="rounded-lg"
-        />
-        <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
-          <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Poddit"
+            width={44}
+            height={44}
+            className="rounded-lg"
+          />
+          <div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
+            <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
+          </div>
         </div>
+
+        {/* User menu */}
+        {session?.user && (
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(prev => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/60
+                         hover:border-stone-700 hover:bg-poddit-900/60 transition-all text-sm"
+            >
+              <div className="w-7 h-7 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 text-xs font-bold">
+                {(session.user.name || session.user.email || '?')[0].toUpperCase()}
+              </div>
+              <span className="text-stone-400 hidden sm:inline max-w-[120px] truncate">
+                {session.user.name || session.user.email}
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2" className="text-stone-600">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-poddit-900 border border-stone-800
+                                rounded-xl shadow-lg overflow-hidden">
+                  <div className="px-3 py-2 border-b border-stone-800/60">
+                    <p className="text-xs text-stone-500 truncate">{session.user.email}</p>
+                  </div>
+                  <a
+                    href="/settings"
+                    className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
+                  >
+                    Settings
+                  </a>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+                    className="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-poddit-800 hover:text-red-400 transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Send Signals Module ── */}

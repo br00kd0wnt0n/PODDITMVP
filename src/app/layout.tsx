@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Providers from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="min-h-screen bg-poddit-950 antialiased text-poddit-100">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

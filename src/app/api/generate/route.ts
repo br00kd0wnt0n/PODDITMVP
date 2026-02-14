@@ -17,14 +17,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    
+
     // Optional: specify how far back to look (default: 7 days)
     const daysBack = body.daysBack || 7;
     const since = new Date();
     since.setDate(since.getDate() - daysBack);
 
+    // userId is required — pass it from the request body or use 'default' for backward compat
+    const userId = body.userId || 'default';
+
     // Generate the episode
     const episodeId = await generateEpisode({
+      userId,
       since,
       manual: true,
     });

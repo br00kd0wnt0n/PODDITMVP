@@ -50,9 +50,7 @@ export default function PlayerPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/episodes?id=${params.id}`, {
-      headers: { 'x-poddit-dashboard': 'true' },
-    })
+    fetch(`/api/episodes?id=${params.id}`)
       .then(r => r.json())
       .then(data => {
         setEpisode(data);

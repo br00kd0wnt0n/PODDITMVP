@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
+import { requireSession } from '@/lib/auth';
 
 // ──────────────────────────────────────────────
 // POST /api/capture/share
@@ -9,8 +10,13 @@ import { createSignal } from '@/lib/capture';
 
 export async function POST(request: NextRequest) {
   try {
+    // Session auth — user must be logged in
+    const session = await requireSession();
+    if (session instanceof NextResponse) return session;
+    const { userId } = session;
+
     const contentType = request.headers.get('content-type') || '';
-    
+
     let rawContent = '';
     let title = '';
 
@@ -20,7 +26,7 @@ export async function POST(request: NextRequest) {
       title = (formData.get('title') as string) || '';
       const text = (formData.get('text') as string) || '';
       const url = (formData.get('url') as string) || '';
-      
+
       // Mobile share sheets often put the URL in the 'text' field
       rawContent = url || text || title;
     } else {
@@ -38,9 +44,10 @@ export async function POST(request: NextRequest) {
     const signals = await createSignal({
       rawContent,
       channel: 'SHARE_SHEET',
+      userId,
     });
 
-    console.log(`[Share] Captured: ${rawContent.slice(0, 80)}`);
+    console.log(`[Share] Captured for ${userId}: ${rawContent.slice(0, 80)}`);
 
     // Redirect to confirmation page
     return NextResponse.redirect(
@@ -55,6 +62,11 @@ export async function POST(request: NextRequest) {
 
 // Also handle GET for share targets that use GET method
 export async function GET(request: NextRequest) {
+  // Session auth — user must be logged in
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+  const { userId } = session;
+
   const { searchParams } = new URL(request.url);
   const text = searchParams.get('text') || '';
   const url = searchParams.get('url') || '';
@@ -69,6 +81,7 @@ export async function GET(request: NextRequest) {
   await createSignal({
     rawContent,
     channel: 'SHARE_SHEET',
+    userId,
   });
 
   return NextResponse.redirect(
