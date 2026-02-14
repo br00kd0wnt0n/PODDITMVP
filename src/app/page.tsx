@@ -89,6 +89,28 @@ function Dashboard() {
   // Welcome banner state
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
 
+  // Welcome overlay (first-load only, persisted in localStorage)
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
+  const [welcomeOverlayExiting, setWelcomeOverlayExiting] = useState(false);
+
+  useEffect(() => {
+    if (status === 'authenticated' && !loading) {
+      const seen = localStorage.getItem('poddit-welcome-seen');
+      if (!seen) {
+        setShowWelcomeOverlay(true);
+      }
+    }
+  }, [status, loading]);
+
+  const dismissWelcomeOverlay = () => {
+    setWelcomeOverlayExiting(true);
+    setTimeout(() => {
+      setShowWelcomeOverlay(false);
+      setWelcomeOverlayExiting(false);
+      localStorage.setItem('poddit-welcome-seen', '1');
+    }, 250);
+  };
+
   // Feedback state
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -524,6 +546,98 @@ function Dashboard() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
+
+      {/* ── Welcome Overlay (first load) ── */}
+      {showWelcomeOverlay && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center px-4
+                         ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
+
+          {/* Modal */}
+          <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
+                           overflow-hidden ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
+            {/* Gradient accent bar */}
+            <div className="h-1 bg-gradient-to-r from-teal-500 via-violet-400 to-amber-400" />
+
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+                  <video
+                    src="/logo_loop.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-white font-display">Welcome to Poddit!</h2>
+                  <p className="text-xs text-stone-500">Early Access Preview</p>
+                </div>
+              </div>
+
+              {/* Steps */}
+              <div className="space-y-3 mb-5">
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/15 text-teal-400 text-[11px] font-bold flex items-center justify-center mt-0.5">1</span>
+                  <div>
+                    <p className="text-sm font-medium text-white">Capture signals</p>
+                    <p className="text-xs text-stone-500 mt-0.5">Save links, topics, or voice notes — via text, the input bar, or the share sheet.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-400/15 text-violet-400 text-[11px] font-bold flex items-center justify-center mt-0.5">2</span>
+                  <div>
+                    <p className="text-sm font-medium text-white">Generate an episode</p>
+                    <p className="text-xs text-stone-500 mt-0.5">Hit <span className="text-teal-400 font-medium">Poddit Now</span> anytime, or wait for your automated Friday roundup.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
+                  <div>
+                    <p className="text-sm font-medium text-white">Listen &amp; learn</p>
+                    <p className="text-xs text-stone-500 mt-0.5">Get a personalized audio episode that researches and explains everything you saved.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-stone-800/60 my-4" />
+
+              {/* Feedback callout */}
+              <div className="flex items-start gap-3 p-3 bg-amber-500/[0.05] border border-amber-500/10 rounded-xl">
+                <div className="w-5 h-5 rounded-full bg-amber-400/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                       className="text-amber-400">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-300/90">Your feedback shapes Poddit</p>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    As an early tester, your input is invaluable. Use the <span className="text-amber-300/70">feedback section</span> at the
+                    bottom of the page to report bugs, share ideas, or tell us what you think — text or voice.
+                  </p>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <button
+                onClick={dismissWelcomeOverlay}
+                className="w-full mt-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                           hover:bg-teal-400 transition-colors shadow-[0_0_16px_rgba(20,184,166,0.15)]"
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">

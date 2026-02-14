@@ -133,3 +133,40 @@ input[type="checkbox"] {
 .page-enter {
   animation: page-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Welcome overlay */
+@keyframes overlay-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes modal-enter {
+  0% { opacity: 0; transform: scale(0.95) translateY(12px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modal-exit {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.97) translateY(8px); }
+}
+
+@keyframes overlay-fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.overlay-enter {
+  animation: overlay-fade-in 0.3s ease-out forwards;
+}
+
+.modal-enter {
+  animation: modal-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.overlay-exit {
+  animation: overlay-fade-out 0.25s ease-in forwards;
+}
+
+.modal-exit {
+  animation: modal-exit 0.25s ease-in forwards;
+}
