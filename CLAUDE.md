@@ -157,17 +157,25 @@ curl -X POST http://localhost:3000/api/generate \
 ### Sprint: Brand & Design Polish ✅
 - [x] **Glass P logo** — replaced across app, PWA icons, extension icons from logo2.png source
 - [x] **Animated logo loop** — logo_loop.mp4 in dashboard header (curved square mask)
-- [x] **Ambient background glow** — warm amber/teal + violet radial gradients (body::before/::after)
-- [x] **Sign-in page bokeh** — blurred orbs + horizontal lens flare streak behind login card
+- [x] **Ambient background glow** — drifting bokeh orbs (5 unique CSS keyframes, 45-65s cycles, GPU-composited)
+- [x] **Sign-in page hero** — large centered logo loop + title lockup, prominent bokeh + lens flare streaks
 - [x] **Segment header glow** — warm teal/amber box-shadow on active segment tab in player
 - [x] **Direct input card** — updated to "Type or speak below" with pencil + mic icons
 - [x] **Chrome extension card** — "Coming soon" toast instead of GitHub link
+
+### Sprint: Dashboard Animation & Transitions ✅
+- [x] **Send Signals panel** — inner glow orbs (teal/amber) + fade-in-up entrance animation
+- [x] **How It Works** — staggered entrances (teal→violet→amber), hover gradients, glowing number badges
+- [x] **Sign-in → Dashboard transition** — page fade-out with blur on auth success, page-enter fade-in on dashboard
+- [x] **Client-side auth guard** — useSession status check + redirect + skeleton loader (prevents dashboard flash)
 
 ### Upcoming
 - [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
 - [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them
 - [ ] **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
 - [ ] **Interest emphasis** — weight certain topics higher in synthesis
+- [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
+- [ ] **Settings page design pass** — visual refresh for settings/preferences page
 
 ### Backlog
 - [ ] Add error handling for TTS failures (fallback to text-only episode)
@@ -183,6 +191,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Episode analytics (which segments get replayed)
 - [ ] Service worker for PWA offline support
 - [ ] Audio player ARIA attributes for accessibility
+- [ ] Monolithic page.tsx refactor (870+ lines → extract components)
 - [ ] Native iOS app (React Native or Swift)
 
 ## Environment Variables
