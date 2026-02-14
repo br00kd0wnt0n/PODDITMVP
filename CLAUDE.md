@@ -147,13 +147,24 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] Exported getLastWeekStart from synthesize.ts, removed duplicate from cron
 - [x] Added AUTH_SECRET + ACCESS_CODE to .env.example
 
-### Sprint: Generation UX ("theatre")
+### Sprint: Generation UX ("theatre") ✅
 - [x] **Rotating status phrases** — cycle through phrases during generation
 - [x] **Progress bar in button** — loading bar within Poddit Now button
-- [ ] **Signal roll-up animation** — when Poddit Now is pressed, animate signals visually collapsing into the button
-- [ ] **Episode entrance animation** — new episode appears with a smooth reveal animation
+- [x] **Signal roll-up animation** — per-signal staggered collapse with shrink/fade/translate
+- [x] **Episode entrance animation** — blur-in + scale reveal for new episodes
+- [x] **Glow pulse on generate button** — subtle breathing teal glow during generation
+
+### Sprint: Brand & Design Polish ✅
+- [x] **Glass P logo** — replaced across app, PWA icons, extension icons from logo2.png source
+- [x] **Animated logo loop** — logo_loop.mp4 in dashboard header (curved square mask)
+- [x] **Ambient background glow** — warm amber/teal + violet radial gradients (body::before/::after)
+- [x] **Sign-in page bokeh** — blurred orbs + horizontal lens flare streak behind login card
+- [x] **Segment header glow** — warm teal/amber box-shadow on active segment tab in player
+- [x] **Direct input card** — updated to "Type or speak below" with pencil + mic icons
+- [x] **Chrome extension card** — "Coming soon" toast instead of GitHub link
 
 ### Upcoming
+- [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
 - [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them
 - [ ] **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
 - [ ] **Interest emphasis** — weight certain topics higher in synthesis

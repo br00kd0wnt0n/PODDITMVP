@@ -460,8 +460,8 @@ function Dashboard() {
           </a>
 
           {/* Chrome Extension */}
-          <a href="https://github.com/br00kd0wnt0n/PODDITMVP/tree/main/extension"
-             target="_blank" rel="noopener noreferrer"
+          <button
+             onClick={() => { setInputSuccess('Chrome extension coming soon!'); setTimeout(() => setInputSuccess(null), 3000); }}
              className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50
                         hover:border-violet-400/30 hover:bg-violet-400/5 transition-all group text-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -475,9 +475,9 @@ function Dashboard() {
             </svg>
             <div>
               <p className="text-xs font-medium text-white group-hover:text-violet-300 transition-colors">Chrome</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">Browser extension</p>
+              <p className="text-[10px] text-stone-500 mt-0.5">Coming soon</p>
             </div>
-          </a>
+          </button>
 
           {/* App Share */}
           <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50 text-center">
