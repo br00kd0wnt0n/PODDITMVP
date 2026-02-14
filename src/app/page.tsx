@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const STATUS_PHRASES = [
   'Connecting the dots...',
@@ -415,12 +416,12 @@ function Dashboard() {
                   <div className="px-3 py-2 border-b border-stone-800/60">
                     <p className="text-xs text-stone-500 truncate">{session.user.email}</p>
                   </div>
-                  <a
+                  <Link
                     href="/settings"
                     className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
                   >
                     Settings
-                  </a>
+                  </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/auth/signin' })}
                     className="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-poddit-800 hover:text-red-400 transition-colors"
@@ -779,7 +780,7 @@ function Dashboard() {
           ) : (
             <div className="space-y-3">
               {episodes.map((ep) => (
-                <a
+                <Link
                   key={ep.id}
                   href={`/player/${ep.id}`}
                   className={`block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
@@ -806,7 +807,7 @@ function Dashboard() {
                       </>
                     )}
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           )}

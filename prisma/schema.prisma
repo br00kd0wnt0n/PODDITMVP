@@ -71,8 +71,8 @@ model VerificationToken {
 // ──────────────────────────────────────────
 model Signal {
   id        String       @id @default(uuid())
-  userId    String       @default("default")
-  user      User         @relation(fields: [userId], references: [id])
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // What came in
   inputType  InputType
@@ -92,13 +92,14 @@ model Signal {
 
   // Organisation
   episodeId String?
-  episode   Episode?     @relation(fields: [episodeId], references: [id])
+  episode   Episode?     @relation(fields: [episodeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
   @@index([userId, status])
   @@index([userId, createdAt])
+  @@index([episodeId])
 }
 
 enum InputType {
@@ -131,8 +132,8 @@ enum SignalStatus {
 // ──────────────────────────────────────────
 model Episode {
   id          String        @id @default(uuid())
-  userId      String        @default("default")
-  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Content
   title         String?
@@ -149,7 +150,7 @@ model Episode {
 
   // Generation
   status      EpisodeStatus @default(PENDING)
-  generatedAt DateTime?     @default(now())
+  generatedAt DateTime?
   error       String?
 
   // Relations
@@ -161,6 +162,8 @@ model Episode {
   updatedAt   DateTime      @updatedAt
 
   @@index([userId, createdAt])
+  @@index([userId, generatedAt])
+  @@index([status])
 }
 
 enum EpisodeStatus {

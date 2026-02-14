@@ -23,16 +23,17 @@ export async function POST(request: NextRequest) {
     const emailMatch = from?.match(/<([^>]+)>/) || [null, from?.trim()];
     const senderEmail = emailMatch[1]?.toLowerCase();
 
-    // Look up user by email
-    let userId = 'default';
-    if (senderEmail) {
-      const user = await prisma.user.findFirst({ where: { email: senderEmail } });
-      if (user) {
-        userId = user.id;
-      } else {
-        console.log(`[Email] Unknown sender: ${senderEmail} — using default user`);
-      }
+    // Look up user by email — reject unknown senders
+    if (!senderEmail) {
+      console.log('[Email] No sender email found');
+      return NextResponse.json({ status: 'ignored', reason: 'no sender email' }, { status: 200 });
     }
+    const user = await prisma.user.findUnique({ where: { email: senderEmail } });
+    if (!user) {
+      console.log(`[Email] Unknown sender: ${senderEmail} — ignoring`);
+      return NextResponse.json({ status: 'ignored', reason: 'unknown sender' }, { status: 200 });
+    }
+    const userId = user.id;
 
     // Combine subject and body for signal content
     const rawContent = [

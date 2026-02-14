@@ -41,6 +41,32 @@ const MUSIC_VOLUME = 0.14;
 const INTRO_LEAD_IN = 4;
 
 // ──────────────────────────────────────────────
+// RETRY HELPER
+// ──────────────────────────────────────────────
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  { attempts = 3, delayMs = 1000, label = 'operation' }: { attempts?: number; delayMs?: number; label?: string } = {}
+): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isLast = i === attempts - 1;
+      const status = error?.status || error?.statusCode;
+      const isRetryable = !status || status === 429 || status >= 500;
+
+      if (isLast || !isRetryable) throw error;
+
+      const wait = delayMs * Math.pow(2, i);
+      console.log(`[TTS] ${label} failed (attempt ${i + 1}/${attempts}), retrying in ${wait}ms...`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+  throw new Error(`${label} failed after ${attempts} attempts`);
+}
+
+// ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
 // ──────────────────────────────────────────────
 
@@ -62,34 +88,39 @@ export async function generateAudio(
   for (let i = 0; i < chunks.length; i++) {
     console.log(`[TTS] Processing chunk ${i + 1}/${chunks.length}`);
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'xi-api-key': process.env.ELEVENLABS_API_KEY || '',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: chunks[i],
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.3,
-            use_speaker_boost: true,
+    const audioBuffer = await withRetry(async () => {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY || '',
+            'Content-Type': 'application/json',
           },
-        }),
+          body: JSON.stringify({
+            text: chunks[i],
+            model_id: 'eleven_turbo_v2_5',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.3,
+              use_speaker_boost: true,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const err: any = new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+        err.status = response.status;
+        throw err;
       }
-    );
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${error}`);
-    }
+      return Buffer.from(await response.arrayBuffer());
+    }, { label: `TTS chunk ${i + 1}/${chunks.length}`, attempts: 3, delayMs: 2000 });
 
-    const arrayBuffer = await response.arrayBuffer();
-    audioBuffers.push(Buffer.from(arrayBuffer));
+    audioBuffers.push(audioBuffer);
   }
 
   // Concatenate audio chunks (simple concatenation works for MP3)
@@ -104,16 +135,19 @@ export async function generateAudio(
   const estimatedDuration = Math.round((estimatedWords / 150) * 60);
   const duration = actualDuration || estimatedDuration;
 
-  // Upload to S3/R2
+  // Upload to S3/R2 (with retry)
   const key = `episodes/${episodeId}.mp3`;
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET || 'poddit-audio',
-      Key: key,
-      Body: fullAudio,
-      ContentType: 'audio/mpeg',
-    })
+  await withRetry(
+    () => s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET || 'poddit-audio',
+        Key: key,
+        Body: fullAudio,
+        ContentType: 'audio/mpeg',
+      })
+    ),
+    { label: 'S3 upload', attempts: 3, delayMs: 2000 }
   );
 
   const audioUrl = `${process.env.S3_PUBLIC_URL}/${key}`;
@@ -202,10 +236,13 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     }
 
     // Mix all inputs together — duration=longest so the intro lead-in is preserved
+    // Use weights to prevent amix from dividing narration volume by input count:
+    // narration gets weight 1, music tracks get lower weights
     const mixCount = mixInputs.length;
+    const weights = ['1', ...Array(mixCount - 1).fill('0.3')].join(' ');
     const filterComplex = [
       ...filterParts,
-      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=longest:dropout_transition=2[out]`
+      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=longest:dropout_transition=2:weights=${weights},volume=${mixCount}[out]`
     ].join(';');
 
     const ffmpegArgs: string[] = [

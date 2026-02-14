@@ -7,6 +7,29 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// Retry helper with exponential backoff for transient API failures
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  { attempts = 3, delayMs = 1000, label = 'operation' }: { attempts?: number; delayMs?: number; label?: string } = {}
+): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isLast = i === attempts - 1;
+      const status = error?.status || error?.statusCode;
+      const isRetryable = !status || status === 429 || status >= 500;
+
+      if (isLast || !isRetryable) throw error;
+
+      const wait = delayMs * Math.pow(2, i);
+      console.log(`[Poddit] ${label} failed (attempt ${i + 1}/${attempts}), retrying in ${wait}ms...`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+  throw new Error(`${label} failed after ${attempts} attempts`);
+}
+
 // ──────────────────────────────────────────────
 // EPISODE GENERATION
 // ──────────────────────────────────────────────
@@ -47,44 +70,47 @@ export async function generateEpisode(params: {
   const userName = user?.name || undefined;
   const episodeLength = preferences.episodeLength || undefined;
 
-  // 1. Gather signals — by IDs if provided, otherwise by date range
-  const signals = params.signalIds && params.signalIds.length > 0
-    ? await prisma.signal.findMany({
-        where: {
-          id: { in: params.signalIds },
-          userId,
-          status: { in: ['QUEUED', 'ENRICHED'] },
-        },
-        orderBy: { createdAt: 'asc' },
-      })
-    : await prisma.signal.findMany({
-        where: {
-          userId,
-          status: { in: ['QUEUED', 'ENRICHED'] },
-          createdAt: { gte: since },
-        },
-        orderBy: { createdAt: 'asc' },
-      });
+  // 1. Gather signals and lock them atomically in a transaction
+  //    This prevents duplicate episodes from concurrent generate requests.
+  const statusFilter: ('QUEUED' | 'ENRICHED')[] = ['QUEUED', 'ENRICHED'];
 
-  if (signals.length === 0) {
-    console.log('[Poddit] No signals to process');
-    throw new Error('No signals captured this period. Send some links or topics first!');
-  }
+  const { signals, episode } = await prisma.$transaction(async (tx) => {
+    const foundSignals = params.signalIds && params.signalIds.length > 0
+      ? await tx.signal.findMany({
+          where: { id: { in: params.signalIds }, userId, status: { in: statusFilter } },
+          orderBy: { createdAt: 'asc' },
+        })
+      : await tx.signal.findMany({
+          where: { userId, status: { in: statusFilter }, createdAt: { gte: since } },
+          orderBy: { createdAt: 'asc' },
+        });
 
-  console.log(`[Poddit] Processing ${signals.length} signals`);
+    if (foundSignals.length === 0) {
+      throw new Error('No signals captured this period. Send some links or topics first!');
+    }
 
-  // 2. Create the episode record
-  const episode = await prisma.episode.create({
-    data: {
-      userId,
-      title: `Generating...`,
-      script: '',
-      periodStart: since,
-      periodEnd: new Date(),
-      signalCount: signals.length,
-      status: 'GENERATING',
-    },
+    // Immediately mark signals as USED to prevent double-consumption
+    const ep = await tx.episode.create({
+      data: {
+        userId,
+        title: `Generating...`,
+        script: '',
+        periodStart: since,
+        periodEnd: new Date(),
+        signalCount: foundSignals.length,
+        status: 'GENERATING',
+      },
+    });
+
+    await tx.signal.updateMany({
+      where: { id: { in: foundSignals.map(s => s.id) } },
+      data: { status: 'USED', episodeId: ep.id },
+    });
+
+    return { signals: foundSignals, episode: ep };
   });
+
+  console.log(`[Poddit] Processing ${signals.length} signals (locked to episode ${episode.id})`);
 
   try {
     // 3. Build the synthesis prompt (pass user prefs for personalization)
@@ -101,28 +127,49 @@ export async function generateEpisode(params: {
       { manual: params.manual, userName, episodeLength }
     );
 
-    // 4. Call Claude for synthesis
+    // 4. Call Claude for synthesis (with retry for transient failures)
     console.log('[Poddit] Calling Claude for synthesis...');
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: synthesisPrompt }],
-    });
+    const response = await withRetry(
+      () => anthropic.messages.create({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 12000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: synthesisPrompt }],
+      }),
+      { label: 'Claude synthesis', attempts: 2, delayMs: 3000 }
+    );
 
-    // 5. Parse the response
+    // 5. Check for truncation
+    if (response.stop_reason === 'max_tokens') {
+      console.error('[Poddit] Claude response was truncated (hit max_tokens)');
+      throw new Error('Synthesis was truncated — response exceeded token limit. Try fewer signals or shorter episode length.');
+    }
+
+    // 6. Parse the response
     const textContent = response.content.find(c => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
       throw new Error('No text response from Claude');
     }
 
     // Extract JSON from response (handle potential markdown wrapping)
-    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+    const jsonText = textContent.text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Could not extract JSON from response');
     }
 
-    const episodeData: EpisodeData = JSON.parse(jsonMatch[0]);
+    let episodeData: EpisodeData;
+    try {
+      episodeData = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error('[Poddit] JSON parse failed. Raw text:', textContent.text.slice(0, 500));
+      throw new Error('Failed to parse Claude response as JSON');
+    }
+
+    // Basic schema validation
+    if (!episodeData.title || !Array.isArray(episodeData.segments) || episodeData.segments.length === 0) {
+      throw new Error('Claude response missing required fields (title, segments)');
+    }
 
     // 6. Build the full script for TTS
     const fullScript = buildFullScript(episodeData);
@@ -152,11 +199,7 @@ export async function generateEpisode(params: {
       },
     });
 
-    // 9. Mark signals as included
-    await prisma.signal.updateMany({
-      where: { id: { in: signals.map(s => s.id) } },
-      data: { status: 'USED', episodeId: episode.id },
-    });
+    // 9. (signals already marked USED in the transaction above)
 
     // 10. Generate audio (pass user's voice preference)
     console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
@@ -170,6 +213,7 @@ export async function generateEpisode(params: {
         audioDuration: duration,
         voiceKey: voiceKey || 'gandalf',
         status: 'READY',
+        generatedAt: new Date(),
       },
     });
 
@@ -179,10 +223,17 @@ export async function generateEpisode(params: {
   } catch (error) {
     console.error('[Poddit] Generation failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    await prisma.episode.update({
-      where: { id: episode.id },
-      data: { status: 'FAILED', error: errorMessage },
-    });
+    // Mark episode as failed and release signals back to QUEUED so user can retry
+    await prisma.$transaction([
+      prisma.episode.update({
+        where: { id: episode.id },
+        data: { status: 'FAILED', error: errorMessage },
+      }),
+      prisma.signal.updateMany({
+        where: { episodeId: episode.id },
+        data: { status: 'QUEUED', episodeId: null },
+      }),
+    ]);
     throw error;
   }
 }
@@ -217,7 +268,7 @@ function buildFullScript(data: EpisodeData): string {
   return parts.join('\n\n');
 }
 
-function getLastWeekStart(): Date {
+export function getLastWeekStart(): Date {
   const now = new Date();
   const lastWeek = new Date(now);
   lastWeek.setDate(lastWeek.getDate() - 7);

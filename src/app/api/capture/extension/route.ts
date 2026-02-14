@@ -34,16 +34,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { url, title, text, selectedText, userId } = body;
 
-    // Resolve userId — if provided, validate it exists; otherwise fall back to 'default'
-    let resolvedUserId = 'default';
-    if (userId) {
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (user) {
-        resolvedUserId = user.id;
-      } else {
-        return NextResponse.json({ error: 'User not found' }, { status: 404, headers: corsHeaders });
-      }
+    // Resolve userId — must be provided and valid (no 'default' fallback)
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400, headers: corsHeaders });
     }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404, headers: corsHeaders });
+    }
+    const resolvedUserId = user.id;
 
     // Build raw content from what the extension sends
     let rawContent = '';

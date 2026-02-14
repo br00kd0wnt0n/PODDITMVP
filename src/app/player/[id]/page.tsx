@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface Source {
   name: string;
@@ -123,67 +124,71 @@ export default function PlayerPage() {
     }
   }, [trackProgress]);
 
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+  // Unified coordinate extraction for mouse and touch events
+  const getClientX = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent): number => {
+    if ('touches' in e) return e.touches[0]?.clientX ?? (e as TouchEvent).changedTouches[0]?.clientX ?? 0;
+    return (e as MouseEvent).clientX;
+  };
+
+  const handleSeek = useCallback((e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
     const audio = audioRef.current;
     const bar = progressBarRef.current;
     if (!audio || !bar || !duration) return;
 
     const rect = bar.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const x = Math.max(0, Math.min(getClientX(e) - rect.left, rect.width));
     const pct = x / rect.width;
     const newTime = pct * duration;
     audio.currentTime = newTime;
     setCurrentTime(newTime);
   }, [duration]);
 
-  const handleProgressMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleProgressPointerDown = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     setIsSeeking(true);
     handleSeek(e);
 
-    const onMove = (ev: MouseEvent) => handleSeek(ev);
+    const onMove = (ev: MouseEvent | TouchEvent) => handleSeek(ev);
     const onUp = () => {
       setIsSeeking(false);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
   }, [handleSeek]);
 
-  const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current;
-    const bar = volumeBarRef.current;
-    if (!audio || !bar) return;
-
-    const rect = bar.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const newVol = x / rect.width;
-    audio.volume = newVol;
-    setVolume(newVol);
-  }, []);
-
-  const handleVolumeMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    handleVolumeChange(e);
-
-    const onMove = (ev: MouseEvent) => {
+  const handleVolumePointerDown = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    const applyVolume = (ev: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
       const audio = audioRef.current;
       const bar = volumeBarRef.current;
       if (!audio || !bar) return;
       const rect = bar.getBoundingClientRect();
-      const x = Math.max(0, Math.min(ev.clientX - rect.left, rect.width));
+      const x = Math.max(0, Math.min(getClientX(ev) - rect.left, rect.width));
       const newVol = x / rect.width;
       audio.volume = newVol;
       setVolume(newVol);
     };
+
+    applyVolume(e);
+
+    const onMove = (ev: MouseEvent | TouchEvent) => applyVolume(ev);
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [handleVolumeChange]);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }, []);
 
   const skipBack = useCallback(() => {
     const audio = audioRef.current;
@@ -217,7 +222,7 @@ export default function PlayerPage() {
     return (
       <main className="max-w-2xl mx-auto px-4 py-8">
         <p className="text-poddit-400">Episode not found.</p>
-        <a href="/" className="text-white hover:underline mt-2 inline-block">&larr; Back</a>
+        <Link href="/" className="text-white hover:underline mt-2 inline-block">&larr; Back</Link>
       </main>
     );
   }
@@ -231,10 +236,10 @@ export default function PlayerPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       {/* Back link */}
-      <a href="/" className="text-sm text-poddit-500 hover:text-white mb-6 inline-flex items-center gap-2 transition-colors">
+      <Link href="/" className="text-sm text-poddit-500 hover:text-white mb-6 inline-flex items-center gap-2 transition-colors">
         <Image src="/logo.png" alt="Poddit" width={20} height={20} className="rounded" />
         &larr; All episodes
-      </a>
+      </Link>
 
       {/* Episode header */}
       <header className="mb-8">
@@ -335,8 +340,9 @@ export default function PlayerPage() {
             {/* Progress bar */}
             <div
               ref={progressBarRef}
-              onMouseDown={handleProgressMouseDown}
-              className="flex-1 h-8 flex items-center cursor-pointer group"
+              onMouseDown={handleProgressPointerDown}
+              onTouchStart={handleProgressPointerDown}
+              className="flex-1 h-8 flex items-center cursor-pointer group touch-none"
             >
               <div className="w-full h-1.5 bg-stone-800 rounded-full relative overflow-hidden">
                 {/* Played portion */}
@@ -382,8 +388,9 @@ export default function PlayerPage() {
               </button>
               <div
                 ref={volumeBarRef}
-                onMouseDown={handleVolumeMouseDown}
-                className="w-16 h-6 flex items-center cursor-pointer group"
+                onMouseDown={handleVolumePointerDown}
+                onTouchStart={handleVolumePointerDown}
+                className="w-16 h-6 flex items-center cursor-pointer group touch-none"
               >
                 <div className="w-full h-1 bg-stone-800 rounded-full relative overflow-hidden">
                   <div

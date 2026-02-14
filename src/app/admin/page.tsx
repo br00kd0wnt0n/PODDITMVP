@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 // ──────────────────────────────────────────────
 // TYPES
@@ -259,9 +260,9 @@ function AdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <a href="/" className="hover:opacity-80 transition-opacity">
+          <Link href="/" className="hover:opacity-80 transition-opacity">
             <Image src="/logo.png" alt="Poddit" width={36} height={36} className="rounded-lg" />
-          </a>
+          </Link>
           <div>
             <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">MISSION CONTROL</h1>
             <p className="text-stone-500 text-xs tracking-widest uppercase">Poddit Admin</p>

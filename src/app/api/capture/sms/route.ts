@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     console.log(`[SMS] Received from ${from}: body="${body.slice(0, 100)}" media=${numMedia}`);
 
     // Look up user by phone number
-    const user = await prisma.user.findFirst({ where: { phone: from } });
+    const user = await prisma.user.findUnique({ where: { phone: from } });
     if (!user) {
       console.log(`[SMS] Unknown sender: ${from} — no user with this phone`);
       return twimlResponse('This number isn\'t registered with Poddit. Sign up at poddit.com first.');

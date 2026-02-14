@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface Voice {
   key: string;
@@ -203,13 +204,13 @@ export default function SettingsPage() {
     <main className="max-w-lg mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
-        <a href="/" className="text-stone-500 hover:text-white transition-colors">
+        <Link href="/" className="text-stone-500 hover:text-white transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
-        </a>
+        </Link>
         <Image src="/logo.png" alt="Poddit" width={28} height={28} className="rounded" />
         <h1 className="text-lg font-extrabold text-white font-display">Settings</h1>
       </div>

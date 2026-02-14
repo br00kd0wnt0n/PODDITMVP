@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateEpisode } from '@/lib/synthesize';
+import { generateEpisode, getLastWeekStart } from '@/lib/synthesize';
 import { notifyEpisodeReady } from '@/lib/deliver';
 import prisma from '@/lib/db';
+
+// Allow up to 10 minutes for multi-user generation
+export const maxDuration = 600;
 
 // ──────────────────────────────────────────────
 // GET /api/cron
@@ -98,11 +101,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function getLastWeekStart(): Date {
-  const now = new Date();
-  const lastWeek = new Date(now);
-  lastWeek.setDate(lastWeek.getDate() - 7);
-  return lastWeek;
 }

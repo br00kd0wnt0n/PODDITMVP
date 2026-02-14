@@ -3,6 +3,9 @@ import { generateEpisode } from '@/lib/synthesize';
 import { notifyEpisodeReady } from '@/lib/deliver';
 import prisma from '@/lib/db';
 
+// Allow up to 5 minutes for generation (Claude + TTS + ffmpeg + upload)
+export const maxDuration = 300;
+
 // ──────────────────────────────────────────────
 // POST /api/generate
 // Manual episode generation trigger
@@ -23,8 +26,11 @@ export async function POST(request: NextRequest) {
     const since = new Date();
     since.setDate(since.getDate() - daysBack);
 
-    // userId is required — pass it from the request body or use 'default' for backward compat
-    const userId = body.userId || 'default';
+    // userId is required
+    const userId = body.userId;
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
 
     // Generate the episode
     const episodeId = await generateEpisode({
@@ -45,6 +51,7 @@ export async function POST(request: NextRequest) {
         title: episode.title || 'Your Poddit Episode',
         signalCount: episode.signalCount,
         duration: episode.audioDuration || undefined,
+        userId,
       });
     }
 

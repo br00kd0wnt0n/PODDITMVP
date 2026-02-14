@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function PrivacyPolicy() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-12">
@@ -84,9 +86,9 @@ export default function PrivacyPolicy() {
       </div>
 
       <div className="mt-12 pt-6 border-t border-stone-800/50">
-        <a href="/" className="text-sm text-stone-500 hover:text-stone-300 transition-colors">
+        <Link href="/" className="text-sm text-stone-500 hover:text-stone-300 transition-colors">
           &larr; Back to Poddit
-        </a>
+        </Link>
       </div>
     </main>
   );
