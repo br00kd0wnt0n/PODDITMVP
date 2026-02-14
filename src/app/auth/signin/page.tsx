@@ -38,12 +38,19 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
-      {/* Horizontal lens flare streak — signin-specific */}
-      <div className="absolute top-[38%] left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-500/[0.08] to-transparent" />
+      {/* Extra bokeh for signin — more prominent than global */}
+      <div className="absolute top-[15%] -right-16 w-80 h-80 rounded-full bg-amber-500/[0.06] blur-3xl" />
+      <div className="absolute top-[25%] right-24 w-40 h-40 rounded-full bg-amber-400/[0.08] blur-2xl" />
+      <div className="absolute bottom-[20%] -left-12 w-64 h-64 rounded-full bg-teal-500/[0.05] blur-3xl" />
+      <div className="absolute bottom-[35%] left-16 w-24 h-24 rounded-full bg-amber-300/[0.07] blur-xl" />
+      {/* Horizontal lens flare streak */}
+      <div className="absolute top-[38%] left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/[0.15] to-transparent" />
+      {/* Secondary softer flare */}
+      <div className="absolute top-[38%] left-0 right-0 h-[12px] bg-gradient-to-r from-transparent via-amber-500/[0.04] to-transparent blur-sm" />
 
       {/* Hero lockup: animated logo + title + subtitle */}
       <div className="relative z-10 flex flex-col items-center mb-10">
-        <div className="w-28 h-28 rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.08] mb-6">
+        <div className="w-28 h-28 rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.12] mb-6">
           <video
             src="/logo_loop.mp4"
             autoPlay
