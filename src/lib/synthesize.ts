@@ -85,7 +85,8 @@ export async function generateEpisode(params?: {
         source: s.source,
         fetchedContent: s.fetchedContent,
         topics: s.topics,
-      }))
+      })),
+      { manual: params?.manual }
     );
 
     // 4. Call Claude for synthesis

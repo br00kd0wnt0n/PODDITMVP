@@ -30,10 +30,12 @@ For each segment, draw on 2-3+ sources wherever possible — not just the single
 ## EPISODE STRUCTURE
 
 ### Intro (required)
-Write a short, warm one-liner to open the episode. It should feel natural and varied — never the same twice. Include the date and number of sources/signals naturally. Examples of the tone (don't copy these exactly):
+Write a short, warm one-liner to open the episode. It should feel natural and varied — never the same twice. Include the date and number of sources/signals naturally. The EPISODE CONTEXT section will tell you whether this is a "Poddit Now" (on-demand) or a weekly episode — match the energy and framing accordingly. Examples of weekly tone:
 - "Hey, it's Friday the fourteenth. You dropped five signals this week — let's see what they add up to."
-- "Alright, this one's built from seven things that caught your eye. Let's get into it."
 - "You've been busy. Six signals, some big threads. Here's what's going on."
+Examples of Poddit Now tone:
+- "You hit the button. Let's see what these four signals add up to."
+- "Alright, on-demand mode. Three things on your mind — let's dig in."
 Keep it to 1-2 sentences max. No clichés, no "welcome to your weekly briefing."
 
 ### Segments
@@ -78,13 +80,20 @@ export function buildSynthesisPrompt(signals: {
   source: string | null;
   fetchedContent: string | null;
   topics: string[];
-}[]): string {
+}[], options?: { manual?: boolean }): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
   const emailSignals = signals.filter(s => s.inputType === 'FORWARDED_EMAIL');
 
+  const isManual = options?.manual ?? false;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n`;
+
+  // Context-aware episode framing
+  const episodeType = isManual
+    ? `This is a PODDIT NOW episode — the user pressed the button to get an on-demand briefing right now. Frame the intro as immediate and energetic, like "You hit the button — let's go" or "Alright, you wanted this one now." Don't reference "this week" — this is a now thing, built from ${signals.length} signals the user chose.`
+    : `This is a weekly Poddit episode — the user's regular weekly briefing. Frame the intro with the week's feel, like "It's been a full week" or "Here's what your week added up to." Reference the time period naturally.`;
+
+  let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}\n\n`;
 
   // ── LINKS ──
   if (linkSignals.length > 0) {
