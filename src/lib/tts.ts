@@ -14,10 +14,10 @@ const s3 = new S3Client({
 // ──────────────────────────────────────────────
 
 export const VOICES: Record<string, { id: string; name: string; description: string }> = {
-  gandalf:   { id: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB', name: 'Gandalf',   description: 'Deep, authoritative, warm' },
-  jonathon:  { id: 'PIGsltMj3gFMR34aFDI3', name: 'Jonathon',  description: 'Clear, confident, conversational' },
-  ivanna:    { id: 'yM93hbw8Qtvdma2wCnJG', name: 'Ivanna',    description: 'Smooth, articulate, engaging' },
-  marcus:    { id: '85o4S4rAEvTIDGtpFNUq', name: 'Marcus',    description: 'Calm, analytical, grounded' },
+  gandalf:  { id: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB', name: 'Gandalf', description: 'Deep, low, strong' },
+  jon:      { id: 'PIGsltMj3gFMR34aFDI3', name: 'Jon',     description: 'Trustworthy, calm, confident' },
+  ivy:      { id: 'yM93hbw8Qtvdma2wCnJG', name: 'Ivy',     description: 'Young, confident, dynamic' },
+  marcus:   { id: '85o4S4rAEvTIDGtpFNUq', name: 'Marcus',  description: 'Confident, articulate, British' },
 };
 
 export const DEFAULT_VOICE = 'gandalf';
