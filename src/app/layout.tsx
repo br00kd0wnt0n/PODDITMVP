@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Link from 'next/link';
 import Providers from './providers';
 import './globals.css';
 
@@ -39,8 +40,28 @@ export default function RootLayout({
           <div className="bokeh-orb bokeh-4 absolute bottom-[20%] right-[5%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.02] blur-3xl" />
           <div className="bokeh-orb bokeh-5 absolute top-[60%] left-[40%] w-[20vw] h-[20vw] rounded-full bg-violet-400/[0.02] blur-2xl" />
         </div>
-        <div className="relative z-10">
-          <Providers>{children}</Providers>
+        <div className="relative z-10 flex flex-col min-h-screen">
+          <div className="flex-1">
+            <Providers>{children}</Providers>
+          </div>
+          <footer className="relative z-10 border-t border-stone-800/30 mt-auto">
+            <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs text-stone-600">
+                &copy; 2026 Heathen Digital LLC. All rights reserved. Poddit&trade;
+              </p>
+              <div className="flex items-center gap-4">
+                <Link href="/terms" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                  Terms
+                </Link>
+                <Link href="/privacy" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                  Privacy
+                </Link>
+                <a href="mailto:brook@poddit.com" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                  Contact
+                </a>
+              </div>
+            </div>
+          </footer>
         </div>
       </body>
     </html>
