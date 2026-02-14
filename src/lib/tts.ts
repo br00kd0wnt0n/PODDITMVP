@@ -10,16 +10,31 @@ const s3 = new S3Client({
 });
 
 // ──────────────────────────────────────────────
+// VOICE OPTIONS
+// ──────────────────────────────────────────────
+
+export const VOICES: Record<string, { id: string; name: string; description: string }> = {
+  gandalf:   { id: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB', name: 'Gandalf',   description: 'Deep, authoritative, warm' },
+  jonathon:  { id: 'PIGsltMj3gFMR34aFDI3', name: 'Jonathon',  description: 'Clear, confident, conversational' },
+  ivanna:    { id: 'yM93hbw8Qtvdma2wCnJG', name: 'Ivanna',    description: 'Smooth, articulate, engaging' },
+  marcus:    { id: '85o4S4rAEvTIDGtpFNUq', name: 'Marcus',    description: 'Calm, analytical, grounded' },
+};
+
+export const DEFAULT_VOICE = 'gandalf';
+
+// ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
 // ──────────────────────────────────────────────
 
 export async function generateAudio(
   script: string,
-  episodeId: string
+  episodeId: string,
+  voiceKey?: string
 ): Promise<{ audioUrl: string; duration: number }> {
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+  const voice = VOICES[voiceKey || DEFAULT_VOICE] || VOICES[DEFAULT_VOICE];
+  const voiceId = voice.id;
   
-  console.log(`[TTS] Generating audio for episode ${episodeId} (${script.length} chars)`);
+  console.log(`[TTS] Generating audio for episode ${episodeId} (${script.length} chars, voice: ${voice.name})`);
 
   // ElevenLabs has a per-request character limit (~5000 for standard).
   // For longer scripts, chunk and concatenate.
