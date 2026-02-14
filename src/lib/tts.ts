@@ -1,4 +1,9 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { execFile } from 'child_process';
+import { writeFile, readFile, unlink, access } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
@@ -23,6 +28,16 @@ export const VOICES: Record<string, { id: string; name: string; description: str
 export const DEFAULT_VOICE = 'gandalf';
 
 // ──────────────────────────────────────────────
+// MUSIC PATHS
+// ──────────────────────────────────────────────
+
+const INTRO_MUSIC = join(process.cwd(), 'public/audio/Poddit_Intro.mp3');
+const OUTRO_MUSIC = join(process.cwd(), 'public/audio/poddit_Outro.mp3');
+
+// Music volume relative to narration (0.0–1.0)
+const MUSIC_VOLUME = 0.18;
+
+// ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
 // ──────────────────────────────────────────────
 
@@ -33,7 +48,7 @@ export async function generateAudio(
 ): Promise<{ audioUrl: string; duration: number }> {
   const voice = VOICES[voiceKey || DEFAULT_VOICE] || VOICES[DEFAULT_VOICE];
   const voiceId = voice.id;
-  
+
   console.log(`[TTS] Generating audio for episode ${episodeId} (${script.length} chars, voice: ${voice.name})`);
 
   // ElevenLabs has a per-request character limit (~5000 for standard).
@@ -43,7 +58,7 @@ export async function generateAudio(
 
   for (let i = 0; i < chunks.length; i++) {
     console.log(`[TTS] Processing chunk ${i + 1}/${chunks.length}`);
-    
+
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {
@@ -75,15 +90,20 @@ export async function generateAudio(
   }
 
   // Concatenate audio chunks (simple concatenation works for MP3)
-  const fullAudio = Buffer.concat(audioBuffers);
+  const rawAudio = Buffer.concat(audioBuffers);
 
-  // Estimate duration (~150 words per minute, ~5 chars per word)
+  // Mix intro/outro music if available
+  const { buffer: mixedAudio, duration: actualDuration } = await mixWithMusic(rawAudio);
+  const fullAudio = mixedAudio;
+
+  // Use actual duration if we got it from ffmpeg, otherwise estimate
   const estimatedWords = script.length / 5;
   const estimatedDuration = Math.round((estimatedWords / 150) * 60);
+  const duration = actualDuration || estimatedDuration;
 
   // Upload to S3/R2
   const key = `episodes/${episodeId}.mp3`;
-  
+
   await s3.send(
     new PutObjectCommand({
       Bucket: process.env.S3_BUCKET || 'poddit-audio',
@@ -94,14 +114,158 @@ export async function generateAudio(
   );
 
   const audioUrl = `${process.env.S3_PUBLIC_URL}/${key}`;
-  console.log(`[TTS] Audio uploaded: ${audioUrl} (~${estimatedDuration}s)`);
+  console.log(`[TTS] Audio uploaded: ${audioUrl} (~${duration}s)`);
 
-  return { audioUrl, duration: estimatedDuration };
+  return { audioUrl, duration };
+}
+
+// ──────────────────────────────────────────────
+// MUSIC MIXING — overlay intro/outro music
+// ──────────────────────────────────────────────
+
+async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; duration: number }> {
+  // Check if music files exist
+  const hasIntro = await fileExists(INTRO_MUSIC);
+  const hasOutro = await fileExists(OUTRO_MUSIC);
+
+  if (!hasIntro && !hasOutro) {
+    console.log('[TTS] No music files found, skipping mix');
+    return { buffer: narrationBuffer, duration: 0 };
+  }
+
+  const id = randomUUID();
+  const narrationPath = join(tmpdir(), `poddit-narration-${id}.mp3`);
+  const outputPath = join(tmpdir(), `poddit-mixed-${id}.mp3`);
+
+  try {
+    await writeFile(narrationPath, narrationBuffer);
+
+    // Get narration duration for outro positioning
+    const narrationDuration = await getAudioDuration(narrationPath);
+    console.log(`[TTS] Narration duration: ${narrationDuration}s`);
+
+    // Build the ffmpeg filter graph
+    // Strategy: overlay intro music at the start and outro music at the end
+    // Music plays at reduced volume underneath the narration voice
+    const inputs: string[] = ['-i', narrationPath];
+    let inputCount = 1;
+    const introIdx = hasIntro ? inputCount++ : -1;
+    const outroIdx = hasOutro ? inputCount++ : -1;
+
+    if (hasIntro) {
+      inputs.push('-i', INTRO_MUSIC);
+    }
+    if (hasOutro) {
+      inputs.push('-i', OUTRO_MUSIC);
+    }
+
+    // Build filter complex
+    // [0] = narration, [1] = intro (if exists), [2 or 1] = outro (if exists)
+    let filterParts: string[] = [];
+    let mixInputs: string[] = ['[0:a]'];
+
+    if (hasIntro) {
+      // Intro: play from the start, reduce volume, pad to narration length
+      filterParts.push(
+        `[${introIdx}:a]volume=${MUSIC_VOLUME}[intro_vol]`
+      );
+      mixInputs.push('[intro_vol]');
+    }
+
+    if (hasOutro) {
+      // Outro: delay to start near the end of narration
+      // Get outro duration to calculate when to start it
+      const outroDuration = await getAudioDuration(OUTRO_MUSIC);
+      const outroDelay = Math.max(0, narrationDuration - outroDuration);
+      const outroDelayMs = Math.round(outroDelay * 1000);
+
+      filterParts.push(
+        `[${outroIdx}:a]volume=${MUSIC_VOLUME},adelay=${outroDelayMs}|${outroDelayMs}[outro_vol]`
+      );
+      mixInputs.push('[outro_vol]');
+    }
+
+    // Mix all inputs together — amix with duration set to "first" (narration length)
+    const mixCount = mixInputs.length;
+    const filterComplex = [
+      ...filterParts,
+      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=first:dropout_transition=2[out]`
+    ].join(';');
+
+    const ffmpegArgs: string[] = [
+      ...inputs,
+      '-filter_complex', filterComplex,
+      '-map', '[out]',
+      '-codec:a', 'libmp3lame',
+      '-b:a', '192k',
+      '-y',
+      outputPath,
+    ];
+
+    console.log(`[TTS] Mixing audio: ${hasIntro ? 'intro' : ''} ${hasOutro ? 'outro' : ''}`);
+
+    await new Promise<void>((resolve, reject) => {
+      execFile('ffmpeg', ffmpegArgs, { timeout: 60000 }, (error, _stdout, stderr) => {
+        if (error) {
+          console.error(`[TTS] ffmpeg stderr: ${stderr}`);
+          reject(new Error(`ffmpeg mix failed: ${error.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const mixedBuffer = await readFile(outputPath);
+    const mixedDuration = await getAudioDuration(outputPath).catch(() => 0);
+
+    console.log(`[TTS] Mixed audio: ${mixedBuffer.length} bytes (~${Math.round(mixedDuration)}s)`);
+
+    return { buffer: mixedBuffer, duration: Math.round(mixedDuration) };
+  } catch (error) {
+    console.error('[TTS] Music mixing failed, using narration only:', error);
+    // Fallback: return original narration if mixing fails
+    return { buffer: narrationBuffer, duration: 0 };
+  } finally {
+    // Cleanup temp files
+    await unlink(narrationPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
 }
 
 // ──────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getAudioDuration(filePath: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    execFile('ffprobe', [
+      '-v', 'quiet',
+      '-print_format', 'json',
+      '-show_format',
+      filePath,
+    ], { timeout: 10000 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`ffprobe failed: ${error.message}`));
+        return;
+      }
+      try {
+        const info = JSON.parse(stdout);
+        resolve(parseFloat(info.format?.duration || '0'));
+      } catch {
+        reject(new Error('Failed to parse ffprobe output'));
+      }
+    });
+  });
+}
 
 function chunkScript(script: string, maxChars: number): string[] {
   const chunks: string[] = [];
