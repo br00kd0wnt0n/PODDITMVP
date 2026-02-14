@@ -10,23 +10,33 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 
 ```
 /poddit
-├── prisma/schema.prisma     # Data model (Signal, Episode, Segment)
+├── prisma/schema.prisma     # Data model (Signal, Episode, Segment, Feedback)
 ├── src/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── capture/     # Ingest endpoints (SMS, email, extension, share)
 │   │   │   ├── generate/    # Manual episode generation trigger
+│   │   │   ├── generate-now/# Dashboard-triggered generation with signal selection
 │   │   │   ├── episodes/    # Episode listing and retrieval
 │   │   │   ├── signals/     # Signal queue management
+│   │   │   ├── feedback/    # User feedback (text + voice) submission
+│   │   │   ├── admin/stats/ # Admin dashboard API (metrics + feedback)
 │   │   │   └── cron/        # Weekly automated generation
-│   │   ├── page.tsx         # Dashboard (queue + episode list)
-│   │   └── player/[id]/     # Episode player with segments + sources
+│   │   ├── page.tsx         # Dashboard (queue + episodes + feedback module)
+│   │   ├── admin/           # Mission Control (admin dashboard)
+│   │   ├── player/[id]/     # Episode player with segments + sources
+│   │   ├── settings/        # User preferences (voice, length, name, phone)
+│   │   ├── terms/           # Terms of Service (Heathen Digital LLC)
+│   │   └── privacy/         # Privacy Policy (Heathen Digital LLC)
 │   └── lib/
 │       ├── capture.ts       # Signal ingestion, URL detection, content extraction
 │       ├── synthesize.ts    # Episode generation orchestrator (Claude API)
 │       ├── prompts.ts       # LLM system prompt and synthesis prompt builder
 │       ├── tts.ts           # ElevenLabs TTS + S3 upload
 │       ├── deliver.ts       # Twilio SMS notifications
+│       ├── auth.ts          # Auth helpers (requireSession, requireAuth, requireAdminAuth, requireCronAuth)
+│       ├── rate-limit.ts    # In-memory sliding-window rate limiter
+│       ├── transcribe.ts    # OpenAI Whisper transcription
 │       └── db.ts            # Prisma client singleton
 ├── extension/               # Chrome extension (capture from browser)
 ├── SETUP.md                 # Full deployment and service setup guide
@@ -168,6 +178,28 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **How It Works** — staggered entrances (teal→violet→amber), hover gradients, glowing number badges
 - [x] **Sign-in → Dashboard transition** — page fade-out with blur on auth success, page-enter fade-in on dashboard
 - [x] **Client-side auth guard** — useSession status check + redirect + skeleton loader (prevents dashboard flash)
+
+### Sprint: Visual Hierarchy Rebalance ✅
+- [x] **Dimmed info panels** — Send Signals + How It Works pushed to recessed layer (darker bg, softer borders, muted text)
+- [x] **Elevated input field** — brighter border, taller padding, teal ambient glow, stronger focus ring
+- [x] **Separate admin auth** — ADMIN_SECRET env var with API_SECRET fallback for Mission Control (/admin)
+
+### Sprint: Early Access Readiness ✅
+- [x] **Feedback model** — Prisma schema: Feedback table (TEXT/VOICE type, NEW/REVIEWED/RESOLVED status), User relation, cascade delete
+- [x] **Rate limiter** — in-memory sliding-window (src/lib/rate-limit.ts) with periodic cleanup
+- [x] **Feedback API** — POST /api/feedback for text (JSON) + voice (FormData → Whisper transcription), session-authed, rate-limited (5/min)
+- [x] **Dashboard feedback module** — amber-accented "Early Access Feedback" section at bottom of dashboard (textarea + voice recording)
+- [x] **Welcome overlay** — first-load modal with Poddit walkthrough (Capture→Generate→Listen) + feedback callout, localStorage persistence
+- [x] **Welcome banner** — inline dismissible card for new users with empty queue/episodes
+- [x] **Admin feedback section** — MetricCard + full feedback list in Mission Control (replaces placeholder)
+- [x] **Rate limiting on routes** — capture/quick (10/min), generate-now (1/5min), feedback (5/min) per user
+- [x] **Auto schema push** — `prisma db push` in build command for Railway deploys
+
+### Sprint: Legal & Footer ✅
+- [x] **Terms of Service** — /terms with 14 sections: IP ownership (Heathen Digital LLC), user content ownership, license grant, personal-use episodes, no redistribution, early access disclaimers, acceptable use, limitation of liability
+- [x] **Privacy Policy rewrite** — /privacy updated for Heathen Digital LLC with expanded data collection, third-party services, voice handling, user rights
+- [x] **Global footer** — root layout footer: © 2026 Heathen Digital LLC, Poddit™, Terms/Privacy/Contact links
+- [x] **Contact email** — Hello@poddit.com across all legal pages and footer
 
 ### Upcoming
 - [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
