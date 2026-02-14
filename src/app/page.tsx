@@ -613,11 +613,11 @@ function Dashboard() {
               {/* Progress bar overlay */}
               {generating && (
                 <div
-                  className="absolute inset-0 bg-teal-400/30 transition-all duration-1000 ease-out"
+                  className="absolute inset-0 bg-teal-600 transition-all duration-1000 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               )}
-              <span className="relative z-10 flex items-center gap-2">
+              <span className="relative z-10 flex items-center gap-2 drop-shadow-sm">
                 {generating ? (
                   <>
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">

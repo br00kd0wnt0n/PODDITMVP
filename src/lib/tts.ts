@@ -35,7 +35,7 @@ const INTRO_MUSIC = join(process.cwd(), 'public/audio/Poddit_Intro.mp3');
 const OUTRO_MUSIC = join(process.cwd(), 'public/audio/poddit_Outro.mp3');
 
 // Music volume relative to narration (0.0–1.0)
-const MUSIC_VOLUME = 0.18;
+const MUSIC_VOLUME = 0.14;
 
 // ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS

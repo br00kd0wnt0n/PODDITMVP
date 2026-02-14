@@ -34,9 +34,10 @@ Write a short, warm one-liner to open the episode. It should feel natural and va
 - "Hey, it's Friday the fourteenth. You dropped five signals this week — let's see what they add up to."
 - "You've been busy. Six signals, some big threads. Here's what's going on."
 Examples of Poddit Now tone:
-- "You hit the button. Let's see what these four signals add up to."
-- "Alright, on-demand mode. Three things on your mind — let's dig in."
-Keep it to 1-2 sentences max. No clichés, no "welcome to your weekly briefing."
+- "Alright, you've got three things on your mind. Let's get into it."
+- "Fresh off the queue — four signals, right now."
+- "Quick one today. Two topics you wanted covered — here we go."
+Keep it to 1-2 sentences max. No clichés, no "welcome to your weekly briefing." Don't reference "hitting a button" — just be direct and natural about what's coming.
 
 ### Segments
 Each segment covers a topic. Between segments, include a brief natural transition — a bridging phrase that moves the conversation forward. Vary these throughout the episode. Examples of the feel:
@@ -51,7 +52,7 @@ These should feel like a human host naturally moving between topics. Weave the t
 A brief segment noting unexpected threads between seemingly unrelated topics from the episode.
 
 ### Outro (required)
-End with a provocative, thought-provoking takeaway — 2-3 sentences designed to stick with the listener. Frame it as something to think about or bring up in conversation. The tone should be "A few things to keep in your back pocket..." or "Here's what I'd be thinking about..." — make it feel like the sharp final thought a brilliant friend would leave you with. Not a summary — a provocation.
+End with 2-3 sentences that leave something lingering — a quiet thread between the topics, an implication you don't spell out, a question you let the listener sit with. Don't announce that you're giving takeaways. Don't say "here's what to think about." Just let the final thought land naturally, the way a good conversation trails off into something worth chewing on. Subtle, not preachy. Implied, not stated.
 
 ## OUTPUT STRUCTURE
 Your output should be a JSON object with this structure:
@@ -69,7 +70,7 @@ Your output should be a JSON object with this structure:
   ],
   "summary": "A written companion summary (3-5 sentences) capturing the key takeaways",
   "connections": "A brief closing segment noting unexpected connections between this episode's topics",
-  "outro": "A provocative 2-3 sentence takeaway — things to think about, designed to spark real conversation"
+  "outro": "A subtle 2-3 sentence closing thought — implied, not stated. Let the listener draw their own conclusions."
 }`;
 
 export function buildSynthesisPrompt(signals: {
@@ -90,7 +91,7 @@ export function buildSynthesisPrompt(signals: {
 
   // Context-aware episode framing
   const episodeType = isManual
-    ? `This is a PODDIT NOW episode — the user pressed the button to get an on-demand briefing right now. Frame the intro as immediate and energetic, like "You hit the button — let's go" or "Alright, you wanted this one now." Don't reference "this week" — this is a now thing, built from ${signals.length} signals the user chose.`
+    ? `This is a PODDIT NOW episode — an on-demand briefing. Frame the intro as direct and energetic. Don't reference "this week" — this is right now, built from the ${signals.length} signals in the queue. Keep it natural, like jumping straight into a conversation.`
     : `This is a weekly Poddit episode — the user's regular weekly briefing. Frame the intro with the week's feel, like "It's been a full week" or "Here's what your week added up to." Reference the time period naturally.`;
 
   let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}\n\n`;
@@ -136,7 +137,7 @@ export function buildSynthesisPrompt(signals: {
 - Include a short, natural intro with today's date and signal count
 - Weave informal transitions between segments (varied, conversational)
 - Include a "connections" segment noting threads between seemingly unrelated topics
-- End with a provocative outro — things to think about, not a summary
+- End with a subtle outro — an implied thought that lingers, not an explicit takeaway list
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
 
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
