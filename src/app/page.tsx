@@ -460,38 +460,38 @@ function Dashboard() {
       </div>
 
       {/* ── Send Signals Module ── */}
-      <div className="mb-8 p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl relative overflow-hidden
+      <div className="mb-6 p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl relative overflow-hidden
                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
         {/* Subtle inner glow */}
-        <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.04] blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-amber-500/[0.03] blur-2xl pointer-events-none" />
-        <p className="text-xs text-stone-400 mb-3 relative">
-          <span className="text-white font-medium">Send signals to Poddit</span> via
+        <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.03] blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-amber-500/[0.02] blur-2xl pointer-events-none" />
+        <p className="text-xs text-stone-500 mb-3 relative">
+          <span className="text-stone-300 font-medium">Send signals to Poddit</span> via
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Text / Voice */}
           <a href="sms:+18555065970"
-             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50
-                        hover:border-teal-500/30 hover:bg-teal-500/5 transition-all group text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
+                        hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-500 group-hover:text-teal-400 transition-colors">
+                 className="text-stone-600 group-hover:text-teal-400 transition-colors">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <div>
-              <p className="text-xs font-medium text-white group-hover:text-teal-300 transition-colors">Text / Voice</p>
-              <p className="text-[10px] text-stone-500 mt-0.5 font-mono">(855) 506-5970</p>
+              <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p>
+              <p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p>
             </div>
           </a>
 
           {/* Chrome Extension */}
           <button
              onClick={() => { setInputSuccess('Chrome extension coming soon!'); setTimeout(() => setInputSuccess(null), 3000); }}
-             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50
-                        hover:border-violet-400/30 hover:bg-violet-400/5 transition-all group text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
+                        hover:border-violet-400/25 hover:bg-violet-400/5 transition-all group text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-500 group-hover:text-violet-400 transition-colors">
+                 className="text-stone-600 group-hover:text-violet-400 transition-colors">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="4" />
               <line x1="21.17" y1="8" x2="12" y2="8" />
@@ -499,43 +499,43 @@ function Dashboard() {
               <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
             </svg>
             <div>
-              <p className="text-xs font-medium text-white group-hover:text-violet-300 transition-colors">Chrome</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">Coming soon</p>
+              <p className="text-xs font-medium text-stone-300 group-hover:text-violet-300 transition-colors">Chrome</p>
+              <p className="text-[10px] text-stone-600 mt-0.5">Coming soon</p>
             </div>
           </button>
 
           {/* App Share */}
-          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500">
+          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
               <polyline points="16 6 12 2 8 6" />
               <line x1="12" y1="2" x2="12" y2="15" />
             </svg>
             <div>
-              <p className="text-xs font-medium text-white">Share</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">From any app</p>
+              <p className="text-xs font-medium text-stone-300">Share</p>
+              <p className="text-[10px] text-stone-600 mt-0.5">From any app</p>
             </div>
           </div>
 
           {/* Direct Input */}
-          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/60 bg-poddit-950/50 text-center">
+          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
             <div className="flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="12" x2="12" y1="19" y2="22" />
               </svg>
             </div>
             <div>
-              <p className="text-xs font-medium text-white">Type or speak below</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">Links or topics</p>
+              <p className="text-xs font-medium text-stone-300">Type or speak below</p>
+              <p className="text-[10px] text-stone-600 mt-0.5">Links or topics</p>
             </div>
           </div>
         </div>
@@ -543,37 +543,34 @@ function Dashboard() {
 
       {/* ── How It Works ── */}
       <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
-                        relative overflow-hidden group hover:border-teal-500/20 transition-all
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
+                        relative overflow-hidden group hover:border-teal-500/15 transition-all
                         opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold flex items-center justify-center
-                          shadow-[0_0_8px_rgba(20,184,166,0.1)]">1</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/8 text-teal-500/70 text-[11px] font-bold flex items-center justify-center">1</span>
           <div className="relative">
-            <p className="text-sm font-medium text-white">Capture</p>
-            <p className="text-xs text-stone-500 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p>
+            <p className="text-sm font-medium text-stone-300">Capture</p>
+            <p className="text-xs text-stone-600 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
-                        relative overflow-hidden group hover:border-violet-400/20 transition-all
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
+                        relative overflow-hidden group hover:border-violet-400/15 transition-all
                         opacity-0 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-400/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-violet-400/10 text-violet-400 text-xs font-bold flex items-center justify-center
-                          shadow-[0_0_8px_rgba(139,92,246,0.1)]">2</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-400/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-violet-400/8 text-violet-400/70 text-[11px] font-bold flex items-center justify-center">2</span>
           <div className="relative">
-            <p className="text-sm font-medium text-white">Generate</p>
-            <p className="text-xs text-stone-500 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p>
+            <p className="text-sm font-medium text-stone-300">Generate</p>
+            <p className="text-xs text-stone-600 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-900/40 border border-stone-800/40
-                        relative overflow-hidden group hover:border-amber-500/20 transition-all
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
+                        relative overflow-hidden group hover:border-amber-500/15 transition-all
                         opacity-0 animate-fade-in-up" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold flex items-center justify-center
-                          shadow-[0_0_8px_rgba(217,149,56,0.1)]">3</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/8 text-amber-400/70 text-[11px] font-bold flex items-center justify-center">3</span>
           <div className="relative">
-            <p className="text-sm font-medium text-white">Listen</p>
-            <p className="text-xs text-stone-500 mt-0.5">Get a personalized audio episode explaining what it all means.</p>
+            <p className="text-sm font-medium text-stone-300">Listen</p>
+            <p className="text-xs text-stone-600 mt-0.5">Get a personalized audio episode explaining what it all means.</p>
           </div>
         </div>
       </div>
@@ -640,24 +637,26 @@ function Dashboard() {
               onKeyDown={handleKeyDown}
               placeholder="Save a link, topic, or thought..."
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 bg-poddit-900 border border-stone-800 rounded-xl text-sm text-white
-                         placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-teal-400/30 focus:border-stone-600
+              className="flex-1 px-4 py-3 bg-poddit-900/80 border border-stone-700/60 rounded-xl text-sm text-white
+                         placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40
+                         shadow-[0_0_0_1px_rgba(20,184,166,0.04)] focus:shadow-[0_0_12px_rgba(20,184,166,0.08)]
                          disabled:opacity-40 transition-all"
             />
             <button
               onClick={submitText}
               disabled={submitting || !textInput.trim()}
-              className="px-4 py-2.5 bg-teal-500 text-poddit-950 text-sm font-semibold rounded-xl
-                         hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
-                         transition-colors flex-shrink-0"
+              className="px-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                         hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-600 disabled:cursor-not-allowed
+                         shadow-[0_0_12px_rgba(20,184,166,0.15)] hover:shadow-[0_0_16px_rgba(20,184,166,0.25)]
+                         disabled:shadow-none transition-all flex-shrink-0"
             >
               {submitting ? '...' : 'Add'}
             </button>
             <button
               onClick={startRecording}
               disabled={submitting}
-              className="px-3 py-2.5 border border-stone-800 rounded-xl text-stone-400
-                         hover:border-violet-400 hover:text-violet-400 hover:bg-violet-400/5
+              className="px-3 py-3 border border-stone-700/60 rounded-xl text-stone-400
+                         hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5
                          disabled:opacity-40 disabled:cursor-not-allowed
                          transition-all flex-shrink-0"
               title="Record a voice note"
