@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 
@@ -43,11 +43,29 @@ interface Episode {
   signals: Signal[];
 }
 
+function formatTime(seconds: number): string {
+  if (!seconds || !isFinite(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export default function PlayerPage() {
   const params = useParams();
   const [episode, setEpisode] = useState<Episode | null>(null);
   const [activeSegment, setActiveSegment] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Audio player state
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeBarRef = useRef<HTMLDivElement>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/episodes?id=${params.id}`)
@@ -58,6 +76,121 @@ export default function PlayerPage() {
       })
       .catch(() => setLoading(false));
   }, [params.id]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  // Progress tracking via requestAnimationFrame
+  const trackProgress = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio && !audio.paused && !isSeeking) {
+      setCurrentTime(audio.currentTime);
+    }
+    animFrameRef.current = requestAnimationFrame(trackProgress);
+  }, [isSeeking]);
+
+  const togglePlay = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audio.paused) {
+      audio.play();
+      setIsPlaying(true);
+      animFrameRef.current = requestAnimationFrame(trackProgress);
+    } else {
+      audio.pause();
+      setIsPlaying(false);
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    }
+  }, [trackProgress]);
+
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+    const audio = audioRef.current;
+    const bar = progressBarRef.current;
+    if (!audio || !bar || !duration) return;
+
+    const rect = bar.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const pct = x / rect.width;
+    const newTime = pct * duration;
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  }, [duration]);
+
+  const handleProgressMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    setIsSeeking(true);
+    handleSeek(e);
+
+    const onMove = (ev: MouseEvent) => handleSeek(ev);
+    const onUp = () => {
+      setIsSeeking(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [handleSeek]);
+
+  const handleVolumeChange = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    const bar = volumeBarRef.current;
+    if (!audio || !bar) return;
+
+    const rect = bar.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const newVol = x / rect.width;
+    audio.volume = newVol;
+    setVolume(newVol);
+  }, []);
+
+  const handleVolumeMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    handleVolumeChange(e);
+
+    const onMove = (ev: MouseEvent) => {
+      const audio = audioRef.current;
+      const bar = volumeBarRef.current;
+      if (!audio || !bar) return;
+      const rect = bar.getBoundingClientRect();
+      const x = Math.max(0, Math.min(ev.clientX - rect.left, rect.width));
+      const newVol = x / rect.width;
+      audio.volume = newVol;
+      setVolume(newVol);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [handleVolumeChange]);
+
+  const skipBack = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = Math.max(0, audio.currentTime - 15);
+      setCurrentTime(audio.currentTime);
+    }
+  }, []);
+
+  const skipForward = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30);
+      setCurrentTime(audio.currentTime);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -84,6 +217,8 @@ export default function PlayerPage() {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       {/* Back link */}
@@ -108,17 +243,137 @@ export default function PlayerPage() {
         </div>
       </header>
 
-      {/* Audio player */}
+      {/* Custom audio player */}
       {episode.audioUrl && (
-        <div className="mb-8 p-4 bg-poddit-900 border border-poddit-800 rounded-xl">
+        <div className="mb-8 p-4 bg-poddit-900 border border-stone-800/60 rounded-xl">
+          {/* Hidden audio element */}
           <audio
-            controls
-            className="w-full"
+            ref={audioRef}
             src={episode.audioUrl}
             preload="metadata"
-          >
-            Your browser does not support audio playback.
-          </audio>
+            onLoadedMetadata={(e) => setDuration((e.target as HTMLAudioElement).duration)}
+            onEnded={() => {
+              setIsPlaying(false);
+              if (animFrameRef.current) {
+                cancelAnimationFrame(animFrameRef.current);
+                animFrameRef.current = null;
+              }
+            }}
+          />
+
+          {/* Controls row */}
+          <div className="flex items-center gap-3">
+            {/* Skip back 15s */}
+            <button
+              onClick={skipBack}
+              className="text-stone-400 hover:text-white transition-colors flex-shrink-0"
+              title="Back 15s"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 17l-5-5 5-5" />
+                <path d="M18 17l-5-5 5-5" />
+              </svg>
+            </button>
+
+            {/* Play/Pause */}
+            <button
+              onClick={togglePlay}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-teal-500 text-poddit-950
+                         hover:bg-teal-400 transition-colors flex-shrink-0"
+            >
+              {isPlaying ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
+                  <path d="M8 5.14v14l11-7-11-7z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Skip forward 30s */}
+            <button
+              onClick={skipForward}
+              className="text-stone-400 hover:text-white transition-colors flex-shrink-0"
+              title="Forward 30s"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 17l5-5-5-5" />
+                <path d="M6 17l5-5-5-5" />
+              </svg>
+            </button>
+
+            {/* Time display */}
+            <span className="text-xs text-stone-400 font-mono tabular-nums flex-shrink-0 w-[72px]">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+
+            {/* Progress bar */}
+            <div
+              ref={progressBarRef}
+              onMouseDown={handleProgressMouseDown}
+              className="flex-1 h-8 flex items-center cursor-pointer group"
+            >
+              <div className="w-full h-1.5 bg-stone-800 rounded-full relative overflow-hidden">
+                {/* Played portion */}
+                <div
+                  className="absolute inset-y-0 left-0 bg-teal-500 rounded-full transition-[width] duration-75 ease-linear"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Volume */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => {
+                  const audio = audioRef.current;
+                  if (!audio) return;
+                  const newVol = volume > 0 ? 0 : 1;
+                  audio.volume = newVol;
+                  setVolume(newVol);
+                }}
+                className="text-stone-400 hover:text-white transition-colors"
+              >
+                {volume === 0 ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                ) : volume < 0.5 ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
+                )}
+              </button>
+              <div
+                ref={volumeBarRef}
+                onMouseDown={handleVolumeMouseDown}
+                className="w-16 h-6 flex items-center cursor-pointer group"
+              >
+                <div className="w-full h-1 bg-stone-800 rounded-full relative overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-stone-400 group-hover:bg-teal-500 rounded-full transition-colors"
+                    style={{ width: `${volume * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
