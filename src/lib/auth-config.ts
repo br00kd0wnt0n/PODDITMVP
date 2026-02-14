@@ -9,6 +9,7 @@ import prisma from './db';
 // ──────────────────────────────────────────────
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       name: 'Access Code',
@@ -17,26 +18,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         code: { label: 'Access Code', type: 'password' },
       },
       async authorize(credentials) {
-        const email = (credentials?.email as string)?.trim().toLowerCase();
-        const code = credentials?.code as string;
+        try {
+          const email = (credentials?.email as string)?.trim().toLowerCase();
+          const code = credentials?.code as string;
 
-        if (!email || !code) return null;
+          if (!email || !code) {
+            console.log('[Auth] Missing email or code');
+            return null;
+          }
 
-        // Validate access code
-        if (code !== process.env.ACCESS_CODE) {
+          // Validate access code
+          if (!process.env.ACCESS_CODE) {
+            console.error('[Auth] ACCESS_CODE env var is not set!');
+            return null;
+          }
+          if (code !== process.env.ACCESS_CODE) {
+            console.log(`[Auth] Invalid access code for ${email}`);
+            return null;
+          }
+
+          // Find or create user by email
+          let user = await prisma.user.findUnique({ where: { email } });
+          if (!user) {
+            user = await prisma.user.create({
+              data: { email, emailVerified: new Date() },
+            });
+            console.log(`[Auth] New user created: ${email} (${user.id})`);
+          } else {
+            console.log(`[Auth] Existing user signed in: ${email} (${user.id})`);
+          }
+
+          return { id: user.id, email: user.email, name: user.name };
+        } catch (error) {
+          console.error('[Auth] authorize error:', error);
           return null;
         }
-
-        // Find or create user by email
-        let user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-          user = await prisma.user.create({
-            data: { email, emailVerified: new Date() },
-          });
-          console.log(`[Auth] New user created: ${email} (${user.id})`);
-        }
-
-        return { id: user.id, email: user.email, name: user.name };
       },
     }),
   ],
