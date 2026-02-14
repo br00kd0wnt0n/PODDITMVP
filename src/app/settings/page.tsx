@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
@@ -33,6 +33,29 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Voice preview state
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
+  const [voiceProgress, setVoiceProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  // Cache sample URLs so we don't refetch the endpoint
+  const sampleUrlCache = useRef<Record<string, string>>({});
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, []);
+
   // Load preferences + voices
   useEffect(() => {
     Promise.all([
@@ -52,7 +75,91 @@ export default function SettingsPage() {
     });
   }, []);
 
+  const stopPreview = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setPlayingVoice(null);
+    setVoiceProgress(0);
+  }, []);
+
+  const trackProgress = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+
+    if (audio.duration && audio.duration > 0) {
+      setVoiceProgress((audio.currentTime / audio.duration) * 100);
+    }
+    animFrameRef.current = requestAnimationFrame(trackProgress);
+  }, []);
+
+  const playPreview = useCallback(async (voiceKey: string) => {
+    // If already playing this voice, stop it
+    if (playingVoice === voiceKey) {
+      stopPreview();
+      return;
+    }
+
+    // Stop any current playback
+    stopPreview();
+
+    // Select the voice
+    setVoice(voiceKey);
+    setLoadingVoice(voiceKey);
+
+    try {
+      // Check cache first
+      let url = sampleUrlCache.current[voiceKey];
+
+      if (!url) {
+        const res = await fetch(`/api/voices/sample?voice=${voiceKey}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load sample');
+        url = data.url;
+        sampleUrlCache.current[voiceKey] = url;
+      }
+
+      // Create and play audio
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.addEventListener('ended', () => {
+        setPlayingVoice(null);
+        setVoiceProgress(0);
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+      });
+
+      audio.addEventListener('canplaythrough', () => {
+        setLoadingVoice(null);
+        setPlayingVoice(voiceKey);
+        audio.play();
+        animFrameRef.current = requestAnimationFrame(trackProgress);
+      }, { once: true });
+
+      audio.addEventListener('error', () => {
+        setLoadingVoice(null);
+        setPlayingVoice(null);
+        console.error(`[Settings] Failed to play sample for ${voiceKey}`);
+      });
+
+      audio.load();
+    } catch (err) {
+      console.error('[Settings] Voice preview error:', err);
+      setLoadingVoice(null);
+    }
+  }, [playingVoice, stopPreview, trackProgress]);
+
   const handleSave = async () => {
+    stopPreview();
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -148,25 +255,68 @@ export default function SettingsPage() {
             Voice
           </label>
           <p className="text-xs text-stone-500 mb-3">
-            Choose the voice for your episode narration
+            Tap to preview, tap again to stop
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {voices.map((v) => (
-              <button
-                key={v.key}
-                onClick={() => setVoice(v.key)}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  voice === v.key
-                    ? 'border-teal-500/50 bg-teal-500/5'
-                    : 'border-stone-800/60 bg-poddit-950/50 hover:border-stone-700'
-                }`}
-              >
-                <p className={`text-sm font-semibold ${voice === v.key ? 'text-teal-300' : 'text-white'}`}>
-                  {v.name}
-                </p>
-                <p className="text-xs text-stone-500 mt-0.5">{v.description}</p>
-              </button>
-            ))}
+            {voices.map((v) => {
+              const isSelected = voice === v.key;
+              const isPlaying = playingVoice === v.key;
+              const isLoading = loadingVoice === v.key;
+
+              return (
+                <button
+                  key={v.key}
+                  onClick={() => playPreview(v.key)}
+                  disabled={isLoading}
+                  className={`relative p-3 rounded-xl border text-left transition-all overflow-hidden ${
+                    isSelected
+                      ? 'border-teal-500/50 bg-teal-500/5'
+                      : 'border-stone-800/60 bg-poddit-950/50 hover:border-stone-700'
+                  } ${isLoading ? 'cursor-wait' : ''}`}
+                >
+                  {/* Progress fill — sweeps left to right like Poddit Now button */}
+                  {isPlaying && (
+                    <div
+                      className="absolute inset-0 bg-teal-500/15 transition-[width] duration-100 ease-linear"
+                      style={{ width: `${voiceProgress}%` }}
+                    />
+                  )}
+                  {/* Loading shimmer */}
+                  {isLoading && (
+                    <div className="absolute inset-0 animate-pulse bg-teal-500/10" />
+                  )}
+                  {/* Content */}
+                  <div className="relative z-10 flex items-start justify-between">
+                    <div>
+                      <p className={`text-sm font-semibold ${isSelected ? 'text-teal-300' : 'text-white'}`}>
+                        {v.name}
+                      </p>
+                      <p className="text-xs text-stone-500 mt-0.5">{v.description}</p>
+                    </div>
+                    {/* Play/stop indicator */}
+                    <div className="flex-shrink-0 ml-2 mt-0.5">
+                      {isLoading ? (
+                        <svg className="animate-spin h-3.5 w-3.5 text-teal-400" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : isPlaying ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                             className="text-teal-400">
+                          <rect x="6" y="4" width="4" height="16" rx="1" />
+                          <rect x="14" y="4" width="4" height="16" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                             className={isSelected ? 'text-teal-400/60' : 'text-stone-600'}>
+                          <path d="M8 5.14v14l11-7-11-7z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
