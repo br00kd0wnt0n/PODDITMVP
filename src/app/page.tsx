@@ -717,14 +717,14 @@ function Dashboard() {
 
       {/* ── Welcome Overlay (first load) ── */}
       {showWelcomeOverlay && (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6
+        <div className={`fixed inset-0 z-50 flex justify-center px-4 py-6
                          overflow-y-auto ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
           {/* Backdrop */}
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
 
-          {/* Modal — vertically centered via parent flex + margin auto */}
+          {/* Modal — vertically centered via margin auto (scrollable when tall) */}
           <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
-                           overflow-hidden m-auto shrink-0 ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
+                           overflow-hidden my-auto shrink-0 ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
 
             <div className="p-6">
               {/* Header */}
@@ -740,7 +740,10 @@ function Dashboard() {
                   />
                 </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-white">Welcome to <span className="font-display">PODDIT</span></h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-extrabold text-white">Welcome to <span className="font-display">PODDIT</span></h2>
+                    <span className="text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
+                  </div>
                   <p className="text-xs text-stone-500">Early Access Preview</p>
                 </div>
               </div>
@@ -1119,7 +1122,10 @@ function Dashboard() {
             />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
+              <span className="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
+            </div>
             <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
           </div>
         </div>

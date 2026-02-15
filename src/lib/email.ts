@@ -5,7 +5,7 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@poddit.com';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://poddit-mvp.up.railway.app';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.poddit.com';
 
 // ──────────────────────────────────────────────
 // SEND INVITE EMAIL

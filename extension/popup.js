@@ -1,5 +1,5 @@
 // ── Defaults ──
-const DEFAULT_SERVER = 'https://poddit-mvp.up.railway.app';
+const DEFAULT_SERVER = 'https://app.poddit.com';
 
 // ── State ──
 let serverUrl = '';
