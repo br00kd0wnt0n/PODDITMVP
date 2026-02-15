@@ -6,62 +6,124 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 
 **Core loop:** Capture → Queue → Synthesize → Speak → Deliver
 
+**Domains:** `app.poddit.com` (app), `www.poddit.com` (concept/landing page)
+
 ## Architecture
 
 ```
 /poddit
-├── prisma/schema.prisma     # Data model (Signal, Episode, Segment, Feedback)
+├── prisma/schema.prisma     # Data model (User, Signal, Episode, Segment, Feedback, QuestionnaireResponse)
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── capture/     # Ingest endpoints (SMS, email, extension, share)
-│   │   │   ├── generate/    # Manual episode generation trigger
-│   │   │   ├── generate-now/# Dashboard-triggered generation with signal selection
-│   │   │   ├── episodes/    # Episode listing and retrieval
-│   │   │   ├── signals/     # Signal queue management
-│   │   │   ├── feedback/    # User feedback (text + voice) submission
-│   │   │   ├── admin/stats/ # Admin dashboard API (metrics + feedback)
-│   │   │   └── cron/        # Weekly automated generation
-│   │   ├── page.tsx         # Dashboard (queue + episodes + feedback module)
-│   │   ├── admin/           # Mission Control (admin dashboard)
-│   │   ├── player/[id]/     # Episode player with segments + sources
-│   │   ├── settings/        # User preferences (voice, length, name, phone)
-│   │   ├── terms/           # Terms of Service (Heathen Digital LLC)
-│   │   └── privacy/         # Privacy Policy (Heathen Digital LLC)
+│   │   │   ├── capture/      # Ingest endpoints (SMS, email, extension, share, quick)
+│   │   │   ├── generate/     # Manual episode generation trigger
+│   │   │   ├── generate-now/ # Dashboard-triggered generation with signal selection
+│   │   │   ├── episodes/     # Episode listing and retrieval
+│   │   │   ├── signals/      # Signal queue management
+│   │   │   ├── feedback/     # User feedback (text + voice + request) submission
+│   │   │   ├── admin/
+│   │   │   │   ├── stats/    # Admin dashboard API (metrics, user management, PATCH user type)
+│   │   │   │   └── invite/   # Grant/revoke access (POST invite, DELETE revoke)
+│   │   │   ├── questionnaire/# Early access questionnaire (GET check, POST submit)
+│   │   │   ├── user/preferences/ # User prefs, consent toggle, episode limit info
+│   │   │   ├── cron/         # Weekly automated generation
+│   │   │   └── voices/       # Voice listing and samples
+│   │   ├── page.tsx          # Dashboard (queue + episodes + feedback + questionnaire modal)
+│   │   ├── admin/            # Mission Control (admin dashboard)
+│   │   ├── player/[id]/      # Episode player with segments + sources
+│   │   ├── settings/         # User preferences (voice, length, name, phone, notifications)
+│   │   ├── welcome/          # Capture channel guide + PWA install instructions
+│   │   ├── usage/            # Episode usage progress + request more episodes
+│   │   ├── auth/signin/      # Sign-in page with consent checkbox
+│   │   ├── terms/            # Terms of Service (Heathen Digital LLC)
+│   │   └── privacy/          # Privacy Policy (Heathen Digital LLC)
 │   └── lib/
-│       ├── capture.ts       # Signal ingestion, URL detection, content extraction
-│       ├── synthesize.ts    # Episode generation orchestrator (Claude API)
-│       ├── prompts.ts       # LLM system prompt and synthesis prompt builder
-│       ├── tts.ts           # ElevenLabs TTS + S3 upload
-│       ├── deliver.ts       # Twilio SMS notifications
-│       ├── auth.ts          # Auth helpers (requireSession, requireAuth, requireAdminAuth, requireCronAuth)
-│       ├── rate-limit.ts    # In-memory sliding-window rate limiter
-│       ├── transcribe.ts    # OpenAI Whisper transcription
-│       └── db.ts            # Prisma client singleton
-├── extension/               # Chrome extension (capture from browser)
-├── SETUP.md                 # Full deployment and service setup guide
-└── .env.example             # All required environment variables
+│       ├── capture.ts        # Signal ingestion, URL detection, content extraction
+│       ├── synthesize.ts     # Episode generation orchestrator (Claude API)
+│       ├── prompts.ts        # LLM system prompt and synthesis prompt builder
+│       ├── tts.ts            # ElevenLabs TTS + S3 upload
+│       ├── deliver.ts        # Twilio SMS notifications
+│       ├── email.ts          # SendGrid outbound email (invite + revoke)
+│       ├── auth.ts           # Auth helpers (requireSession, requireAuth, requireAdminAuth, requireCronAuth)
+│       ├── auth-config.ts    # NextAuth config (Credentials provider, per-user invite codes + global fallback)
+│       ├── rate-limit.ts     # In-memory sliding-window rate limiter
+│       ├── transcribe.ts     # OpenAI Whisper transcription
+│       └── db.ts             # Prisma client singleton
+├── extension/                # Chrome extension (capture from browser)
+├── middleware.ts              # NextAuth route protection (root level, not in src/)
+├── SETUP.md                  # Full deployment and service setup guide
+└── .env.example              # All required environment variables
 ```
 
 ## Stack
 
-- **Framework:** Next.js 15 (App Router, API Routes)
+- **Framework:** Next.js 14 (App Router, API Routes)
 - **Database:** PostgreSQL via Prisma ORM (hosted on Railway)
 - **AI:** Anthropic Claude API (claude-sonnet-4-5-20250929) for synthesis
 - **TTS:** ElevenLabs (eleven_turbo_v2_5)
 - **SMS:** Twilio (capture + delivery)
-- **Email:** SendGrid Inbound Parse
+- **Email Inbound:** SendGrid Inbound Parse (signal capture via email)
+- **Email Outbound:** SendGrid (@sendgrid/mail) for invite/revoke emails
 - **Storage:** Cloudflare R2 (S3-compatible, for audio files)
 - **Hosting:** Railway
 - **Styling:** Tailwind CSS
+
+## Data Model (Key Entities)
+
+### User
+- `userType`: MASTER (unlimited), EARLY_ACCESS (3 ep cap), TESTER (10 ep cap)
+- `inviteCode`: unique per-user code for sign-in (generated on admin invite)
+- `invitedAt` / `revokedAt`: invite lifecycle tracking
+- `consentedAt` / `consentChannel`: timestamped consent record
+- `episodeBonusGranted`: incremented by +3 on questionnaire completion
+- Dynamic episode limit: `baseLimit + episodeBonusGranted` (MASTER = Infinity)
+
+### Signal
+- States: PENDING → QUEUED → ENRICHED → USED/SKIPPED/FAILED
+- Channels: SMS, EMAIL, EXTENSION, SHARE_SHEET, API
+- Types: LINK, TOPIC, VOICE, FORWARDED_EMAIL, CLIPBOARD
+- Locked atomically via `$transaction` before generation (released on failure)
+
+### Episode
+- States: PENDING → SYNTHESIZING → GENERATING → READY/FAILED/ARCHIVED
+- Contains Segments (per-topic sections with source attribution)
+
+### Feedback
+- Types: TEXT, VOICE, REQUEST (request = episode increase request from /usage)
+
+### QuestionnaireResponse
+- Milestone-based triggers (3, 6, 9...) with duplicate prevention per milestone
+- Grants +3 bonus episodes on completion via `$transaction`
 
 ## Key Design Decisions
 
 ### Copyright Safety (CRITICAL)
 Poddit treats captured links as **topic indicators**, NOT content to reproduce. The synthesis prompt instructs Claude to discuss topics across multiple sources and general knowledge, never to summarize or closely paraphrase any single article. This is a deliberate legal architecture — see the one-pager for full rationale. **Never change the prompts to summarize individual articles.**
 
-### Multi-User Auth
-NextAuth.js v5 with Credentials provider (access code login). JWT strategy — Session/Account/VerificationToken Prisma models exist but are unused. Middleware protects `/`, `/player/*`, `/settings`. All API endpoints use `requireSession()` for session-based auth with userId filtering. Capture routes (SMS, email) look up users by phone/email. Extension requires explicit `userId` in body.
+### Auth System
+- **NextAuth.js v5** with Credentials provider, JWT strategy
+- **Per-user invite codes**: Admin grants access → unique 8-char code generated → sent via SendGrid email
+- **Global access code fallback**: `ACCESS_CODE` env var still works for direct invites
+- **Revoked users blocked**: `revokedAt` field checked on every sign-in attempt
+- **Consent tracking**: `consentedAt` + `consentChannel` set on first sign-in
+- Session/Account/VerificationToken Prisma models exist but are unused (JWT, not DB sessions)
+- Middleware protects `/`, `/player/*`, `/settings`, `/welcome`, `/usage`
+
+### Admin Access Management Flow
+1. User signs up on `www.poddit.com` (PODDIT-CONCEPT) → stored in concept DB
+2. Admin sees request in `/admin` Access Requests section (fetched cross-service)
+3. Admin clicks **"Grant Access"** → unique invite code generated, branded email sent via SendGrid
+4. User receives email → signs in at `app.poddit.com` with email + their unique code
+5. Admin can **Revoke** from Users table → user blocked, notification email sent
+6. Admin can **Restore** revoked users → new code generated, new invite sent
+7. Admin can change user types (MASTER/EARLY_ACCESS/TESTER) via dropdown
+
+### Episode Limits
+- Per user type: MASTER=Infinity, EARLY_ACCESS=3, TESTER=10
+- Dynamic: `baseLimit + episodeBonusGranted` (questionnaire unlocks +3)
+- Preferences API returns -1 for unlimited, frontend checks `episodeLimit > 0`
+- Enforced in both `/api/generate-now` and `/api/cron`
 
 ### Signal Processing Flow
 1. Signal arrives via any channel → `createSignal()` in capture.ts
@@ -77,6 +139,12 @@ NextAuth.js v5 with Credentials provider (access code login). JWT strategy — S
 ### Episode Structure
 Episodes contain Segments (per-topic sections), each with source attribution. The player shows segment tabs, written content, and source cards linking back to original publishers. This drives traffic to sources rather than replacing them.
 
+### Cross-Service Architecture
+- **PODDIT** (app.poddit.com): Main app, Railway, PostgreSQL
+- **PODDIT-CONCEPT** (www.poddit.com): Landing/concept page, separate Express server + PostgreSQL
+- Admin dashboard fetches access requests from PODDIT-CONCEPT via `NEXT_PUBLIC_CONCEPT_API_URL`
+- Both share the same `ADMIN_SECRET` for bearer token auth
+
 ## Development Commands
 
 ```bash
@@ -84,6 +152,7 @@ npm run dev          # Start dev server
 npm run build        # Production build
 npx prisma studio    # Visual database browser
 npx prisma db push   # Sync schema to database
+npx prisma generate  # Regenerate Prisma client (needed after schema changes)
 npx prisma migrate dev --name <description>  # Create migration
 ```
 
@@ -185,7 +254,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Separate admin auth** — ADMIN_SECRET env var with API_SECRET fallback for Mission Control (/admin)
 
 ### Sprint: Early Access Readiness ✅
-- [x] **Feedback model** — Prisma schema: Feedback table (TEXT/VOICE type, NEW/REVIEWED/RESOLVED status), User relation, cascade delete
+- [x] **Feedback model** — Prisma schema: Feedback table (TEXT/VOICE/REQUEST type, NEW/REVIEWED/RESOLVED status), User relation, cascade delete
 - [x] **Rate limiter** — in-memory sliding-window (src/lib/rate-limit.ts) with periodic cleanup
 - [x] **Feedback API** — POST /api/feedback for text (JSON) + voice (FormData → Whisper transcription), session-authed, rate-limited (5/min)
 - [x] **Dashboard feedback module** — amber-accented "Early Access Feedback" section at bottom of dashboard (textarea + voice recording)
@@ -219,20 +288,43 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Admin error sanitization** — removed error.message leak from admin stats response
 
 ### Sprint: Empty State Visual Overhaul ✅
-Design direction for the empty/new-user dashboard experience:
 - [x] **Ghost signals** — 3 animated placeholder cards in empty queue (topic with tags, URL with source, voice waveform bars). Active ghost cycles every 4s with breathing animation. Container fades out on first real signal (0.6s exit).
 - [x] **Active step indicators** — How It Works cards are now a progress tracker: step 1 (Capture) glows teal when queue empty, step 2 (Generate) glows violet when signals exist, step 3 (Listen) glows amber when episode ready. Future steps dimmed to 40% opacity. Color-specific glow-pulse keyframes.
 - [x] **Capture hero emphasis** — input bar floats higher in empty state with teal ambient glow, 5 cycling placeholder texts (3.5s interval) via animated overlay span, mic button pulses violet. All revert when first signal arrives.
 - [x] **Ambient background boost** — 3 dashboard-local bokeh overlay orbs (teal/violet/amber) at higher opacity than layout.tsx base orbs. Fades out over 1s when content exists via transition-opacity.
 
-### Upcoming — P0 (Before Early Access Invites)
-- [ ] **Onboarding email consent check** — audit signup flow for explicit opt-in to email + SMS before any sequences fire. Store timestamped consent record in DB (consentedAt, consentChannel). See `documents/Poddit Pre-Launch Roadmap.docx` §4
-- [ ] **3-episode early access cap** — add episode generation limit for early access users. Gate at 3 episodes total, show messaging when limit hit to collect feedback before unlocking more
-- [ ] **Early access welcome/guidance page** — build /welcome or /get-started covering: what to focus on during testing, use case examples, capture instructions per channel (SMS, share sheet, email forward, extension), PWA homescreen install prompt with iOS + Android instructions. See `documents/Poddit Pre-Launch Roadmap.docx` §3, §4.2 Email 1
-- [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
+### Sprint: P0 Pre-Launch ✅
+- [x] **Consent tracking** — consentedAt + consentChannel on User, checkbox on sign-in, toggle in settings, stored on new user creation
+- [x] **Episode caps by user type** — MASTER=unlimited, EARLY_ACCESS=3, TESTER=10. Dynamic limit with questionnaire bonus. Enforced in generate-now + cron
+- [x] **User type management** — Admin can set MASTER/EARLY_ACCESS/TESTER via dropdown in /admin Users table
+- [x] **Welcome/guidance page** — /welcome with capture channel instructions, PWA install guide, platform detection
+- [x] **Usage page** — /usage with episode usage progress bar, signal count, "Request More Episodes" button (submits REQUEST feedback)
+- [x] **Chrome extension update** — version 1.1.0, new branding
+- [x] **Step card flash fix** — removed fade-in animation from step cards to prevent flash on load
+- [x] **Welcome overlay centering** — fixed backdrop, overflow-y-auto with py-6, my-auto on modal
+
+### Sprint: Early Access Questionnaire ✅
+- [x] **QuestionnaireResponse model** — Prisma: userId, responses (JSON), milestone, createdAt
+- [x] **Questionnaire API** — GET check (milestone-based trigger at 3, 6, 9...) + POST submit with +3 bonus in $transaction
+- [x] **4-step questionnaire modal** — progress dots, validation, success animation, EARLY_ACCESS only
+- [x] **Admin questionnaire section** — view all responses with full answer breakdown in Mission Control
+- [x] **Duplicate prevention** — 409 if milestone already completed
+
+### Sprint: Access Management ✅
+- [x] **Per-user invite codes** — 8-char unique codes (no ambiguous chars), generated on admin invite
+- [x] **SendGrid email integration** — @sendgrid/mail for branded invite + revoke emails from noreply@poddit.com
+- [x] **Admin invite API** — POST /api/admin/invite (create user + send code), handles new/existing/revoked users
+- [x] **Admin revoke API** — DELETE /api/admin/invite (set revokedAt, clear code, send notification)
+- [x] **Auth accepts per-user codes** — invite code OR global ACCESS_CODE, revoked users blocked
+- [x] **Grant Access button** — on Access Requests (from PODDIT-CONCEPT), sends branded invite email
+- [x] **Revoke/Restore/Resend** — buttons in Users table with status column (Active/Invited/Revoked/Pending)
+- [x] **Action toast** — success/error messages for invite and revoke operations
+- [x] **Cross-service access requests** — admin sees PODDIT-CONCEPT signups with NDA status
+- [x] **BETA badge** — amber pill next to "PODDIT" in page header and welcome overlay
+- [x] **Domain migration** — fallback URLs updated to app.poddit.com
 
 ### Upcoming — P1 (Early Access → Pre-Launch)
-- [ ] **Email / SMS strategy + sequence** — implement full engagement system: transactional email provider (Resend/Postmark), domain DNS (SPF/DKIM/DMARC), onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day), SMS episode notifications. See `documents/Poddit Pre-Launch Roadmap.docx` §4 for full sequence design. **BLOCKER:** Waiting for noreply@poddit.com to be set up before SendGrid domain verification can proceed.
+- [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
 - [ ] **Cost & revenue tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode, projected revenue vs actual by tier. This is the operational heartbeat. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
 - [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
@@ -264,6 +356,13 @@ Design direction for the empty/new-user dashboard experience:
 - [ ] URL parser hardening (shortener resolution, platform-specific metadata) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.4
 - [ ] Enterprise / Team tier (shared signal pools, team synthesis) — see `documents/Poddit Monetization Model.docx` §6.2
 
+### Known Issues
+- `SignalStatus.PENDING` enum value is never written (orphaned but harmless)
+- No service worker for PWA
+- Audio player ARIA attributes still needed
+- Monolithic page.tsx (1250+ lines)
+- `Episode.signalCount` denormalization has no sync mechanism
+
 ### Reference Documents
 Detailed strategy documents are in `/documents/` (git-ignored, not committed):
 - `Poddit Pre-Launch Roadmap.docx` — IP protection, platform integrations, Siri shortcuts, email/SMS sequences, priority matrix
@@ -274,13 +373,18 @@ Detailed strategy documents are in `/documents/` (git-ignored, not committed):
 See `.env.example` for all required variables. Critical ones:
 - `DATABASE_URL` — Railway provides this automatically
 - `AUTH_SECRET` — NextAuth.js session signing (generate with `openssl rand -base64 32`)
-- `ACCESS_CODE` — Login access code for Credentials provider
+- `ACCESS_CODE` — Global login access code (fallback for per-user invite codes)
 - `ANTHROPIC_API_KEY` — For synthesis
 - `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` — For TTS
 - `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` — For SMS
 - `S3_*` variables — For audio file storage
 - `API_SECRET` — Shared secret for extension + generate endpoints
+- `ADMIN_SECRET` — Admin dashboard auth (falls back to API_SECRET)
 - `CRON_SECRET` — Secret for automated weekly generation
+- `SENDGRID_API_KEY` — For outbound invite/revoke emails
+- `SENDGRID_FROM_EMAIL` — Verified sender (default: noreply@poddit.com)
+- `NEXT_PUBLIC_APP_URL` — App URL (default: https://app.poddit.com)
+- `NEXT_PUBLIC_CONCEPT_API_URL` — PODDIT-CONCEPT server URL (for cross-service admin)
 
 ## Code Style
 
@@ -288,4 +392,4 @@ See `.env.example` for all required variables. Critical ones:
 - Async/await, no callbacks
 - Prisma for all database access (no raw SQL)
 - Error handling: try/catch with meaningful error messages logged
-- Console.log with `[Module]` prefix (e.g., `[SMS]`, `[TTS]`, `[Poddit]`)
+- Console.log with `[Module]` prefix (e.g., `[SMS]`, `[TTS]`, `[Poddit]`, `[Auth]`, `[Admin]`, `[Email]`)
