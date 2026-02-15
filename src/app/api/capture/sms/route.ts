@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     if (authToken) {
       const signature = request.headers.get('x-twilio-signature') || '';
-      const url = request.url;
+      // Use the public app URL for validation — request.url may be the internal
+      // Railway URL which won't match what Twilio signed against
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      const url = appUrl ? `${appUrl}/api/capture/sms` : request.url;
       // Clone the request to read body twice
       const clonedRequest = request.clone();
       const formDataForValidation = await clonedRequest.formData();
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
 
       const isValid = twilio.validateRequest(authToken, signature, url, params);
       if (!isValid) {
-        console.warn('[SMS] Invalid Twilio signature — rejecting request');
+        console.warn(`[SMS] Invalid Twilio signature — rejecting (validated against: ${url})`);
         return new NextResponse('Forbidden', { status: 403 });
       }
     } else {
