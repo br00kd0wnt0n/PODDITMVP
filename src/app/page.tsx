@@ -74,6 +74,11 @@ function Dashboard() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
   const [episodeLimit, setEpisodeLimit] = useState(3);
+  const [userPhone, setUserPhone] = useState<string>('');
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -133,6 +138,50 @@ function Dashboard() {
       setWelcomeOverlayExiting(false);
       localStorage.setItem('poddit-welcome-seen', '1');
     }, 250);
+  };
+
+  // Save phone number (flexible input — auto-prepends +1 for 10-digit numbers)
+  const savePhone = async () => {
+    setPhoneError(null);
+    let formatted = phoneInput.trim().replace(/[\s\-\(\)\.]/g, '');
+    // Auto-prepend +1 for bare 10-digit US numbers
+    if (/^\d{10}$/.test(formatted)) formatted = `+1${formatted}`;
+    // Accept 1XXXXXXXXXX → +1XXXXXXXXXX
+    if (/^1\d{10}$/.test(formatted)) formatted = `+${formatted}`;
+    // Must be E.164 at this point
+    if (!/^\+[1-9]\d{1,14}$/.test(formatted)) {
+      setPhoneError('Enter a valid phone number (e.g. 5551234567)');
+      return;
+    }
+    setPhoneSaving(true);
+    try {
+      const res = await fetch('/api/user/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save');
+      }
+      setUserPhone(formatted);
+      setShowPhonePrompt(false);
+      setPhoneInput('');
+      // Now open SMS
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = 'sms:+18555065970';
+      } else {
+        navigator.clipboard.writeText('+18555065970').then(() => {
+          setInputSuccess('Phone saved! Number copied — text your signals.');
+          setTimeout(() => setInputSuccess(null), 3000);
+        });
+      }
+    } catch (err: any) {
+      setPhoneError(err.message || 'Failed to save phone');
+    } finally {
+      setPhoneSaving(false);
+    }
   };
 
   // Feedback state
@@ -309,11 +358,14 @@ function Dashboard() {
         setSignalCounts(counts);
       }
 
-      // Handle user preferences (episode limit)
+      // Handle user preferences (episode limit + phone)
       if (results[2].status === 'fulfilled') {
         const prefs = results[2].value;
         if (prefs.episodeLimit !== undefined) {
           setEpisodeLimit(prefs.episodeLimit);
+        }
+        if (prefs.phone) {
+          setUserPhone(prefs.phone);
         }
       }
     } catch {
@@ -1196,7 +1248,13 @@ function Dashboard() {
           {/* Text / Voice */}
           <button
              onClick={() => {
-               // On mobile, open SMS. On desktop, copy number.
+               if (!userPhone) {
+                 // No phone on file — prompt to add one
+                 setShowPhonePrompt(true);
+                 setPhoneError(null);
+                 return;
+               }
+               // Phone is set — proceed to SMS
                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                if (isMobile) {
                  window.location.href = 'sms:+18555065970';
@@ -1273,6 +1331,45 @@ function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Phone number prompt (shown when user taps Text/Voice without a phone on file) */}
+        {showPhonePrompt && (
+          <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
+            <button
+              onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }}
+              className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <p className="text-xs text-stone-300 mb-2">
+              Add your phone number so Poddit can match your texts to your account
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && savePhone()}
+                placeholder="(555) 123-4567"
+                className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white
+                           placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors"
+                autoFocus
+              />
+              <button
+                onClick={savePhone}
+                disabled={phoneSaving || !phoneInput.trim()}
+                className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20
+                           hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+              >
+                {phoneSaving ? 'Saving...' : 'Save & Text'}
+              </button>
+            </div>
+            {phoneError && (
+              <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── How It Works — active step indicators ── */}
