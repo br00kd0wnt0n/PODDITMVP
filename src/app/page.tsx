@@ -43,7 +43,7 @@ interface Signal {
 
 const GHOST_SIGNALS = [
   { type: 'topic' as const, text: 'Why is everyone talking about quantum computing?', topics: ['Science', 'Tech'] },
-  { type: 'link' as const, text: 'https://example.com/ai-breakthroughs-2026', source: 'The Verge' },
+  { type: 'link' as const, text: 'The Next Wave of AI Breakthroughs', source: 'theverge.com', topics: ['AI', 'Future'] },
   { type: 'voice' as const, text: '', waveform: true },
 ];
 
@@ -911,9 +911,8 @@ function Dashboard() {
               key={label}
               className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
                           relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
-                          opacity-0 animate-fade-in-up ${glowClass}
-                          ${isFuture ? 'opacity-40' : ''}`}
-              style={{ animationDelay: `${0.2 + i * 0.15}s`, animationFillMode: 'forwards' }}
+                          ${isFuture ? 'opacity-40' : 'opacity-0 animate-fade-in-up'} ${glowClass}`}
+              style={!isFuture ? { animationDelay: `${0.2 + i * 0.15}s`, animationFillMode: 'forwards' } : undefined}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
                               ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
@@ -1010,7 +1009,7 @@ function Dashboard() {
           </div>
         ) : (
           /* Default: text input + buttons */
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
@@ -1033,42 +1032,44 @@ function Dashboard() {
               {isEmptyState && !textInput && !inputFocused && (
                 <span
                   key={placeholderIndex}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-500 pointer-events-none animate-placeholder-cycle"
+                  className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none animate-placeholder-cycle overflow-hidden whitespace-nowrap text-ellipsis"
                 >
                   {HERO_PLACEHOLDERS[placeholderIndex]}
                 </span>
               )}
             </div>
-            <button
-              onClick={submitText}
-              disabled={submitting || !textInput.trim()}
-              className="px-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                         hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-600 disabled:cursor-not-allowed
-                         shadow-[0_0_12px_rgba(20,184,166,0.15)] hover:shadow-[0_0_16px_rgba(20,184,166,0.25)]
-                         disabled:shadow-none transition-all flex-shrink-0"
-            >
-              {submitting ? '...' : 'Add'}
-            </button>
-            <button
-              onClick={startRecording}
-              disabled={submitting}
-              className={`px-3 py-3 border rounded-xl
-                         hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5
-                         disabled:opacity-40 disabled:cursor-not-allowed
-                         transition-all flex-shrink-0
-                         ${isEmptyState
-                           ? 'border-violet-400/25 text-violet-400/60 animate-mic-pulse'
-                           : 'border-stone-700/60 text-stone-400'
-                         }`}
-              title="Record a voice note"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" x2="12" y1="19" y2="22" />
-              </svg>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={submitText}
+                disabled={submitting || !textInput.trim()}
+                className="flex-1 sm:flex-none px-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                           hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-600 disabled:cursor-not-allowed
+                           shadow-[0_0_12px_rgba(20,184,166,0.15)] hover:shadow-[0_0_16px_rgba(20,184,166,0.25)]
+                           disabled:shadow-none transition-all flex-shrink-0"
+              >
+                {submitting ? '...' : 'Add'}
+              </button>
+              <button
+                onClick={startRecording}
+                disabled={submitting}
+                className={`px-3 py-3 border rounded-xl
+                           hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5
+                           disabled:opacity-40 disabled:cursor-not-allowed
+                           transition-all flex-shrink-0
+                           ${isEmptyState
+                             ? 'border-violet-400/25 text-violet-400/60 animate-mic-pulse'
+                             : 'border-stone-700/60 text-stone-400'
+                           }`}
+                title="Record a voice note"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" x2="12" y1="19" y2="22" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -1186,7 +1187,7 @@ function Dashboard() {
                           </span>
                           <p className="text-sm text-stone-600 truncate">{ghost.text}</p>
                         </div>
-                        {ghost.type === 'link' && 'source' in ghost && (
+                        {'source' in ghost && ghost.source && (
                           <p className="text-xs text-stone-700">{ghost.source}</p>
                         )}
                         {'topics' in ghost && ghost.topics && (
@@ -1201,7 +1202,7 @@ function Dashboard() {
                   </div>
                 </div>
               ))}
-              <p className="text-center text-xs text-stone-700 mt-3 italic">Your signals will appear here</p>
+              <p className="text-center text-[11px] text-stone-700/60 mt-4 italic">Your signals will appear here</p>
             </div>
           ) : signals.length === 0 ? (
             <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">

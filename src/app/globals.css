@@ -202,12 +202,12 @@ input[type="checkbox"] {
   50% { box-shadow: 0 0 12px 2px rgba(167, 139, 250, 0.12); }
 }
 
-/* Placeholder text cycling — fade in from below, hold, fade out above */
+/* Placeholder text cycling — fade in, hold, fade out (no translateY to avoid centering conflict) */
 @keyframes placeholder-cycle {
-  0% { opacity: 0; transform: translateY(4px); }
-  12% { opacity: 1; transform: translateY(0); }
-  88% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-4px); }
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .ghost-signal-breathe {
