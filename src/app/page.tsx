@@ -717,14 +717,14 @@ function Dashboard() {
 
       {/* ── Welcome Overlay (first load) ── */}
       {showWelcomeOverlay && (
-        <div className={`fixed inset-0 z-50 flex justify-center px-4 py-6
-                         overflow-y-auto ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center px-4
+                         ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
           {/* Backdrop */}
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
 
-          {/* Modal — vertically centered via margin auto (scrollable when tall) */}
-          <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
-                           overflow-hidden my-auto shrink-0 ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
+          {/* Modal — centered via flexbox, scrolls internally if too tall */}
+          <div className={`relative w-full max-w-md max-h-[90dvh] bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
+                           overflow-y-auto ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
 
             <div className="p-6">
               {/* Header */}

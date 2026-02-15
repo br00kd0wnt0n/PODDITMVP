@@ -101,7 +101,6 @@ interface AdminStats {
     nda_accepted_at: string | null;
     created_at: string;
   }>;
-  conceptDebug: string | null;
   generatedAt: string;
 }
 
@@ -936,11 +935,6 @@ function AdminDashboard() {
       </div>
 
       {/* ── Access Requests (from PODDIT-CONCEPT) ── */}
-      {stats.conceptDebug && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-6">
-          <p className="text-xs text-amber-300 font-mono">Concept API: {stats.conceptDebug}</p>
-        </div>
-      )}
       {(stats.accessRequests || []).length > 0 && (
         <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
           <div className="flex items-center justify-between mb-4">
