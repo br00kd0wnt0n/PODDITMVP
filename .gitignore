@@ -34,3 +34,6 @@ prisma/migrations/
 *.pem
 .vercel
 .claude/
+
+# internal documents
+documents/

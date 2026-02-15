@@ -201,13 +201,24 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Global footer** — root layout footer: © 2026 Heathen Digital LLC, Poddit™, Terms/Privacy/Contact links
 - [x] **Contact email** — Hello@poddit.com across all legal pages and footer
 
-### Upcoming
+### Upcoming — P0 (Before Early Access Invites)
+- [ ] **Onboarding email consent check** — audit signup flow for explicit opt-in to email + SMS before any sequences fire. Store timestamped consent record in DB (consentedAt, consentChannel). See `documents/Poddit Pre-Launch Roadmap.docx` §4
+- [ ] **3-episode early access cap** — add episode generation limit for early access users. Gate at 3 episodes total, show messaging when limit hit to collect feedback before unlocking more
+- [ ] **Early access welcome/guidance page** — build /welcome or /get-started covering: what to focus on during testing, use case examples, capture instructions per channel (SMS, share sheet, email forward, extension), PWA homescreen install prompt with iOS + Android instructions. See `documents/Poddit Pre-Launch Roadmap.docx` §3, §4.2 Email 1
 - [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
+
+### Upcoming — P1 (Early Access → Pre-Launch)
+- [ ] **Email / SMS strategy + sequence** — implement full engagement system: transactional email provider (Resend/Postmark), domain DNS (SPF/DKIM/DMARC), onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day), SMS episode notifications. See `documents/Poddit Pre-Launch Roadmap.docx` §4 for full sequence design
+- [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
+- [ ] **Cost & revenue tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode, projected revenue vs actual by tier. This is the operational heartbeat. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
+- [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
+- [ ] **Settings page design pass** — visual refresh for settings/preferences page
+
+### Upcoming — P2 (Post-Validation)
+- [ ] **Contextual inline ad slots** — build infrastructure for inserting contextual ad segments into episodes and companion emails for free/Informed tiers. Needs: ad slot markers in the synthesis pipeline, topic-matching logic, audio or text ad injection. See `documents/Poddit Monetization Model.docx` §4 for ad formats and tier strategy
 - [ ] **Signal archive** — used signals move to an archive view where users can review or re-queue them
 - [ ] **Presets / always-include segments** — e.g., "Latest news roundup", "3 talking points", "Quote of the week"
 - [ ] **Interest emphasis** — weight certain topics higher in synthesis
-- [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
-- [ ] **Settings page design pass** — visual refresh for settings/preferences page
 
 ### Backlog
 - [ ] Add error handling for TTS failures (fallback to text-only episode)
@@ -225,6 +236,15 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Audio player ARIA attributes for accessibility
 - [ ] Monolithic page.tsx refactor (870+ lines → extract components)
 - [ ] Native iOS app (React Native or Swift)
+- [ ] Apple Shortcuts integration (Poddit, Poddit This, Poddit Now) — see `documents/Poddit Pre-Launch Roadmap.docx` §3
+- [ ] Platform API sync integrations (Reddit saved, Pocket/Instapaper, YouTube Watch Later) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.2
+- [ ] URL parser hardening (shortener resolution, platform-specific metadata) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.4
+- [ ] Enterprise / Team tier (shared signal pools, team synthesis) — see `documents/Poddit Monetization Model.docx` §6.2
+
+### Reference Documents
+Detailed strategy documents are in `/documents/` (git-ignored, not committed):
+- `Poddit Pre-Launch Roadmap.docx` — IP protection, platform integrations, Siri shortcuts, email/SMS sequences, priority matrix
+- `Poddit Monetization Model.docx` — unit economics ($2.75–4.50/episode), tier pricing, CAC/LTV targets, ad strategy, revenue projections
 
 ## Environment Variables
 
