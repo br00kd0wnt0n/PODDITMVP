@@ -5,8 +5,8 @@
   "description": "Your week, compressed. AI-powered personal podcast from your curiosity signals.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma db push && next build",
-    "start": "next start",
+    "build": "next build",
+    "start": "prisma db push && next start",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
