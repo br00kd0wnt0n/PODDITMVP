@@ -91,18 +91,17 @@ interface AdminStats {
       user: { name: string | null; email: string | null };
     }>;
   };
+  accessRequests: Array<{
+    id: number;
+    full_name: string;
+    email: string;
+    company_role: string | null;
+    referral_source: string | null;
+    nda_accepted: boolean;
+    nda_accepted_at: string | null;
+    created_at: string;
+  }>;
   generatedAt: string;
-}
-
-interface AccessRequest {
-  id: number;
-  full_name: string;
-  email: string;
-  company_role: string | null;
-  referral_source: string | null;
-  nda_accepted: boolean;
-  nda_accepted_at: string | null;
-  created_at: string;
 }
 
 // ──────────────────────────────────────────────
@@ -238,7 +237,6 @@ const USER_TYPE_COLORS: Record<string, string> = {
 function AdminDashboard() {
   const [adminKey, setAdminKey] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
@@ -276,23 +274,6 @@ function AdminDashboard() {
       setAuthError(err.message);
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  // Fetch access requests from PODDIT-CONCEPT server
-  const fetchAccessRequests = useCallback(async (key: string) => {
-    try {
-      const conceptUrl = process.env.NEXT_PUBLIC_CONCEPT_API_URL || '';
-      if (!conceptUrl) return;
-      const res = await fetch(`${conceptUrl}/api/admin/access-requests`, {
-        headers: { Authorization: `Bearer ${key}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAccessRequests(data.requests || []);
-      }
-    } catch {
-      // Silently fail — concept server may be unreachable
     }
   }, []);
 
@@ -342,7 +323,6 @@ function AdminDashboard() {
           text: data.emailSent ? `${verb} ${email}` : `User created but email failed for ${email}`,
         });
         await fetchStats(adminKey);
-        await fetchAccessRequests(adminKey);
       } else {
         setActionMessage({ type: 'error', text: data.error || 'Invite failed' });
       }
@@ -384,9 +364,8 @@ function AdminDashboard() {
   useEffect(() => {
     if (adminKey) {
       fetchStats(adminKey);
-      fetchAccessRequests(adminKey);
     }
-  }, [adminKey, fetchStats, fetchAccessRequests]);
+  }, [adminKey, fetchStats]);
 
   const handleAuth = (key: string) => {
     setAdminKey(key);
@@ -956,18 +935,18 @@ function AdminDashboard() {
       </div>
 
       {/* ── Access Requests (from PODDIT-CONCEPT) ── */}
-      {accessRequests.length > 0 && (
+      {(stats.accessRequests || []).length > 0 && (
         <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-violet-400/60" />
               <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Access Requests</h2>
             </div>
-            <span className="text-xs text-stone-600">{accessRequests.length} requests</span>
+            <span className="text-xs text-stone-600">{stats.accessRequests.length} requests</span>
           </div>
 
           <div className="space-y-2">
-            {accessRequests.map((ar) => {
+            {stats.accessRequests.map((ar) => {
               const matchedUser = (stats.users || []).find(u => u.email === ar.email);
               const isActive = matchedUser && !matchedUser.revokedAt;
               const isRevoked = matchedUser?.revokedAt;

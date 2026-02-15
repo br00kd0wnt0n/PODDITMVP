@@ -181,6 +181,27 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Fetch access requests from PODDIT-CONCEPT server (server-side, no CORS issues)
+    let accessRequests: any[] = [];
+    const conceptUrl = process.env.CONCEPT_API_URL;
+    if (conceptUrl) {
+      try {
+        const adminSecret = process.env.ADMIN_SECRET || process.env.API_SECRET;
+        const conceptRes = await fetch(`${conceptUrl}/api/admin/access-requests`, {
+          headers: { Authorization: `Bearer ${adminSecret}` },
+          signal: AbortSignal.timeout(5000), // 5s timeout
+        });
+        if (conceptRes.ok) {
+          const conceptData = await conceptRes.json();
+          accessRequests = conceptData.requests || [];
+        } else {
+          console.warn(`[Admin] Concept server returned ${conceptRes.status}`);
+        }
+      } catch (err: any) {
+        console.warn('[Admin] Failed to fetch concept access requests:', err.message);
+      }
+    }
+
     return NextResponse.json({
       totals: {
         signals: totalSignals,
@@ -224,6 +245,7 @@ export async function GET(request: NextRequest) {
         total: questionnaireResponses.length,
         responses: questionnaireResponses,
       },
+      accessRequests,
       generatedAt: now.toISOString(),
     });
   } catch (error: any) {
