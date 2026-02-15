@@ -183,6 +183,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch access requests from PODDIT-CONCEPT server (server-side, no CORS issues)
     let accessRequests: any[] = [];
+    let conceptDebug: string | null = null;
     const conceptUrl = process.env.CONCEPT_API_URL;
     if (conceptUrl) {
       try {
@@ -195,11 +196,15 @@ export async function GET(request: NextRequest) {
           const conceptData = await conceptRes.json();
           accessRequests = conceptData.requests || [];
         } else {
-          console.warn(`[Admin] Concept server returned ${conceptRes.status}`);
+          conceptDebug = `Concept server returned ${conceptRes.status}`;
+          console.warn(`[Admin] ${conceptDebug}`);
         }
       } catch (err: any) {
+        conceptDebug = `Fetch failed: ${err.message}`;
         console.warn('[Admin] Failed to fetch concept access requests:', err.message);
       }
+    } else {
+      conceptDebug = 'CONCEPT_API_URL not set';
     }
 
     return NextResponse.json({
@@ -246,6 +251,7 @@ export async function GET(request: NextRequest) {
         responses: questionnaireResponses,
       },
       accessRequests,
+      conceptDebug,
       generatedAt: now.toISOString(),
     });
   } catch (error: any) {
