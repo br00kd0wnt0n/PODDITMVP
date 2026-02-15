@@ -172,6 +172,8 @@ export async function GET(request: NextRequest) {
           userType: true,
           createdAt: true,
           consentedAt: true,
+          invitedAt: true,
+          revokedAt: true,
           _count: {
             select: { episodes: true, signals: true },
           },
@@ -213,6 +215,8 @@ export async function GET(request: NextRequest) {
         userType: u.userType,
         createdAt: u.createdAt,
         consentedAt: u.consentedAt,
+        invitedAt: u.invitedAt,
+        revokedAt: u.revokedAt,
         episodeCount: u._count.episodes,
         signalCount: u._count.signals,
       })),

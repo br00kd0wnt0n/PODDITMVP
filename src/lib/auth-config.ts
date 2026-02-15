@@ -27,18 +27,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
-          // Validate access code
-          if (!process.env.ACCESS_CODE) {
-            console.error('[Auth] ACCESS_CODE env var is not set!');
+          // Look up existing user first
+          let user = await prisma.user.findUnique({ where: { email } });
+
+          // Check if access is revoked
+          if (user?.revokedAt) {
+            console.log(`[Auth] Revoked user attempted sign-in: ${email}`);
             return null;
           }
-          if (code !== process.env.ACCESS_CODE) {
+
+          // Validate access code: per-user invite code OR global fallback
+          const validCode =
+            (user?.inviteCode && code === user.inviteCode) ||
+            (process.env.ACCESS_CODE && code === process.env.ACCESS_CODE);
+
+          if (!validCode) {
             console.log(`[Auth] Invalid access code for ${email}`);
             return null;
           }
 
-          // Find or create user by email
-          let user = await prisma.user.findUnique({ where: { email } });
+          // Create user if they don't exist (global code flow)
           if (!user) {
             user = await prisma.user.create({
               data: {
@@ -50,6 +58,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             });
             console.log(`[Auth] New user created: ${email} (${user.id})`);
           } else {
+            // Mark email verified + consent on first sign-in if invited via admin
+            const updates: Record<string, unknown> = {};
+            if (!user.emailVerified) updates.emailVerified = new Date();
+            if (!user.consentedAt) {
+              updates.consentedAt = new Date();
+              updates.consentChannel = 'signin';
+            }
+            if (Object.keys(updates).length > 0) {
+              await prisma.user.update({ where: { id: user.id }, data: updates });
+            }
             console.log(`[Auth] Existing user signed in: ${email} (${user.id})`);
           }
 

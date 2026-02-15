@@ -76,6 +76,8 @@ interface AdminStats {
     userType: string;
     createdAt: string;
     consentedAt: string | null;
+    invitedAt: string | null;
+    revokedAt: string | null;
     episodeCount: number;
     signalCount: number;
   }>;
@@ -240,6 +242,9 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
+  const [invitingEmail, setInvitingEmail] = useState<string | null>(null);
+  const [revokingUser, setRevokingUser] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Check sessionStorage on mount
   useEffect(() => {
@@ -312,6 +317,67 @@ function AdminDashboard() {
       // Error handling
     } finally {
       setUpdatingUser(null);
+    }
+  };
+
+  // Grant access — send invite email with unique code
+  const inviteUser = async (email: string, name?: string) => {
+    if (!adminKey) return;
+    setInvitingEmail(email);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminKey}`,
+        },
+        body: JSON.stringify({ email, name }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const verb = data.action === 'invited' ? 'Invited' : data.action === 'reinvited' ? 'Re-invited' : 'Sent code to';
+        setActionMessage({
+          type: data.emailSent ? 'success' : 'error',
+          text: data.emailSent ? `${verb} ${email}` : `User created but email failed for ${email}`,
+        });
+        await fetchStats(adminKey);
+        await fetchAccessRequests(adminKey);
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Invite failed' });
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to send invite' });
+    } finally {
+      setInvitingEmail(null);
+    }
+  };
+
+  // Revoke access
+  const revokeUser = async (userId: string) => {
+    if (!adminKey) return;
+    setRevokingUser(userId);
+    setActionMessage(null);
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminKey}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ type: 'success', text: `Revoked access for ${data.revoked}` });
+        await fetchStats(adminKey);
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Revoke failed' });
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to revoke access' });
+    } finally {
+      setRevokingUser(null);
     }
   };
 
@@ -400,6 +466,23 @@ function AdminDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Action toast */}
+      {actionMessage && (
+        <div className={`mb-6 p-3 rounded-xl text-sm flex items-center justify-between ${
+          actionMessage.type === 'success'
+            ? 'bg-teal-500/10 border border-teal-500/20 text-teal-300'
+            : 'bg-red-500/10 border border-red-500/20 text-red-400'
+        }`}>
+          <span>{actionMessage.text}</span>
+          <button onClick={() => setActionMessage(null)} className="ml-3 opacity-60 hover:opacity-100 transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Key Metrics ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -775,13 +858,18 @@ function AdminDashboard() {
                   <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Type</th>
                   <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Episodes</th>
                   <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Signals</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Consent</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2">Joined</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Status</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Joined</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {(stats.users || []).map((u) => (
-                  <tr key={u.id} className="border-b border-stone-800/20 last:border-0 hover:bg-poddit-900/60 transition-colors">
+                {(stats.users || []).map((u) => {
+                  const isRevoked = !!u.revokedAt;
+                  const isInvited = !!u.invitedAt;
+                  const hasSignedIn = !!u.consentedAt;
+                  return (
+                  <tr key={u.id} className={`border-b border-stone-800/20 last:border-0 hover:bg-poddit-900/60 transition-colors ${isRevoked ? 'opacity-50' : ''}`}>
                     <td className="py-2.5 pr-4">
                       <p className="text-sm text-white truncate max-w-[200px]">{u.name || '--'}</p>
                       <p className="text-xs text-stone-500 truncate max-w-[200px]">{u.email}</p>
@@ -790,10 +878,10 @@ function AdminDashboard() {
                       <select
                         value={u.userType}
                         onChange={(e) => updateUserType(u.id, e.target.value)}
-                        disabled={updatingUser === u.id}
+                        disabled={updatingUser === u.id || isRevoked}
                         className={`text-xs px-2 py-1 rounded-lg border-0 cursor-pointer transition-all
                           ${USER_TYPE_COLORS[u.userType] || 'bg-stone-800 text-stone-400'}
-                          ${updatingUser === u.id ? 'opacity-50' : 'hover:ring-1 hover:ring-stone-600'}
+                          ${updatingUser === u.id || isRevoked ? 'opacity-50' : 'hover:ring-1 hover:ring-stone-600'}
                           focus:outline-none focus:ring-1 focus:ring-teal-400/30`}
                         style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                       >
@@ -809,17 +897,58 @@ function AdminDashboard() {
                       <span className="text-sm font-mono text-stone-300">{u.signalCount}</span>
                     </td>
                     <td className="py-2.5 pr-4">
-                      {u.consentedAt ? (
-                        <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">Yes</span>
+                      {isRevoked ? (
+                        <span className="text-xs bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">Revoked</span>
+                      ) : hasSignedIn ? (
+                        <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">Active</span>
+                      ) : isInvited ? (
+                        <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded">Invited</span>
                       ) : (
-                        <span className="text-xs bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">No</span>
+                        <span className="text-xs bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">Pending</span>
                       )}
                     </td>
-                    <td className="py-2.5">
+                    <td className="py-2.5 pr-4">
                       <span className="text-xs text-stone-500">{timeAgo(u.createdAt)}</span>
                     </td>
+                    <td className="py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {isRevoked ? (
+                          <button
+                            onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
+                            disabled={invitingEmail === u.email}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-400
+                                       hover:bg-teal-500/20 disabled:opacity-50 transition-all"
+                          >
+                            {invitingEmail === u.email ? 'Restoring...' : 'Restore'}
+                          </button>
+                        ) : (
+                          <>
+                            {!hasSignedIn && isInvited && (
+                              <button
+                                onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
+                                disabled={invitingEmail === u.email}
+                                className="text-xs px-2.5 py-1 rounded-lg bg-stone-800 text-stone-400
+                                           hover:bg-stone-700 hover:text-stone-300 disabled:opacity-50 transition-all"
+                                title="Resend invite email"
+                              >
+                                {invitingEmail === u.email ? 'Sending...' : 'Resend'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => revokeUser(u.id)}
+                              disabled={revokingUser === u.id}
+                              className="text-xs px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400
+                                         hover:bg-red-500/20 disabled:opacity-50 transition-all"
+                            >
+                              {revokingUser === u.id ? 'Revoking...' : 'Revoke'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -839,7 +968,10 @@ function AdminDashboard() {
 
           <div className="space-y-2">
             {accessRequests.map((ar) => {
-              const alreadyUser = (stats.users || []).some(u => u.email === ar.email);
+              const matchedUser = (stats.users || []).find(u => u.email === ar.email);
+              const isActive = matchedUser && !matchedUser.revokedAt;
+              const isRevoked = matchedUser?.revokedAt;
+              const isInvited = matchedUser?.invitedAt && !matchedUser.consentedAt && !matchedUser.revokedAt;
               return (
                 <div key={ar.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
                   <div className="flex items-start justify-between gap-3">
@@ -866,11 +998,37 @@ function AdminDashboard() {
                       </div>
                       <p className="text-xs text-stone-600 mt-1">{timeAgo(ar.created_at)}</p>
                     </div>
-                    <div className="flex-shrink-0">
-                      {alreadyUser ? (
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      {isActive && matchedUser.consentedAt ? (
                         <span className="text-xs bg-teal-500/15 text-teal-300 px-2.5 py-1 rounded-lg">Active User</span>
+                      ) : isRevoked ? (
+                        <button
+                          onClick={() => inviteUser(ar.email, ar.full_name)}
+                          disabled={invitingEmail === ar.email}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400
+                                     hover:bg-teal-500/20 disabled:opacity-50 transition-all font-medium"
+                        >
+                          {invitingEmail === ar.email ? 'Restoring...' : 'Restore Access'}
+                        </button>
+                      ) : isInvited ? (
+                        <span className="text-xs bg-amber-500/10 text-amber-300 px-2.5 py-1 rounded-lg">Invited</span>
                       ) : (
-                        <span className="text-xs bg-stone-800 text-stone-400 px-2.5 py-1 rounded-lg">Pending</span>
+                        <button
+                          onClick={() => inviteUser(ar.email, ar.full_name)}
+                          disabled={invitingEmail === ar.email}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-teal-500 text-poddit-950
+                                     hover:bg-teal-400 disabled:opacity-50 transition-all font-bold"
+                        >
+                          {invitingEmail === ar.email ? (
+                            <span className="flex items-center gap-1.5">
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              Sending...
+                            </span>
+                          ) : 'Grant Access'}
+                        </button>
                       )}
                     </div>
                   </div>

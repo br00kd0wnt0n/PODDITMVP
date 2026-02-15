@@ -24,6 +24,11 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  // Invite system
+  inviteCode     String?   @unique
+  invitedAt      DateTime?
+  revokedAt      DateTime?
+
   accounts Account[]
   sessions Session[]
   signals  Signal[]
