@@ -95,6 +95,18 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'glow-pulse-teal': {
+          '0%, 100%': { boxShadow: '0 0 8px rgba(20, 184, 166, 0.06), inset 0 0 8px rgba(20, 184, 166, 0.02)' },
+          '50%': { boxShadow: '0 0 20px rgba(20, 184, 166, 0.15), inset 0 0 12px rgba(20, 184, 166, 0.04)' },
+        },
+        'glow-pulse-violet': {
+          '0%, 100%': { boxShadow: '0 0 8px rgba(167, 139, 250, 0.06), inset 0 0 8px rgba(167, 139, 250, 0.02)' },
+          '50%': { boxShadow: '0 0 20px rgba(167, 139, 250, 0.15), inset 0 0 12px rgba(167, 139, 250, 0.04)' },
+        },
+        'glow-pulse-amber': {
+          '0%, 100%': { boxShadow: '0 0 8px rgba(245, 158, 11, 0.06), inset 0 0 8px rgba(245, 158, 11, 0.02)' },
+          '50%': { boxShadow: '0 0 20px rgba(245, 158, 11, 0.15), inset 0 0 12px rgba(245, 158, 11, 0.04)' },
+        },
       },
       animation: {
         'slide-in': 'slide-in 0.5s ease-out forwards',
@@ -102,6 +114,9 @@ module.exports = {
         'signal-collapse': 'signal-collapse 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards',
         'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
         'fade-in-up': 'fade-in-up 0.6s ease-out forwards',
+        'glow-pulse-teal': 'glow-pulse-teal 2.5s ease-in-out infinite',
+        'glow-pulse-violet': 'glow-pulse-violet 2.5s ease-in-out infinite',
+        'glow-pulse-amber': 'glow-pulse-amber 2.5s ease-in-out infinite',
       },
     },
   },

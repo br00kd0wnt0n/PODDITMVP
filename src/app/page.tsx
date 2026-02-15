@@ -41,6 +41,20 @@ interface Signal {
   createdAt: string;
 }
 
+const GHOST_SIGNALS = [
+  { type: 'topic' as const, text: 'Why is everyone talking about quantum computing?', topics: ['Science', 'Tech'] },
+  { type: 'link' as const, text: 'https://example.com/ai-breakthroughs-2026', source: 'The Verge' },
+  { type: 'voice' as const, text: '', waveform: true },
+];
+
+const HERO_PLACEHOLDERS = [
+  'Paste a link you\'ve been meaning to read...',
+  'What topic are you curious about?',
+  'Forward a newsletter to capture@poddit.com...',
+  'Drop a podcast episode URL...',
+  '"Why is everyone talking about X?"',
+];
+
 function Dashboard() {
   const searchParams = useSearchParams();
   const shared = searchParams.get('shared');
@@ -89,6 +103,15 @@ function Dashboard() {
   // Welcome banner state
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
 
+  // Empty state visual overhaul
+  const [ghostVisible, setGhostVisible] = useState(true);
+  const [showGhosts, setShowGhosts] = useState(true);
+  const [activeGhostIndex, setActiveGhostIndex] = useState(0);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [inputFocused, setInputFocused] = useState(false);
+  const ghostTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const placeholderTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Welcome overlay (first-load only, persisted in localStorage)
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const [welcomeOverlayExiting, setWelcomeOverlayExiting] = useState(false);
@@ -125,6 +148,51 @@ function Dashboard() {
   const fbChunksRef = useRef<Blob[]>([]);
   const fbTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Empty state derived values (used by effects below) ──
+  const isEmptyState = signals.length === 0 && !loading;
+  const hasSignalsNoEpisode = signals.length > 0 && episodes.length === 0;
+  const hasEpisodeReady = episodes.length > 0;
+  const activeStep = hasEpisodeReady ? 3 : hasSignalsNoEpisode ? 2 : 1;
+
+  // Ghost signal cycling timer
+  useEffect(() => {
+    if (!isEmptyState) return;
+    ghostTimerRef.current = setInterval(() => {
+      setActiveGhostIndex(prev => (prev + 1) % GHOST_SIGNALS.length);
+    }, 4000);
+    return () => {
+      if (ghostTimerRef.current) clearInterval(ghostTimerRef.current);
+    };
+  }, [isEmptyState]);
+
+  // Ghost exit transition when first signal arrives
+  useEffect(() => {
+    if (signals.length > 0 && showGhosts) {
+      setGhostVisible(false);
+      const timer = setTimeout(() => setShowGhosts(false), 600);
+      return () => clearTimeout(timer);
+    }
+    if (signals.length === 0 && !showGhosts) {
+      setShowGhosts(true);
+      setGhostVisible(true);
+    }
+  }, [signals.length, showGhosts]);
+
+  // Placeholder text cycling timer
+  useEffect(() => {
+    if (!isEmptyState) {
+      setPlaceholderIndex(0);
+      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
+      return;
+    }
+    placeholderTimerRef.current = setInterval(() => {
+      setPlaceholderIndex(prev => (prev + 1) % HERO_PLACEHOLDERS.length);
+    }, 3500);
+    return () => {
+      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
+    };
+  }, [isEmptyState]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -132,6 +200,8 @@ function Dashboard() {
       if (fbTimerRef.current) clearInterval(fbTimerRef.current);
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (ghostTimerRef.current) clearInterval(ghostTimerRef.current);
+      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
@@ -557,6 +627,17 @@ function Dashboard() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
 
+      {/* Dashboard-local bokeh boost — visible only in empty state */}
+      <div
+        aria-hidden="true"
+        className={`fixed inset-0 overflow-hidden pointer-events-none z-0 transition-opacity duration-1000
+                    ${isEmptyState ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <div className="bokeh-orb bokeh-3 absolute top-[10%] right-[15%] w-[35vw] h-[35vw] rounded-full bg-teal-400/[0.06] blur-3xl" />
+        <div className="bokeh-orb bokeh-1 absolute bottom-[15%] left-[10%] w-[30vw] h-[30vw] rounded-full bg-violet-400/[0.05] blur-3xl" />
+        <div className="bokeh-orb bokeh-5 absolute top-[50%] left-[60%] w-[25vw] h-[25vw] rounded-full bg-amber-400/[0.04] blur-2xl" />
+      </div>
+
       {/* ── Welcome Overlay (first load) ── */}
       {showWelcomeOverlay && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center px-4
@@ -804,38 +885,48 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* ── How It Works ── */}
+      {/* ── How It Works — active step indicators ── */}
       <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
-                        relative overflow-hidden group hover:border-teal-500/15 transition-all
-                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/8 text-teal-500/70 text-[11px] font-bold flex items-center justify-center">1</span>
-          <div className="relative">
-            <p className="text-sm font-medium text-stone-300">Capture</p>
-            <p className="text-xs text-stone-600 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
-                        relative overflow-hidden group hover:border-violet-400/15 transition-all
-                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-400/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-violet-400/8 text-violet-400/70 text-[11px] font-bold flex items-center justify-center">2</span>
-          <div className="relative">
-            <p className="text-sm font-medium text-stone-300">Generate</p>
-            <p className="text-xs text-stone-600 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20
-                        relative overflow-hidden group hover:border-amber-500/15 transition-all
-                        opacity-0 animate-fade-in-up" style={{ animationDelay: '0.5s', animationFillMode: 'forwards' }}>
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <span className="relative flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/8 text-amber-400/70 text-[11px] font-bold flex items-center justify-center">3</span>
-          <div className="relative">
-            <p className="text-sm font-medium text-stone-300">Listen</p>
-            <p className="text-xs text-stone-600 mt-0.5">Get a personalized audio episode explaining what it all means.</p>
-          </div>
-        </div>
+        {([
+          { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
+          { label: 'Generate', desc: 'Hit Poddit Now or wait for your weekly roundup every Friday.', color: 'violet', step: 2 },
+          { label: 'Listen', desc: 'Get a personalized audio episode explaining what it all means.', color: 'amber', step: 3 },
+        ] as const).map(({ label, desc, color, step }, i) => {
+          const isActive = step === activeStep;
+          const isFuture = step > activeStep;
+          const borderClass = isActive
+            ? color === 'teal' ? 'border-teal-500/30' : color === 'violet' ? 'border-violet-400/30' : 'border-amber-500/30'
+            : isFuture ? 'border-stone-800/10' : 'border-stone-800/20';
+          const glowClass = isActive
+            ? color === 'teal' ? 'animate-glow-pulse-teal' : color === 'violet' ? 'animate-glow-pulse-violet' : 'animate-glow-pulse-amber'
+            : '';
+          const badgeClass = isActive
+            ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
+            : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
+          const gradientFrom = color === 'teal' ? 'from-teal-500/[0.04]' : color === 'violet' ? 'from-violet-400/[0.04]' : 'from-amber-500/[0.04]';
+          const hoverBorder = color === 'teal' ? 'hover:border-teal-500/15' : color === 'violet' ? 'hover:border-violet-400/15' : 'hover:border-amber-500/15';
+
+          return (
+            <div
+              key={label}
+              className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
+                          relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
+                          opacity-0 animate-fade-in-up ${glowClass}
+                          ${isFuture ? 'opacity-40' : ''}`}
+              style={{ animationDelay: `${0.2 + i * 0.15}s`, animationFillMode: 'forwards' }}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
+                              ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+              <span className={`relative flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>
+                {step}
+              </span>
+              <div className="relative">
+                <p className={`text-sm font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
+                <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Welcome Banner (first-time users) ── */}
@@ -881,7 +972,7 @@ function Dashboard() {
       )}
 
       {/* ── Capture Input Bar ── */}
-      <section className="mb-8">
+      <section className={`mb-8 transition-all duration-700 ${isEmptyState ? '-mt-2 mb-10' : ''}`}>
         {/* Input error */}
         {inputError && (
           <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
@@ -920,18 +1011,34 @@ function Dashboard() {
         ) : (
           /* Default: text input + buttons */
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Save a link, topic, or thought..."
-              disabled={submitting}
-              className="flex-1 px-4 py-3 bg-poddit-900/80 border border-stone-700/60 rounded-xl text-sm text-white
-                         placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40
-                         shadow-[0_0_0_1px_rgba(20,184,166,0.04)] focus:shadow-[0_0_12px_rgba(20,184,166,0.08)]
-                         disabled:opacity-40 transition-all"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder={!isEmptyState ? 'Save a link, topic, or thought...' : ' '}
+                disabled={submitting}
+                className={`w-full px-4 py-3 bg-poddit-900/80 border rounded-xl text-sm text-white
+                           placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40
+                           focus:shadow-[0_0_12px_rgba(20,184,166,0.08)]
+                           disabled:opacity-40 transition-all
+                           ${isEmptyState
+                             ? 'border-teal-500/20 shadow-[0_0_16px_rgba(20,184,166,0.08)]'
+                             : 'border-stone-700/60 shadow-[0_0_0_1px_rgba(20,184,166,0.04)]'
+                           }`}
+              />
+              {isEmptyState && !textInput && !inputFocused && (
+                <span
+                  key={placeholderIndex}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-500 pointer-events-none animate-placeholder-cycle"
+                >
+                  {HERO_PLACEHOLDERS[placeholderIndex]}
+                </span>
+              )}
+            </div>
             <button
               onClick={submitText}
               disabled={submitting || !textInput.trim()}
@@ -945,10 +1052,14 @@ function Dashboard() {
             <button
               onClick={startRecording}
               disabled={submitting}
-              className="px-3 py-3 border border-stone-700/60 rounded-xl text-stone-400
+              className={`px-3 py-3 border rounded-xl
                          hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5
                          disabled:opacity-40 disabled:cursor-not-allowed
-                         transition-all flex-shrink-0"
+                         transition-all flex-shrink-0
+                         ${isEmptyState
+                           ? 'border-violet-400/25 text-violet-400/60 animate-mic-pulse'
+                           : 'border-stone-700/60 text-stone-400'
+                         }`}
               title="Record a voice note"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -1027,7 +1138,72 @@ function Dashboard() {
             </p>
           )}
 
-          {signals.length === 0 ? (
+          {signals.length === 0 && showGhosts ? (
+            <div className={`space-y-2 ${ghostVisible ? '' : 'ghost-container-exit'}`}>
+              {GHOST_SIGNALS.map((ghost, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-900/30 border border-stone-800/20
+                              ${i === activeGhostIndex ? 'ghost-signal-breathe-active' : 'ghost-signal-breathe'}`}
+                >
+                  <div className="w-4 h-4 rounded bg-stone-800/50 mt-0.5 flex-shrink-0 flex items-center justify-center">
+                    {ghost.type === 'link' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                    )}
+                    {ghost.type === 'topic' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    )}
+                    {ghost.type === 'voice' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                      </svg>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {ghost.type === 'voice' ? (
+                      <div className="flex items-end gap-[2px] h-4">
+                        {[3, 7, 5, 10, 8, 4, 9, 6, 3, 7, 5, 8].map((h, j) => (
+                          <div
+                            key={j}
+                            className="w-[3px] bg-stone-700/60 rounded-full ghost-waveform-bar"
+                            style={{ height: `${h}px`, animationDelay: `${j * 0.08}s` }}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-mono bg-stone-800/40 text-stone-600 px-1.5 py-0.5 rounded flex-shrink-0">
+                            {ghost.type === 'link' ? 'web' : 'app'}
+                          </span>
+                          <p className="text-sm text-stone-600 truncate">{ghost.text}</p>
+                        </div>
+                        {ghost.type === 'link' && 'source' in ghost && (
+                          <p className="text-xs text-stone-700">{ghost.source}</p>
+                        )}
+                        {'topics' in ghost && ghost.topics && (
+                          <div className="flex gap-1 mt-1.5">
+                            {ghost.topics.map(t => (
+                              <span key={t} className="text-xs bg-violet-400/8 text-stone-600 px-2 py-0.5 rounded-full">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-center text-xs text-stone-700 mt-3 italic">Your signals will appear here</p>
+            </div>
+          ) : signals.length === 0 ? (
             <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
               <p className="text-stone-400 mb-2">Your queue is empty.</p>
               <p className="text-sm text-stone-500">

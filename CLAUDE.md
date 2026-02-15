@@ -218,12 +218,12 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Admin rate limiting** — 10 requests/min on /api/admin/stats to prevent expensive query spam
 - [x] **Admin error sanitization** — removed error.message leak from admin stats response
 
-### Sprint: Empty State Visual Overhaul (Next)
+### Sprint: Empty State Visual Overhaul ✅
 Design direction for the empty/new-user dashboard experience:
-- [ ] **Ghost signals** — animated placeholder content in empty queue: example signals ("Why is everyone talking about quantum computing?", a URL shimmer, voice note waveform) floating in/out with gentle pulse. Fade out when first real signal lands.
-- [ ] **Active step indicators** — 1-2-3 How It Works becomes a progress tracker: step 1 highlighted/glowing when queue is empty, step 2 lights up when signals exist but no episode, step 3 activates when episode ready. Dimmed steps feel like the product is waiting for action.
-- [ ] **Capture hero emphasis** — in empty state, elevate the input bar: float it higher, pulse the microphone icon, cycle placeholder text ("Paste a link you've been meaning to read...", "What topic are you curious about?", "Forward a newsletter to capture@poddit.com...")
-- [ ] **Ambient background boost** — increase bokeh intensity in empty state (slow particle drift, prism light effect tied to logo metaphor), dial back when content exists. Background energy compensates for content void.
+- [x] **Ghost signals** — 3 animated placeholder cards in empty queue (topic with tags, URL with source, voice waveform bars). Active ghost cycles every 4s with breathing animation. Container fades out on first real signal (0.6s exit).
+- [x] **Active step indicators** — How It Works cards are now a progress tracker: step 1 (Capture) glows teal when queue empty, step 2 (Generate) glows violet when signals exist, step 3 (Listen) glows amber when episode ready. Future steps dimmed to 40% opacity. Color-specific glow-pulse keyframes.
+- [x] **Capture hero emphasis** — input bar floats higher in empty state with teal ambient glow, 5 cycling placeholder texts (3.5s interval) via animated overlay span, mic button pulses violet. All revert when first signal arrives.
+- [x] **Ambient background boost** — 3 dashboard-local bokeh overlay orbs (teal/violet/amber) at higher opacity than layout.tsx base orbs. Fades out over 1s when content exists via transition-opacity.
 
 ### Upcoming — P0 (Before Early Access Invites)
 - [ ] **Onboarding email consent check** — audit signup flow for explicit opt-in to email + SMS before any sequences fire. Store timestamped consent record in DB (consentedAt, consentChannel). See `documents/Poddit Pre-Launch Roadmap.docx` §4
@@ -232,7 +232,7 @@ Design direction for the empty/new-user dashboard experience:
 - [ ] **Chrome extension update** — update extension with new glass P branding, publish to Web Store
 
 ### Upcoming — P1 (Early Access → Pre-Launch)
-- [ ] **Email / SMS strategy + sequence** — implement full engagement system: transactional email provider (Resend/Postmark), domain DNS (SPF/DKIM/DMARC), onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day), SMS episode notifications. See `documents/Poddit Pre-Launch Roadmap.docx` §4 for full sequence design
+- [ ] **Email / SMS strategy + sequence** — implement full engagement system: transactional email provider (Resend/Postmark), domain DNS (SPF/DKIM/DMARC), onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day), SMS episode notifications. See `documents/Poddit Pre-Launch Roadmap.docx` §4 for full sequence design. **BLOCKER:** Waiting for noreply@poddit.com to be set up before SendGrid domain verification can proceed.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
 - [ ] **Cost & revenue tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode, projected revenue vs actual by tier. This is the operational heartbeat. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
 - [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
