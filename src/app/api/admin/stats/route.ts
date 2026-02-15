@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
       totalFeedback,
       newFeedbackCount,
       recentFeedback,
+      questionnaireResponses,
       users,
     ] = await Promise.all([
       prisma.signal.count(),
@@ -147,6 +148,20 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      // Questionnaire responses
+      prisma.questionnaireResponse.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          responses: true,
+          milestone: true,
+          createdAt: true,
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      }),
       // Users list
       prisma.user.findMany({
         orderBy: { createdAt: 'desc' },
@@ -201,6 +216,10 @@ export async function GET(request: NextRequest) {
         episodeCount: u._count.episodes,
         signalCount: u._count.signals,
       })),
+      questionnaire: {
+        total: questionnaireResponses.length,
+        responses: questionnaireResponses,
+      },
       generatedAt: now.toISOString(),
     });
   } catch (error: any) {

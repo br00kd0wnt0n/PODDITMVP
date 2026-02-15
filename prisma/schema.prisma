@@ -29,6 +29,10 @@ model User {
   signals  Signal[]
   episodes Episode[]
   feedback Feedback[]
+  questionnaireResponses QuestionnaireResponse[]
+
+  // Bonus episodes granted via questionnaire completion
+  episodeBonusGranted Int       @default(0)
 }
 
 // ──────────────────────────────────────────
@@ -232,4 +236,22 @@ enum FeedbackStatus {
   NEW
   REVIEWED
   RESOLVED
+}
+
+// ──────────────────────────────────────────
+// Questionnaire — early access feedback survey
+// ──────────────────────────────────────────
+model QuestionnaireResponse {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Responses stored as JSON: { q1: "...", q2: "...", ... }
+  responses Json
+  // Which milestone triggered this (e.g. 3, 6, 9)
+  milestone Int
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

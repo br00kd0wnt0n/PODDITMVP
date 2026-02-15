@@ -18,13 +18,14 @@ export async function POST(request: NextRequest) {
     if (sessionResult instanceof NextResponse) return sessionResult;
     const { userId } = sessionResult;
 
-    // Episode cap based on user type
+    // Episode cap based on user type + questionnaire bonuses
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { userType: true },
+      select: { userType: true, episodeBonusGranted: true },
     });
-    const EPISODE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
-    const limit = EPISODE_LIMITS[user?.userType || 'EARLY_ACCESS'] ?? 3;
+    const BASE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
+    const baseLimit = BASE_LIMITS[user?.userType || 'EARLY_ACCESS'] ?? 3;
+    const limit = baseLimit === Infinity ? Infinity : baseLimit + (user?.episodeBonusGranted || 0);
 
     if (limit !== Infinity) {
       const episodeCount = await prisma.episode.count({
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error: 'early_access_limit',
-            message: `You've reached your ${limit}-episode limit. Share your feedback to request more!`,
+            message: `You've reached your ${limit}-episode limit. Complete the feedback questionnaire to unlock more!`,
             episodeCount,
             limit,
           },

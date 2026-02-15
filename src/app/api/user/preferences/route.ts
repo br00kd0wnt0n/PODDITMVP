@@ -28,6 +28,7 @@ export async function GET() {
       preferences: true,
       consentedAt: true,
       userType: true,
+      episodeBonusGranted: true,
     },
   });
 
@@ -35,8 +36,9 @@ export async function GET() {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const EPISODE_LIMITS: Record<string, number> = { MASTER: -1, EARLY_ACCESS: 3, TESTER: 10 };
-  const episodeLimit = EPISODE_LIMITS[user.userType] ?? 3;
+  const BASE_LIMITS: Record<string, number> = { MASTER: -1, EARLY_ACCESS: 3, TESTER: 10 };
+  const baseLimit = BASE_LIMITS[user.userType] ?? 3;
+  const episodeLimit = baseLimit === -1 ? -1 : baseLimit + (user.episodeBonusGranted || 0);
 
   return NextResponse.json({
     name: user.name || '',

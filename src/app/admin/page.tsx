@@ -79,6 +79,16 @@ interface AdminStats {
     episodeCount: number;
     signalCount: number;
   }>;
+  questionnaire: {
+    total: number;
+    responses: Array<{
+      id: string;
+      responses: Record<string, string | string[]>;
+      milestone: number;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+  };
   generatedAt: string;
 }
 
@@ -666,6 +676,83 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Questionnaire Responses ── */}
+      {(stats.questionnaire?.responses || []).length > 0 && (
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-teal-400/60" />
+              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Questionnaire Responses</h2>
+            </div>
+            <span className="text-xs text-stone-600">{stats.questionnaire.total} total</span>
+          </div>
+
+          <div className="space-y-4">
+            {stats.questionnaire.responses.map((qr) => {
+              const r = qr.responses as Record<string, string | string[]>;
+              return (
+                <div key={qr.id} className="p-4 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white font-medium">{qr.user.name || qr.user.email || 'Unknown'}</span>
+                      <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">
+                        Milestone {qr.milestone}
+                      </span>
+                    </div>
+                    <span className="text-xs text-stone-600">{timeAgo(qr.createdAt)}</span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    {r.describe && (
+                      <div>
+                        <span className="text-stone-500">Describe to a friend:</span>
+                        <p className="text-stone-300 mt-0.5">&ldquo;{r.describe}&rdquo;</p>
+                      </div>
+                    )}
+                    {r.useful && (
+                      <div>
+                        <span className="text-stone-500">Usefulness:</span>
+                        <span className="text-stone-300 ml-1.5">{r.useful}</span>
+                      </div>
+                    )}
+                    {r.changed && (
+                      <div>
+                        <span className="text-stone-500">Changed thinking:</span>
+                        <span className="text-stone-300 ml-1.5">{r.changed}</span>
+                      </div>
+                    )}
+                    {r.likelihood && (
+                      <div>
+                        <span className="text-stone-500">Open tomorrow:</span>
+                        <span className="text-stone-300 ml-1.5">{r.likelihood}</span>
+                      </div>
+                    )}
+                    {r.friction && (
+                      <div>
+                        <span className="text-stone-500">Friction:</span>
+                        <span className="text-stone-300 ml-1.5">{r.friction}</span>
+                      </div>
+                    )}
+                    {r.essential && (
+                      <div>
+                        <span className="text-stone-500">Can&apos;t live without:</span>
+                        <p className="text-stone-300 mt-0.5">&ldquo;{r.essential}&rdquo;</p>
+                      </div>
+                    )}
+                    {Array.isArray(r.listenWhen) && r.listenWhen.length > 0 && (
+                      <div>
+                        <span className="text-stone-500">Listens:</span>
+                        <span className="text-stone-300 ml-1.5">{(r.listenWhen as string[]).join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Users Management ── */}
       <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">

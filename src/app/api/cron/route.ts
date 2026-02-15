@@ -60,10 +60,11 @@ export async function GET(request: NextRequest) {
         // Episode cap based on user type
         const cronUser = await prisma.user.findUnique({
           where: { id: userId },
-          select: { userType: true },
+          select: { userType: true, episodeBonusGranted: true },
         });
-        const EPISODE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
-        const limit = EPISODE_LIMITS[cronUser?.userType || 'EARLY_ACCESS'] ?? 3;
+        const BASE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
+        const baseLimit = BASE_LIMITS[cronUser?.userType || 'EARLY_ACCESS'] ?? 3;
+        const limit = baseLimit === Infinity ? Infinity : baseLimit + (cronUser?.episodeBonusGranted || 0);
 
         if (limit !== Infinity) {
           const readyCount = await prisma.episode.count({
