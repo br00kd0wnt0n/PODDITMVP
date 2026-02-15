@@ -328,9 +328,11 @@ function Dashboard() {
     };
   }, []);
 
-  // Load data
+  // Load data + poll every 10s for new signals (SMS, extension, etc.)
   useEffect(() => {
     refreshData();
+    const poll = setInterval(refreshData, 10_000);
+    return () => clearInterval(poll);
   }, []);
 
   const refreshData = async () => {
