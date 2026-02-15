@@ -651,14 +651,14 @@ function Dashboard() {
 
       {/* ── Welcome Overlay (first load) ── */}
       {showWelcomeOverlay && (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center px-4
-                         ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6
+                         overflow-y-auto ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
 
-          {/* Modal — vertically centered via parent flex */}
+          {/* Modal — vertically centered via parent flex + margin auto */}
           <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
-                           overflow-hidden my-auto ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
+                           overflow-hidden m-auto shrink-0 ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
 
             <div className="p-6">
               {/* Header */}
@@ -735,12 +735,6 @@ function Dashboard() {
                            hover:bg-teal-400 transition-colors shadow-[0_0_16px_rgba(20,184,166,0.15)]"
               >
                 Get Started
-              </button>
-              <button
-                onClick={dismissWelcomeOverlay}
-                className="w-full mt-2 py-2 text-xs text-stone-500 hover:text-stone-400 transition-colors"
-              >
-                Skip for now
               </button>
             </div>
           </div>
