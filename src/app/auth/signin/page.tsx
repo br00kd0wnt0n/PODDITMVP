@@ -75,17 +75,19 @@ export default function SignInPage() {
         <div className="p-6 bg-poddit-900/60 border border-stone-800/60 rounded-xl backdrop-blur-sm">
 
           {error && (
-            <div className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
+            <div role="alert" className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
               {error}
             </div>
           )}
 
-          <label className="block text-xs text-stone-500 mb-1.5">Email address</label>
+          <label htmlFor="email" className="block text-xs text-stone-500 mb-1.5">Email address</label>
           <input
+            id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            autoComplete="email"
             autoFocus
             required
             className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
@@ -93,8 +95,9 @@ export default function SignInPage() {
                        focus:border-stone-600 mb-4"
           />
 
-          <label className="block text-xs text-stone-500 mb-1.5">Access code</label>
+          <label htmlFor="code" className="block text-xs text-stone-500 mb-1.5">Access code</label>
           <input
+            id="code"
             type="password"
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -126,7 +129,10 @@ export default function SignInPage() {
           </button>
 
           <p className="text-xs text-stone-600 text-center mt-4">
-            Early access — ask Brook for the code.
+            Early access — check your invite email for the code.
+          </p>
+          <p className="text-xs text-stone-600 text-center mt-1">
+            Need help? <a href="mailto:Hello@poddit.com" className="text-teal-500/70 hover:text-teal-400 transition-colors">Hello@poddit.com</a>
           </p>
         </div>
       </form>

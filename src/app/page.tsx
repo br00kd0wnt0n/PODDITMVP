@@ -554,11 +554,9 @@ function Dashboard() {
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
 
-          {/* Modal */}
+          {/* Modal — vertically centered via parent flex */}
           <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
-                           overflow-hidden ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
-            {/* Gradient accent bar */}
-            <div className="h-1 bg-gradient-to-r from-teal-500 via-violet-400 to-amber-400" />
+                           overflow-hidden my-auto ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
 
             <div className="p-6">
               {/* Header */}
@@ -574,7 +572,7 @@ function Dashboard() {
                   />
                 </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-white font-display">Welcome to Poddit!</h2>
+                  <h2 className="text-lg font-extrabold text-white">Welcome to <span className="font-display">PODDIT</span></h2>
                   <p className="text-xs text-stone-500">Early Access Preview</p>
                 </div>
               </div>
@@ -715,7 +713,19 @@ function Dashboard() {
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Text / Voice */}
-          <a href="sms:+18555065970"
+          <button
+             onClick={() => {
+               // On mobile, open SMS. On desktop, copy number.
+               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+               if (isMobile) {
+                 window.location.href = 'sms:+18555065970';
+               } else {
+                 navigator.clipboard.writeText('+18555065970').then(() => {
+                   setInputSuccess('Phone number copied!');
+                   setTimeout(() => setInputSuccess(null), 3000);
+                 });
+               }
+             }}
              className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
                         hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -727,16 +737,14 @@ function Dashboard() {
               <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p>
               <p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p>
             </div>
-          </a>
+          </button>
 
           {/* Chrome Extension */}
-          <button
-             onClick={() => { setInputSuccess('Chrome extension coming soon!'); setTimeout(() => setInputSuccess(null), 3000); }}
-             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
-                        hover:border-violet-400/25 hover:bg-violet-400/5 transition-all group text-center">
+          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-poddit-950/20
+                          opacity-50 text-center cursor-default">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-600 group-hover:text-violet-400 transition-colors">
+                 className="text-stone-700">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="4" />
               <line x1="21.17" y1="8" x2="12" y2="8" />
@@ -744,10 +752,10 @@ function Dashboard() {
               <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
             </svg>
             <div>
-              <p className="text-xs font-medium text-stone-300 group-hover:text-violet-300 transition-colors">Chrome</p>
-              <p className="text-[10px] text-stone-600 mt-0.5">Coming soon</p>
+              <p className="text-xs font-medium text-stone-500">Chrome</p>
+              <p className="text-[10px] text-stone-700 mt-0.5">Coming soon</p>
             </div>
-          </button>
+          </div>
 
           {/* App Share */}
           <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">

@@ -258,7 +258,7 @@ export default function SettingsPage() {
           <p className="text-xs text-stone-500 mb-3">
             Tap to preview, tap again to stop
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {voices.map((v) => {
               const isSelected = voice === v.key;
               const isPlaying = playingVoice === v.key;
@@ -329,7 +329,7 @@ export default function SettingsPage() {
           <p className="text-xs text-stone-500 mb-3">
             Target duration for generated episodes
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {EPISODE_LENGTHS.map((len) => (
               <button
                 key={len.key}
@@ -362,10 +362,14 @@ export default function SettingsPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+15551234567"
-            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
+            autoComplete="tel"
+            className={`w-full px-4 py-2.5 bg-poddit-950 border rounded-xl text-sm text-white
                        placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30 focus:border-stone-600
-                       font-mono"
+                       font-mono ${phone && !/^\+[1-9]\d{6,14}$/.test(phone) ? 'border-red-500/40' : 'border-stone-800'}`}
           />
+          {phone && !/^\+[1-9]\d{6,14}$/.test(phone) && (
+            <p className="text-xs text-red-400/80 mt-1.5">Must start with + followed by country code and number (e.g., +15551234567)</p>
+          )}
         </section>
 
         {/* ── Email (read-only) ── */}

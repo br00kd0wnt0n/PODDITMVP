@@ -73,6 +73,7 @@ export default function PlayerPage() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [audioError, setAudioError] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -284,7 +285,15 @@ export default function PlayerPage() {
                 animFrameRef.current = null;
               }
             }}
+            onError={() => setAudioError(true)}
           />
+
+          {/* Audio error */}
+          {audioError && (
+            <div className="mb-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
+              Audio failed to load. Try refreshing the page or check your connection.
+            </div>
+          )}
 
           {/* Controls row */}
           <div className="flex items-center gap-3">
