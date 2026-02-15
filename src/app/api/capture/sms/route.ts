@@ -18,9 +18,11 @@ export async function POST(request: NextRequest) {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     if (authToken) {
       const signature = request.headers.get('x-twilio-signature') || '';
-      // Use the public app URL for validation — request.url may be the internal
-      // Railway URL which won't match what Twilio signed against
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      // Use the public app URL for validation — request.url returns the internal
+      // Railway URL which won't match what Twilio signed against.
+      // TWILIO_WEBHOOK_URL (server-side, runtime) takes priority over
+      // NEXT_PUBLIC_APP_URL (build-time, may be stale).
+      const appUrl = process.env.TWILIO_WEBHOOK_URL || process.env.NEXT_PUBLIC_APP_URL || '';
       const url = appUrl ? `${appUrl}/api/capture/sms` : request.url;
       // Clone the request to read body twice
       const clonedRequest = request.clone();
