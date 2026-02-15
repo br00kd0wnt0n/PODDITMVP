@@ -201,6 +201,30 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Global footer** — root layout footer: © 2026 Heathen Digital LLC, Poddit™, Terms/Privacy/Contact links
 - [x] **Contact email** — Hello@poddit.com across all legal pages and footer
 
+### Sprint: UX Polish ✅
+- [x] **Sign-in page** — replaced hardcoded "ask Brook" with generic invite message + Hello@poddit.com support link, added htmlFor/id label associations, autoComplete on email, role="alert" on error
+- [x] **Chrome extension button** — converted from fake-click toast to visually disabled "Coming soon" state
+- [x] **SMS desktop fallback** — detects mobile vs desktop, opens sms: or copies number to clipboard
+- [x] **Player audio error** — onError handler with user-friendly message when audio fails to load
+- [x] **Phone validation** — real-time E.164 regex check with red border + inline error text in settings
+- [x] **Terms public access** — /terms added to middleware public routes alongside /privacy
+- [x] **Settings mobile grids** — voice cards 1-col → sm:2-col, episode length 1-col → sm:3-col
+- [x] **Welcome overlay** — removed gradient bar, font-display only on "PODDIT", my-auto centering
+
+### Sprint: Security Hardening ✅
+- [x] **Extension CORS** — restricted from `*` to only `chrome-extension://` origins, dynamic per-request
+- [x] **Twilio signature verification** — SMS endpoint validates x-twilio-signature against TWILIO_AUTH_TOKEN, rejects spoofed requests
+- [x] **Dashboard resilience** — Promise.all → Promise.allSettled so episodes and signals load independently
+- [x] **Admin rate limiting** — 10 requests/min on /api/admin/stats to prevent expensive query spam
+- [x] **Admin error sanitization** — removed error.message leak from admin stats response
+
+### Sprint: Empty State Visual Overhaul (Next)
+Design direction for the empty/new-user dashboard experience:
+- [ ] **Ghost signals** — animated placeholder content in empty queue: example signals ("Why is everyone talking about quantum computing?", a URL shimmer, voice note waveform) floating in/out with gentle pulse. Fade out when first real signal lands.
+- [ ] **Active step indicators** — 1-2-3 How It Works becomes a progress tracker: step 1 highlighted/glowing when queue is empty, step 2 lights up when signals exist but no episode, step 3 activates when episode ready. Dimmed steps feel like the product is waiting for action.
+- [ ] **Capture hero emphasis** — in empty state, elevate the input bar: float it higher, pulse the microphone icon, cycle placeholder text ("Paste a link you've been meaning to read...", "What topic are you curious about?", "Forward a newsletter to capture@poddit.com...")
+- [ ] **Ambient background boost** — increase bokeh intensity in empty state (slow particle drift, prism light effect tied to logo metaphor), dial back when content exists. Background energy compensates for content void.
+
 ### Upcoming — P0 (Before Early Access Invites)
 - [ ] **Onboarding email consent check** — audit signup flow for explicit opt-in to email + SMS before any sequences fire. Store timestamped consent record in DB (consentedAt, consentChannel). See `documents/Poddit Pre-Launch Roadmap.docx` §4
 - [ ] **3-episode early access cap** — add episode generation limit for early access users. Gate at 3 episodes total, show messaging when limit hit to collect feedback before unlocking more
@@ -223,7 +247,6 @@ curl -X POST http://localhost:3000/api/generate \
 ### Backlog
 - [ ] Add error handling for TTS failures (fallback to text-only episode)
 - [ ] Test PWA share sheet on iOS and Android
-- [ ] Add Twilio webhook signature validation for security
 - [ ] Episode delete and share actions (player page + dashboard)
 - [ ] Implement signal deduplication (same URL submitted twice)
 - [ ] Add episode regeneration (re-run synthesis on same signals)
@@ -234,7 +257,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Episode analytics (which segments get replayed)
 - [ ] Service worker for PWA offline support
 - [ ] Audio player ARIA attributes for accessibility
-- [ ] Monolithic page.tsx refactor (870+ lines → extract components)
+- [ ] Monolithic page.tsx refactor (1250+ lines, 31 useState → extract components + hooks)
 - [ ] Native iOS app (React Native or Swift)
 - [ ] Apple Shortcuts integration (Poddit, Poddit This, Poddit Now) — see `documents/Poddit Pre-Launch Roadmap.docx` §3
 - [ ] Platform API sync integrations (Reddit saved, Pocket/Instapaper, YouTube Watch Later) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.2

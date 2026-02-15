@@ -148,19 +148,29 @@ function Dashboard() {
 
   const refreshData = async () => {
     try {
-      const [eps, sigs] = await Promise.all([
+      const results = await Promise.allSettled([
         fetch('/api/episodes').then(r => r.json()),
         fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
       ]);
-      setEpisodes(Array.isArray(eps) ? eps : []);
-      const signalList = sigs.signals || [];
-      setSignals(signalList);
-      setSelectedIds(new Set(signalList.map((s: Signal) => s.id)));
-      const counts: Record<string, number> = {};
-      (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
-      setSignalCounts(counts);
+
+      // Handle episodes — independent of signals
+      if (results[0].status === 'fulfilled') {
+        const eps = results[0].value;
+        setEpisodes(Array.isArray(eps) ? eps : []);
+      }
+
+      // Handle signals — independent of episodes
+      if (results[1].status === 'fulfilled') {
+        const sigs = results[1].value;
+        const signalList = sigs.signals || [];
+        setSignals(signalList);
+        setSelectedIds(new Set(signalList.map((s: Signal) => s.id)));
+        const counts: Record<string, number> = {};
+        (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
+        setSignalCounts(counts);
+      }
     } catch {
-      // silent fail on refresh
+      // Unexpected error in allSettled handling
     } finally {
       setLoading(false);
     }

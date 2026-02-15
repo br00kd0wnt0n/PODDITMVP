@@ -3,6 +3,7 @@ import { createSignal } from '@/lib/capture';
 import { confirmCapture } from '@/lib/deliver';
 import { transcribeAudio } from '@/lib/transcribe';
 import prisma from '@/lib/db';
+import twilio from 'twilio';
 
 // ──────────────────────────────────────────────
 // POST /api/capture/sms
@@ -13,6 +14,28 @@ import prisma from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate Twilio signature to prevent spoofed requests
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (authToken) {
+      const signature = request.headers.get('x-twilio-signature') || '';
+      const url = request.url;
+      // Clone the request to read body twice
+      const clonedRequest = request.clone();
+      const formDataForValidation = await clonedRequest.formData();
+      const params: Record<string, string> = {};
+      formDataForValidation.forEach((value, key) => {
+        params[key] = value as string;
+      });
+
+      const isValid = twilio.validateRequest(authToken, signature, url, params);
+      if (!isValid) {
+        console.warn('[SMS] Invalid Twilio signature — rejecting request');
+        return new NextResponse('Forbidden', { status: 403 });
+      }
+    } else {
+      console.warn('[SMS] TWILIO_AUTH_TOKEN not set — skipping signature verification');
+    }
+
     const formData = await request.formData();
 
     const body = (formData.get('Body') as string) || '';

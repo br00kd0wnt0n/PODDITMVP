@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
@@ -11,6 +12,15 @@ export async function GET(request: NextRequest) {
   // Auth: requires ADMIN_SECRET (falls back to API_SECRET if not set)
   const authError = requireAdminAuth(request);
   if (authError) return authError;
+
+  // Rate limit: 10 requests per minute (prevent expensive query spam)
+  const { allowed, retryAfterMs } = rateLimit('admin:stats', 10, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+    );
+  }
 
   try {
     const now = new Date();
@@ -133,7 +143,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('[Admin] Stats error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch stats' },
+      { error: 'Failed to fetch stats' },
       { status: 500 }
     );
   }

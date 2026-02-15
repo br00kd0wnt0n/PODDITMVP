@@ -2,19 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
 import prisma from '@/lib/db';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// Build CORS headers dynamically — only allow chrome-extension:// origins
+function getCorsHeaders(request: NextRequest) {
+  const origin = request.headers.get('origin') || '';
+  const allowed = origin.startsWith('chrome-extension://');
+  return {
+    'Access-Control-Allow-Origin': allowed ? origin : '',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
 
 // ──────────────────────────────────────────────
 // OPTIONS /api/capture/extension
 // CORS preflight for browser extension
 // ──────────────────────────────────────────────
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) });
 }
 
 // ──────────────────────────────────────────────
@@ -28,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Simple auth via shared secret
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.API_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: getCorsHeaders(request) });
     }
 
     const body = await request.json();
@@ -36,11 +41,11 @@ export async function POST(request: NextRequest) {
 
     // Resolve userId — must be provided and valid (no 'default' fallback)
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'userId is required' }, { status: 400, headers: getCorsHeaders(request) });
     }
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404, headers: corsHeaders });
+      return NextResponse.json({ error: 'User not found' }, { status: 404, headers: getCorsHeaders(request) });
     }
     const resolvedUserId = user.id;
 
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
     } else if (text) {
       rawContent = text;
     } else {
-      return NextResponse.json({ error: 'No content provided' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'No content provided' }, { status: 400, headers: getCorsHeaders(request) });
     }
 
     const signals = await createSignal({
@@ -74,10 +79,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       status: 'captured',
       signals: signals.length,
-    }, { headers: corsHeaders });
+    }, { headers: getCorsHeaders(request) });
 
   } catch (error) {
     console.error('[Extension] Error:', error);
-    return NextResponse.json({ error: 'Capture failed' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Capture failed' }, { status: 500, headers: getCorsHeaders(request) });
   }
 }
