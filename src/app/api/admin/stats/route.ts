@@ -8,6 +8,43 @@ import prisma from '@/lib/db';
 // Aggregated metrics for admin mission control
 // ──────────────────────────────────────────────
 
+// ──────────────────────────────────────────────
+// PATCH /api/admin/stats
+// Update user type
+// ──────────────────────────────────────────────
+
+export async function PATCH(request: NextRequest) {
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+
+  try {
+    const body = await request.json();
+    const { userId, userType } = body;
+
+    if (!userId || !userType) {
+      return NextResponse.json({ error: 'userId and userType required' }, { status: 400 });
+    }
+
+    const validTypes = ['MASTER', 'EARLY_ACCESS', 'TESTER'];
+    if (!validTypes.includes(userType)) {
+      return NextResponse.json({ error: `Invalid userType. Options: ${validTypes.join(', ')}` }, { status: 400 });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { userType },
+      select: { id: true, email: true, userType: true },
+    });
+
+    console.log(`[Admin] User ${updated.email} type changed to ${userType}`);
+
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('[Admin] Update user type error:', error);
+    return NextResponse.json({ error: 'Failed to update user type' }, { status: 500 });
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Auth: requires ADMIN_SECRET (falls back to API_SECRET if not set)
   const authError = requireAdminAuth(request);
@@ -43,6 +80,7 @@ export async function GET(request: NextRequest) {
       totalFeedback,
       newFeedbackCount,
       recentFeedback,
+      users,
     ] = await Promise.all([
       prisma.signal.count(),
       prisma.episode.count(),
@@ -109,6 +147,21 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      // Users list
+      prisma.user.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          userType: true,
+          createdAt: true,
+          consentedAt: true,
+          _count: {
+            select: { episodes: true, signals: true },
+          },
+        },
+      }),
     ]);
 
     return NextResponse.json({
@@ -138,6 +191,16 @@ export async function GET(request: NextRequest) {
         failedSignals,
         failedEpisodes,
       },
+      users: users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        userType: u.userType,
+        createdAt: u.createdAt,
+        consentedAt: u.consentedAt,
+        episodeCount: u._count.episodes,
+        signalCount: u._count.signals,
+      })),
       generatedAt: now.toISOString(),
     });
   } catch (error: any) {

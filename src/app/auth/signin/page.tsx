@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
@@ -108,9 +109,22 @@ export default function SignInPage() {
                        focus:border-stone-600 mb-4"
           />
 
+          <label className="flex items-start gap-2.5 mb-4 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-stone-600 accent-teal-500 flex-shrink-0"
+            />
+            <span className="text-xs text-stone-500 leading-relaxed group-hover:text-stone-400 transition-colors">
+              I agree to receive episode notifications and product updates via email and SMS.
+              You can opt out anytime in Settings.
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={loading || !email.trim() || !code.trim()}
+            disabled={loading || !email.trim() || !code.trim() || !consent}
             className="w-full py-2.5 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                        hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500
                        disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"

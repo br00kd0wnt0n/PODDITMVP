@@ -69,7 +69,28 @@ interface AdminStats {
       createdAt: string;
     }>;
   };
+  users: Array<{
+    id: string;
+    name: string | null;
+    email: string | null;
+    userType: string;
+    createdAt: string;
+    consentedAt: string | null;
+    episodeCount: number;
+    signalCount: number;
+  }>;
   generatedAt: string;
+}
+
+interface AccessRequest {
+  id: number;
+  full_name: string;
+  email: string;
+  company_role: string | null;
+  referral_source: string | null;
+  nda_accepted: boolean;
+  nda_accepted_at: string | null;
+  created_at: string;
 }
 
 // ──────────────────────────────────────────────
@@ -190,11 +211,25 @@ function AdminLogin({ onAuth, error }: { onAuth: (key: string) => void; error: s
 // ADMIN DASHBOARD
 // ──────────────────────────────────────────────
 
+const USER_TYPE_LABELS: Record<string, string> = {
+  MASTER: 'Master',
+  EARLY_ACCESS: 'Early Access',
+  TESTER: 'Tester',
+};
+
+const USER_TYPE_COLORS: Record<string, string> = {
+  MASTER: 'bg-amber-500/15 text-amber-300',
+  EARLY_ACCESS: 'bg-teal-500/15 text-teal-300',
+  TESTER: 'bg-violet-500/15 text-violet-300',
+};
+
 function AdminDashboard() {
   const [adminKey, setAdminKey] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [updatingUser, setUpdatingUser] = useState<string | null>(null);
 
   // Check sessionStorage on mount
   useEffect(() => {
@@ -229,9 +264,53 @@ function AdminDashboard() {
     }
   }, []);
 
+  // Fetch access requests from PODDIT-CONCEPT server
+  const fetchAccessRequests = useCallback(async (key: string) => {
+    try {
+      const conceptUrl = process.env.NEXT_PUBLIC_CONCEPT_API_URL || '';
+      if (!conceptUrl) return;
+      const res = await fetch(`${conceptUrl}/api/admin/access-requests`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccessRequests(data.requests || []);
+      }
+    } catch {
+      // Silently fail — concept server may be unreachable
+    }
+  }, []);
+
+  // Update user type
+  const updateUserType = async (userId: string, newType: string) => {
+    if (!adminKey) return;
+    setUpdatingUser(userId);
+    try {
+      const res = await fetch('/api/admin/stats', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminKey}`,
+        },
+        body: JSON.stringify({ userId, userType: newType }),
+      });
+      if (res.ok) {
+        // Refresh stats to reflect the change
+        await fetchStats(adminKey);
+      }
+    } catch {
+      // Error handling
+    } finally {
+      setUpdatingUser(null);
+    }
+  };
+
   useEffect(() => {
-    if (adminKey) fetchStats(adminKey);
-  }, [adminKey, fetchStats]);
+    if (adminKey) {
+      fetchStats(adminKey);
+      fetchAccessRequests(adminKey);
+    }
+  }, [adminKey, fetchStats, fetchAccessRequests]);
 
   const handleAuth = (key: string) => {
     setAdminKey(key);
@@ -562,7 +641,9 @@ function AdminDashboard() {
                 <div className="flex items-center gap-2 mb-1.5">
                   {/* Type badge */}
                   <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                    fb.type === 'VOICE' ? 'bg-violet-500/15 text-violet-300' : 'bg-teal-500/15 text-teal-300'
+                    fb.type === 'REQUEST' ? 'bg-amber-500/15 text-amber-300'
+                    : fb.type === 'VOICE' ? 'bg-violet-500/15 text-violet-300'
+                    : 'bg-teal-500/15 text-teal-300'
                   }`}>
                     {fb.type}
                   </span>
@@ -585,6 +666,133 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Users Management ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-teal-400/60" />
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Users</h2>
+          </div>
+          <span className="text-xs text-stone-600">{(stats.users || []).length} total</span>
+        </div>
+
+        {(stats.users || []).length === 0 ? (
+          <p className="text-sm text-stone-600 text-center py-4">No users yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-stone-800/40">
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">User</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Type</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Episodes</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Signals</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Consent</th>
+                  <th className="text-xs text-stone-500 font-medium pb-2">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(stats.users || []).map((u) => (
+                  <tr key={u.id} className="border-b border-stone-800/20 last:border-0 hover:bg-poddit-900/60 transition-colors">
+                    <td className="py-2.5 pr-4">
+                      <p className="text-sm text-white truncate max-w-[200px]">{u.name || '--'}</p>
+                      <p className="text-xs text-stone-500 truncate max-w-[200px]">{u.email}</p>
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <select
+                        value={u.userType}
+                        onChange={(e) => updateUserType(u.id, e.target.value)}
+                        disabled={updatingUser === u.id}
+                        className={`text-xs px-2 py-1 rounded-lg border-0 cursor-pointer transition-all
+                          ${USER_TYPE_COLORS[u.userType] || 'bg-stone-800 text-stone-400'}
+                          ${updatingUser === u.id ? 'opacity-50' : 'hover:ring-1 hover:ring-stone-600'}
+                          focus:outline-none focus:ring-1 focus:ring-teal-400/30`}
+                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                      >
+                        {Object.entries(USER_TYPE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-2.5 pr-4 text-center">
+                      <span className="text-sm font-mono text-stone-300">{u.episodeCount}</span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-center">
+                      <span className="text-sm font-mono text-stone-300">{u.signalCount}</span>
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      {u.consentedAt ? (
+                        <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">Yes</span>
+                      ) : (
+                        <span className="text-xs bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">No</span>
+                      )}
+                    </td>
+                    <td className="py-2.5">
+                      <span className="text-xs text-stone-500">{timeAgo(u.createdAt)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Access Requests (from PODDIT-CONCEPT) ── */}
+      {accessRequests.length > 0 && (
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-violet-400/60" />
+              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Access Requests</h2>
+            </div>
+            <span className="text-xs text-stone-600">{accessRequests.length} requests</span>
+          </div>
+
+          <div className="space-y-2">
+            {accessRequests.map((ar) => {
+              const alreadyUser = (stats.users || []).some(u => u.email === ar.email);
+              return (
+                <div key={ar.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm text-white font-medium truncate">{ar.full_name}</p>
+                        {ar.nda_accepted ? (
+                          <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded flex-shrink-0">NDA Signed</span>
+                        ) : (
+                          <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">No NDA</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-stone-400 truncate">{ar.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {ar.company_role && (
+                          <span className="text-xs text-stone-500">{ar.company_role}</span>
+                        )}
+                        {ar.company_role && ar.referral_source && (
+                          <span className="text-xs text-stone-700">&bull;</span>
+                        )}
+                        {ar.referral_source && (
+                          <span className="text-xs text-stone-600">via {ar.referral_source}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-stone-600 mt-1">{timeAgo(ar.created_at)}</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {alreadyUser ? (
+                        <span className="text-xs bg-teal-500/15 text-teal-300 px-2.5 py-1 rounded-lg">Active User</span>
+                      ) : (
+                        <span className="text-xs bg-stone-800 text-stone-400 px-2.5 py-1 rounded-lg">Pending</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -90,15 +90,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const feedbackType = body.type === 'REQUEST' ? 'REQUEST' : 'TEXT';
+
     const feedback = await prisma.feedback.create({
       data: {
         userId,
-        type: 'TEXT',
+        type: feedbackType,
         content,
       },
     });
 
-    console.log(`[Feedback] Text submitted by ${userId}: "${content.slice(0, 80)}"`);
+    console.log(`[Feedback] ${feedbackType} submitted by ${userId}: "${content.slice(0, 80)}"`);
 
     return NextResponse.json({
       status: 'submitted',

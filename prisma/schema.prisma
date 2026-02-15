@@ -17,9 +17,12 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
-  preferences   Json      @default("{}")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  preferences    Json      @default("{}")
+  userType       UserType  @default(EARLY_ACCESS)
+  consentedAt    DateTime?
+  consentChannel String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   accounts Account[]
   sessions Session[]
@@ -213,9 +216,16 @@ model Feedback {
   @@index([status])
 }
 
+enum UserType {
+  MASTER
+  EARLY_ACCESS
+  TESTER
+}
+
 enum FeedbackType {
   TEXT
   VOICE
+  REQUEST
 }
 
 enum FeedbackStatus {

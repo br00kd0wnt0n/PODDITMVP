@@ -18,6 +18,31 @@ export async function POST(request: NextRequest) {
     if (sessionResult instanceof NextResponse) return sessionResult;
     const { userId } = sessionResult;
 
+    // Episode cap based on user type
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { userType: true },
+    });
+    const EPISODE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
+    const limit = EPISODE_LIMITS[user?.userType || 'EARLY_ACCESS'] ?? 3;
+
+    if (limit !== Infinity) {
+      const episodeCount = await prisma.episode.count({
+        where: { userId, status: 'READY' },
+      });
+      if (episodeCount >= limit) {
+        return NextResponse.json(
+          {
+            error: 'early_access_limit',
+            message: `You've reached your ${limit}-episode limit. Share your feedback to request more!`,
+            episodeCount,
+            limit,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Rate limit: 1 generation per 5 minutes per user
     const { allowed, retryAfterMs } = rateLimit(`generate:${userId}`, 1, 300_000);
     if (!allowed) {

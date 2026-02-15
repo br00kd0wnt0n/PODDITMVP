@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [voice, setVoice] = useState('gandalf');
   const [episodeLength, setEpisodeLength] = useState('medium');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // UI state
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -68,6 +69,7 @@ export default function SettingsPage() {
       const p = prefs.preferences || {};
       setVoice(p.voice || 'gandalf');
       setEpisodeLength(p.episodeLength || 'medium');
+      setNotificationsEnabled(!!prefs.consentedAt);
       setVoices(voiceData.voices || []);
     }).catch(() => {
       setError('Failed to load settings');
@@ -173,6 +175,7 @@ export default function SettingsPage() {
           name,
           phone: phone || null,
           preferences: { voice, episodeLength },
+          consent: notificationsEnabled,
         }),
       });
 
@@ -370,6 +373,36 @@ export default function SettingsPage() {
           {phone && !/^\+[1-9]\d{6,14}$/.test(phone) && (
             <p className="text-xs text-red-400/80 mt-1.5">Must start with + followed by country code and number (e.g., +15551234567)</p>
           )}
+        </section>
+
+        {/* ── Section 5: Notifications ── */}
+        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+          <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
+            Notifications
+          </label>
+          <p className="text-xs text-stone-500 mb-3">
+            Receive episode alerts and product updates via email and SMS
+          </p>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notificationsEnabled}
+              onClick={() => setNotificationsEnabled(prev => !prev)}
+              className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                notificationsEnabled ? 'bg-teal-500' : 'bg-stone-700'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                  notificationsEnabled ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <span className={`text-sm ${notificationsEnabled ? 'text-stone-300' : 'text-stone-500'}`}>
+              {notificationsEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </label>
         </section>
 
         {/* ── Email (read-only) ── */}

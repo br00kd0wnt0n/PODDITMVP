@@ -57,6 +57,25 @@ export async function GET(request: NextRequest) {
       console.log(`[Cron] Generating for user ${userId} (${signalCount} signals)`);
 
       try {
+        // Episode cap based on user type
+        const cronUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { userType: true },
+        });
+        const EPISODE_LIMITS: Record<string, number> = { MASTER: Infinity, EARLY_ACCESS: 3, TESTER: 10 };
+        const limit = EPISODE_LIMITS[cronUser?.userType || 'EARLY_ACCESS'] ?? 3;
+
+        if (limit !== Infinity) {
+          const readyCount = await prisma.episode.count({
+            where: { userId, status: 'READY' },
+          });
+          if (readyCount >= limit) {
+            console.log(`[Cron] Skipping user ${userId} — at ${limit}-episode limit (${cronUser?.userType})`);
+            results.push({ userId, error: 'episode_limit' });
+            continue;
+          }
+        }
+
         const episodeId = await generateEpisode({ userId, since });
 
         // Fetch episode and notify

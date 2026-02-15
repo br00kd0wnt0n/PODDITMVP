@@ -73,6 +73,7 @@ function Dashboard() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
+  const [episodeLimit, setEpisodeLimit] = useState(3);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -153,6 +154,7 @@ function Dashboard() {
   const hasSignalsNoEpisode = signals.length > 0 && episodes.length === 0;
   const hasEpisodeReady = episodes.length > 0;
   const activeStep = hasEpisodeReady ? 3 : hasSignalsNoEpisode ? 2 : 1;
+  const atEpisodeLimit = episodeLimit > 0 && episodes.length >= episodeLimit;
 
   // Ghost signal cycling timer
   useEffect(() => {
@@ -221,6 +223,7 @@ function Dashboard() {
       const results = await Promise.allSettled([
         fetch('/api/episodes').then(r => r.json()),
         fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
+        fetch('/api/user/preferences').then(r => r.json()),
       ]);
 
       // Handle episodes — independent of signals
@@ -238,6 +241,14 @@ function Dashboard() {
         const counts: Record<string, number> = {};
         (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
         setSignalCounts(counts);
+      }
+
+      // Handle user preferences (episode limit)
+      if (results[2].status === 'fulfilled') {
+        const prefs = results[2].value;
+        if (prefs.episodeLimit !== undefined) {
+          setEpisodeLimit(prefs.episodeLimit);
+        }
       }
     } catch {
       // Unexpected error in allSettled handling
@@ -716,11 +727,20 @@ function Dashboard() {
 
               {/* CTA */}
               <button
-                onClick={dismissWelcomeOverlay}
+                onClick={() => {
+                  dismissWelcomeOverlay();
+                  router.push('/welcome');
+                }}
                 className="w-full mt-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                            hover:bg-teal-400 transition-colors shadow-[0_0_16px_rgba(20,184,166,0.15)]"
               >
                 Get Started
+              </button>
+              <button
+                onClick={dismissWelcomeOverlay}
+                className="w-full mt-2 py-2 text-xs text-stone-500 hover:text-stone-400 transition-colors"
+              >
+                Skip for now
               </button>
             </div>
           </div>
@@ -779,6 +799,12 @@ function Dashboard() {
                     className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
                   >
                     Settings
+                  </Link>
+                  <Link
+                    href="/usage"
+                    className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
+                  >
+                    Usage
                   </Link>
                   <button
                     onClick={() => signOut({ callbackUrl: '/auth/signin' })}
@@ -911,8 +937,7 @@ function Dashboard() {
               key={label}
               className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
                           relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
-                          ${isFuture ? 'opacity-40' : 'opacity-0 animate-fade-in-up'} ${glowClass}`}
-              style={!isFuture ? { animationDelay: `${0.2 + i * 0.15}s`, animationFillMode: 'forwards' } : undefined}
+                          ${isFuture ? 'opacity-40' : ''} ${glowClass}`}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
                               ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
@@ -1101,35 +1126,46 @@ function Dashboard() {
 
           {/* Poddit Now button */}
           {signals.length > 0 && (
-            <button
-              onClick={generateNow}
-              disabled={generating || selectedIds.size === 0}
-              className={`relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                         hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
-                         transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden
-                         ${generating ? 'animate-glow-pulse' : ''}`}
-            >
-              {/* Progress bar overlay */}
-              {generating && (
-                <div
-                  className="absolute inset-0 bg-teal-600 transition-all duration-1000 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              )}
-              <span className="relative z-10 flex items-center gap-2 drop-shadow-sm">
-                {generating ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span className="transition-opacity duration-500">{STATUS_PHRASES[statusPhrase]}</span>
-                  </>
-                ) : (
-                  <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+            atEpisodeLimit ? (
+              <div className="mb-4 p-3 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl text-center">
+                <p className="text-sm text-amber-300/90 font-medium mb-1">
+                  You&apos;ve hit your {episodeLimit}-episode limit
+                </p>
+                <p className="text-xs text-stone-500">
+                  Your feedback helps us unlock more &mdash; use the feedback section below.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={generateNow}
+                disabled={generating || selectedIds.size === 0}
+                className={`relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                           hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
+                           transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden
+                           ${generating ? 'animate-glow-pulse' : ''}`}
+              >
+                {/* Progress bar overlay */}
+                {generating && (
+                  <div
+                    className="absolute inset-0 bg-teal-600 transition-all duration-1000 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
                 )}
-              </span>
-            </button>
+                <span className="relative z-10 flex items-center gap-2 drop-shadow-sm">
+                  {generating ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span className="transition-opacity duration-500">{STATUS_PHRASES[statusPhrase]}</span>
+                    </>
+                  ) : (
+                    <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+                  )}
+                </span>
+              </button>
+            )
           )}
 
           {/* Selection count */}
@@ -1282,7 +1318,14 @@ function Dashboard() {
 
         {/* ── Right: Episodes ── */}
         <section>
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-3">Episodes</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Episodes</h2>
+            {episodes.length > 0 && (
+              <span className="text-xs text-stone-600">
+                {episodeLimit > 0 ? `${episodes.length}/${episodeLimit}` : `${episodes.length}`} episodes
+              </span>
+            )}
+          </div>
 
           {loading ? (
             <div className="p-6 text-center text-stone-500">Loading...</div>

@@ -26,6 +26,8 @@ export async function GET() {
       email: true,
       phone: true,
       preferences: true,
+      consentedAt: true,
+      userType: true,
     },
   });
 
@@ -33,11 +35,17 @@ export async function GET() {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
+  const EPISODE_LIMITS: Record<string, number> = { MASTER: -1, EARLY_ACCESS: 3, TESTER: 10 };
+  const episodeLimit = EPISODE_LIMITS[user.userType] ?? 3;
+
   return NextResponse.json({
     name: user.name || '',
     email: user.email || '',
     phone: user.phone || '',
     preferences: user.preferences || {},
+    consentedAt: user.consentedAt,
+    userType: user.userType,
+    episodeLimit,
   });
 }
 
@@ -53,7 +61,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, phone, preferences } = body;
+    const { name, phone, preferences, consent } = body;
 
     // Build update data
     const updateData: Record<string, unknown> = {};
@@ -119,6 +127,17 @@ export async function PATCH(request: NextRequest) {
       updateData.preferences = newPrefs;
     }
 
+    // Consent toggle
+    if (consent !== undefined) {
+      if (consent) {
+        updateData.consentedAt = new Date();
+        updateData.consentChannel = 'settings';
+      } else {
+        updateData.consentedAt = null;
+        updateData.consentChannel = null;
+      }
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
@@ -131,6 +150,7 @@ export async function PATCH(request: NextRequest) {
         email: true,
         phone: true,
         preferences: true,
+        consentedAt: true,
       },
     });
 
@@ -139,6 +159,7 @@ export async function PATCH(request: NextRequest) {
       email: updated.email || '',
       phone: updated.phone || '',
       preferences: updated.preferences || {},
+      consentedAt: updated.consentedAt,
     });
 
   } catch (error) {
