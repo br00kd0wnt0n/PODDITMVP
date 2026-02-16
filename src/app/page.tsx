@@ -44,8 +44,6 @@ interface Signal {
 
 const HERO_TAGLINES = [
   "Let\u2019s connect the dots behind your curiosity.",
-  'Your interests, synthesized into sound.',
-  'Everything you saved, woven into one story.',
   'Turn scattered curiosity into clear understanding.',
   'The throughline across everything on your mind.',
   'From signals to synthesis \u2014 your weekly deep dive.',
