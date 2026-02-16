@@ -29,7 +29,7 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 │   │   │   ├── user/preferences/ # User prefs, consent toggle, episode limit info
 │   │   │   ├── cron/         # Weekly automated generation
 │   │   │   └── voices/       # Voice listing and samples
-│   │   ├── page.tsx          # Dashboard (queue + episodes + feedback + questionnaire modal)
+│   │   ├── page.tsx          # Dashboard (capture input, collapsible panels, queue, episodes, feedback modal)
 │   │   ├── admin/            # Mission Control (admin dashboard)
 │   │   ├── player/[id]/      # Episode player with segments + sources
 │   │   ├── settings/         # User preferences (voice, length, name, phone, notifications)
@@ -58,7 +58,7 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 
 ## Stack
 
-- **Framework:** Next.js 14 (App Router, API Routes)
+- **Framework:** Next.js 15 (App Router, API Routes)
 - **Database:** PostgreSQL via Prisma ORM (hosted on Railway)
 - **AI:** Anthropic Claude API (claude-sonnet-4-5-20250929) for synthesis
 - **TTS:** ElevenLabs (eleven_turbo_v2_5)
@@ -334,6 +334,19 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Rate limit reset on failure** — added clearRateLimit() helper; generation failures now reset the 5-min cooldown so users can retry immediately
 - [x] **Concept page password gate removed** — visitors can view landing page and submit access request form without entering a password
 
+### Sprint: Mobile Dashboard Redesign ✅
+- [x] **Capture input top-positioned** — moved from mid-page to immediately after header, prominent teal border/glow, cycling placeholder text in empty state
+- [x] **Circulating input lens flare** — CSS-only light that travels around all 4 edges of the input field (10s loop, teal/violet gradient, `input-lens-flare` class + child spans)
+- [x] **Collapsible Send Signals chip** — compact toggle button with inline source icons (SMS, share, mic, link SVGs), replaces full-width always-visible panel. Collapsed by default
+- [x] **Collapsible How It Works chip** — compact toggle with colored step-indicator dots (teal/violet/amber), collapsed by default
+- [x] **Feedback moved to account dropdown** — feedback section removed from page bottom, now a modal triggered from user menu. Fixed overlay with backdrop-blur
+- [x] **Always-visible bokeh** — dashboard bokeh orbs visible in all states (not just empty), 4 orbs with drift animations
+- [x] **Lens flare on panels/cards** — `lens-flare-edge` CSS class with `::before`/`::after` pseudo-elements for traveling highlight on Send Signals panel and episode cards
+- [x] **Removed ambient flare streaks** — full-width horizontal flares at 30%/65% viewport height removed (were crossing over Queue/Episodes headers on desktop)
+- [x] **Header z-index fix** — added `relative z-30` so account dropdown (z-50) properly overlays all page content
+- [x] **Preview file** — `preview.html` added for standalone visual testing with Tailwind CDN + dummy data (no server needed)
+- [x] **Episode limit + welcome text updates** — feedback references changed from "section below" to "account menu"
+
 ### Upcoming — P1 (Early Access → Pre-Launch)
 - [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
@@ -360,7 +373,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Episode analytics (which segments get replayed)
 - [ ] Service worker for PWA offline support
 - [ ] Audio player ARIA attributes for accessibility
-- [ ] Monolithic page.tsx refactor (1250+ lines, 31 useState → extract components + hooks)
+- [ ] Monolithic page.tsx refactor (~2000 lines → extract Header, CaptureInput, OnboardingPanels, SignalQueue, EpisodeList, FeedbackModal, WelcomeOverlay, EmptyState components)
 - [ ] Native iOS app (React Native or Swift)
 - [ ] Apple Shortcuts integration (Poddit, Poddit This, Poddit Now) — see `documents/Poddit Pre-Launch Roadmap.docx` §3
 - [ ] Platform API sync integrations (Reddit saved, Pocket/Instapaper, YouTube Watch Later) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.2
@@ -371,7 +384,7 @@ curl -X POST http://localhost:3000/api/generate \
 - `SignalStatus.PENDING` enum value is never written (orphaned but harmless)
 - No service worker for PWA
 - Audio player ARIA attributes still needed
-- Monolithic page.tsx (1250+ lines)
+- Monolithic page.tsx (~2000 lines) — extraction candidates: Header, CaptureInput, OnboardingPanels, SignalQueue, EpisodeList, FeedbackModal, WelcomeOverlay, EmptyState
 - `Episode.signalCount` denormalization has no sync mechanism
 
 ### Reference Documents
