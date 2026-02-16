@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
+import { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
@@ -26,6 +26,7 @@ interface Episode {
   signalCount: number;
   topicsCovered: string[];
   generatedAt: string;
+  rated?: boolean;
 }
 
 interface Signal {
@@ -73,8 +74,11 @@ function Dashboard() {
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [showSendSignals, setShowSendSignals] = useState(false);
-  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showCollectSignals, setShowCollectSignals] = useState(false);
+  const [queueExpanded, setQueueExpanded] = useState(true);
+  const [insightsExpanded, setInsightsExpanded] = useState(true);
+  const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -219,6 +223,55 @@ function Dashboard() {
   const activeStep = hasEpisodeReady ? 3 : hasSignalsNoEpisode ? 2 : 1;
   const atEpisodeLimit = episodeLimit > 0 && episodes.length >= episodeLimit;
 
+  // ── Branded hero computed values ──
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const getHeroSubtitle = () => {
+    if (atEpisodeLimit) {
+      return `You've generated ${episodes.length} episode${episodes.length !== 1 ? 's' : ''} so far. Complete the questionnaire to unlock more.`;
+    }
+    if (episodes.length > 0) {
+      return 'Your latest episode is ready to play.';
+    }
+    if (signals.length > 0) {
+      return `You have ${signals.length} signal${signals.length !== 1 ? 's' : ''} in your queue \u2014 perfect for your next episode.`;
+    }
+    return 'Ready to build your first personalized podcast?';
+  };
+
+  // ── Insights: topic frequency + channel breakdown ──
+  const topicFrequency = useMemo(() => {
+    const counts: Record<string, number> = {};
+    signals.forEach(s => s.topics.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+    episodes.forEach(e => e.topicsCovered.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8);
+  }, [signals, episodes]);
+
+  const channelBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    signals.forEach(s => { counts[s.channel] = (counts[s.channel] || 0) + 1; });
+    return Object.entries(counts).sort(([, a], [, b]) => b - a);
+  }, [signals]);
+
+  // ── Episode accent colors (violet/amber/rose — teal reserved for action buttons) ──
+  const EPISODE_ACCENTS = [
+    { bg: 'bg-violet-500/[0.12]', text: 'text-violet-400', border: 'border-violet-500/20', pill: 'bg-violet-400/15 text-violet-300' },
+    { bg: 'bg-amber-500/[0.12]', text: 'text-amber-400', border: 'border-amber-500/20', pill: 'bg-amber-400/15 text-amber-300' },
+    { bg: 'bg-rose-500/[0.12]', text: 'text-rose-400', border: 'border-rose-500/20', pill: 'bg-rose-400/15 text-rose-300' },
+  ];
+
+  // Force queue open during generation so theatre is visible
+  useEffect(() => {
+    if (generating) setQueueExpanded(true);
+  }, [generating]);
+
   // Check if questionnaire is needed when at episode limit
   useEffect(() => {
     if (!atEpisodeLimit || showQuestionnaire || questionnaireSuccess) return;
@@ -336,20 +389,49 @@ function Dashboard() {
     };
   }, []);
 
-  // Load data + poll every 10s for new signals (SMS, extension, etc.)
+  // AbortController ref — cancels in-flight fetches when a new poll fires or on unmount
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Load data + poll every 30s for new signals (SMS, extension, etc.)
+  // Pauses polling when the tab is hidden (saves API calls + battery)
   useEffect(() => {
     refreshData();
-    const poll = setInterval(refreshData, 10_000);
-    return () => clearInterval(poll);
+    let poll = setInterval(refreshData, 30_000);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        clearInterval(poll);
+        // Abort any in-flight fetch when tab goes hidden
+        abortRef.current?.abort();
+      } else {
+        refreshData();
+        poll = setInterval(refreshData, 30_000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(poll);
+      abortRef.current?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const refreshData = async () => {
+    // Cancel any in-flight request from a previous poll cycle
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const results = await Promise.allSettled([
-        fetch('/api/episodes').then(r => r.json()),
-        fetch('/api/signals?status=queued,enriched,pending&limit=20').then(r => r.json()),
-        fetch('/api/user/preferences').then(r => r.json()),
+        fetch('/api/episodes', { signal: controller.signal }).then(r => r.json()),
+        fetch('/api/signals?status=queued,enriched,pending&limit=20', { signal: controller.signal }).then(r => r.json()),
+        fetch('/api/user/preferences', { signal: controller.signal }).then(r => r.json()),
       ]);
+
+      // If this request was aborted, don't update state with stale data
+      if (controller.signal.aborted) return;
 
       // Handle episodes — independent of signals
       if (results[0].status === 'fulfilled') {
@@ -368,7 +450,7 @@ function Dashboard() {
         setSignalCounts(counts);
       }
 
-      // Handle user preferences (episode limit + phone)
+      // Handle user preferences (episode limit + phone + name)
       if (results[2].status === 'fulfilled') {
         const prefs = results[2].value;
         if (prefs.episodeLimit !== undefined) {
@@ -377,9 +459,12 @@ function Dashboard() {
         if (prefs.phone) {
           setUserPhone(prefs.phone);
         }
+        if (prefs.name) {
+          setUserName(prefs.name);
+        }
       }
     } catch {
-      // Unexpected error in allSettled handling
+      // Swallow abort errors + unexpected errors in allSettled handling
     } finally {
       setLoading(false);
     }
@@ -789,16 +874,7 @@ function Dashboard() {
             <div className="p-6">
               {/* Header */}
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
-                  <video
-                    src="/logo_loop.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <Image src="/logo.png" alt="Poddit" width={40} height={40} className="rounded-xl ring-1 ring-white/10 flex-shrink-0" />
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-extrabold text-white">Welcome to <span className="font-display">PODDIT</span></h2>
@@ -1169,457 +1245,152 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 relative z-30">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
-            <video
-              src="/logo_loop.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── BRANDED WELCOME HERO ─────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <section className="mb-8 relative z-30">
+        {/* Top bar: logo + user menu */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="Poddit" width={40} height={40} className="rounded-2xl ring-1 ring-white/10 flex-shrink-0" />
+            <span className="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">PODDIT</h1>
-              <span className="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
-            </div>
-            <p className="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
-          </div>
-        </div>
 
-        {/* User menu */}
-        {session?.user && (
-          <div className="relative">
+          {/* Top-right controls */}
+          <div className="flex items-center gap-2">
+            {/* How to use button */}
             <button
-              onClick={() => setShowUserMenu(prev => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/60
-                         hover:border-stone-700 hover:bg-poddit-900/60 transition-all text-sm"
+              onClick={() => setShowCollectSignals(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
+                         ${showCollectSignals ? 'border-teal-500/25 bg-teal-500/5 text-teal-300' : 'border-stone-800/60 text-stone-500 hover:border-stone-700 hover:text-stone-300'}`}
             >
-              <div className="w-7 h-7 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 text-xs font-bold">
-                {(session.user.name || session.user.email || '?')[0].toUpperCase()}
-              </div>
-              <span className="text-stone-400 hidden sm:inline max-w-[120px] truncate">
-                {session.user.name || session.user.email}
-              </span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="2" className="text-stone-600">
-                <polyline points="6 9 12 15 18 9" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
+              <span className="hidden sm:inline">How to use</span>
             </button>
 
-            {showUserMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-poddit-900 border border-stone-800
-                                rounded-xl shadow-lg overflow-hidden">
-                  <div className="px-3 py-2 border-b border-stone-800/60">
-                    <p className="text-xs text-stone-500 truncate">{session.user.email}</p>
-                  </div>
-                  <Link
-                    href="/settings"
-                    className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
-                  >
-                    Settings
-                  </Link>
-                  <Link
-                    href="/usage"
-                    className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors"
-                  >
-                    Usage
-                  </Link>
-                  <button
-                    onClick={() => { setShowFeedbackPanel(true); setShowUserMenu(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-amber-300/80 hover:bg-poddit-800 hover:text-amber-300 transition-colors"
-                  >
-                    Feedback
-                  </button>
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-                    className="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-poddit-800 hover:text-red-400 transition-colors"
-                  >
-                    Sign out
-                  </button>
+            {/* User menu */}
+            {session?.user && (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(prev => !prev)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/60
+                           hover:border-stone-700 hover:bg-poddit-900/60 transition-all text-sm"
+              >
+                <div className="w-7 h-7 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 text-xs font-bold">
+                  {(session.user.name || session.user.email || '?')[0].toUpperCase()}
                 </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Capture Input Bar — prominent, right after header ── */}
-      <section className={`mb-4 transition-all duration-700 ${isEmptyState ? '-mt-2' : ''}`}>
-        {/* Input error */}
-        {inputError && (
-          <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
-            <span>{inputError}</span>
-            <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-          </div>
-        )}
-
-        {/* Input success */}
-        {inputSuccess && (
-          <div className="mb-2 p-2 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-xs">
-            {'\u2713'} {inputSuccess}
-          </div>
-        )}
-
-        {/* Recording state */}
-        {recording ? (
-          <button
-            onClick={stopRecording}
-            className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
-                       hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-            {formatTime(recordingTime)} &mdash; Recording...
-            <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
-          </button>
-        ) : processing ? (
-          <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
-                          flex items-center justify-center gap-2">
-            <svg className="animate-spin h-4 w-4 text-teal-400" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Transcribing...
-          </div>
-        ) : (
-          /* Default: text input + buttons */
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 input-lens-flare">
-              <input
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                placeholder={!isEmptyState ? 'Save a link, topic, or thought...' : ' '}
-                disabled={submitting}
-                className={`w-full px-4 py-3 bg-poddit-900/80 border rounded-xl text-sm text-white
-                           placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40
-                           focus:shadow-[0_0_12px_rgba(20,184,166,0.08)]
-                           disabled:opacity-40 transition-all
-                           ${isEmptyState
-                             ? 'border-teal-500/20 shadow-[0_0_16px_rgba(20,184,166,0.08)]'
-                             : 'border-stone-700/60 shadow-[0_0_0_1px_rgba(20,184,166,0.04)]'
-                           }`}
-              />
-              {isEmptyState && !textInput && !inputFocused && (
-                <span
-                  className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}
-                >
-                  {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
+                <span className="text-stone-400 hidden sm:inline max-w-[120px] truncate">
+                  {session.user.name || session.user.email}
                 </span>
-              )}
-              {/* Lens flare edges — right, bottom, left (top uses ::before) */}
-              <span className="flare-right" />
-              <span className="flare-bottom" />
-              <span className="flare-left" />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={submitText}
-                disabled={submitting || !textInput.trim()}
-                className="flex-1 sm:flex-none px-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                           hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-600 disabled:cursor-not-allowed
-                           shadow-[0_0_12px_rgba(20,184,166,0.15)] hover:shadow-[0_0_16px_rgba(20,184,166,0.25)]
-                           disabled:shadow-none transition-all flex-shrink-0"
-              >
-                {submitting ? '...' : 'Add'}
-              </button>
-              <button
-                onClick={startRecording}
-                disabled={submitting}
-                className={`px-3 py-3 border rounded-xl
-                           hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5
-                           disabled:opacity-40 disabled:cursor-not-allowed
-                           transition-all flex-shrink-0
-                           ${isEmptyState
-                             ? 'border-violet-400/25 text-violet-400/60 animate-mic-pulse'
-                             : 'border-stone-700/60 text-stone-400'
-                           }`}
-                title="Record a voice note"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" x2="12" y1="19" y2="22" />
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2" className="text-stone-600">
+                  <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
-            </div>
-          </div>
-        )}
-      </section>
 
-      {/* ── Collapsible Chips: Send Signals + How It Works ── */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {/* Send Signals chip */}
-        <button
-          onClick={() => setShowSendSignals(prev => !prev)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
-                     ${showSendSignals
-                       ? 'border-teal-500/30 bg-teal-500/10 text-teal-300'
-                       : 'border-stone-800/50 bg-poddit-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300'
-                     }`}
-        >
-          {/* Source icons row */}
-          <span className="flex items-center gap-1 opacity-70">
-            {/* SMS */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            {/* Email */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-            </svg>
-            {/* Mic */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-            </svg>
-            {/* Link */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-          </span>
-          Send Signals
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showSendSignals ? 'rotate-180' : ''}`}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-
-        {/* How It Works chip */}
-        <button
-          onClick={() => setShowHowItWorks(prev => !prev)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
-                     ${showHowItWorks
-                       ? 'border-violet-400/30 bg-violet-400/10 text-violet-300'
-                       : 'border-stone-800/50 bg-poddit-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300'
-                     }`}
-        >
-          {/* Step indicator dots */}
-          <span className="flex items-center gap-1">
-            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 1 ? 'bg-teal-400' : 'bg-stone-700'}`} />
-            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 2 ? 'bg-violet-400' : 'bg-stone-700'}`} />
-            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 3 ? 'bg-amber-400' : 'bg-stone-700'}`} />
-          </span>
-          How It Works
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showHowItWorks ? 'rotate-180' : ''}`}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      </div>
-
-      {/* ── Send Signals expanded panel ── */}
-      {showSendSignals && (
-        <div className="mb-5 p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl relative overflow-hidden
-                         animate-fade-in-up lens-flare-edge" style={{ animationFillMode: 'forwards' }}>
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.03] blur-2xl pointer-events-none" />
-          <p className="text-xs text-stone-500 mb-3">
-            <span className="text-stone-300 font-medium">Send signals to Poddit</span> via
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {/* Text / Voice */}
-            <button
-               onClick={() => {
-                 if (!userPhone) {
-                   setShowPhonePrompt(true);
-                   setPhoneError(null);
-                   return;
-                 }
-                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                 if (isMobile) {
-                   window.location.href = 'sms:+18555065970';
-                 } else {
-                   navigator.clipboard.writeText('+18555065970').then(() => {
-                     setInputSuccess('Phone number copied!');
-                     setTimeout(() => setInputSuccess(null), 3000);
-                   });
-                 }
-               }}
-               className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
-                          hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                   className="text-stone-600 group-hover:text-teal-400 transition-colors">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <div>
-                <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p>
-                <p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p>
-              </div>
-            </button>
-
-            {/* Chrome Extension */}
-            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-poddit-950/20
-                            opacity-50 text-center cursor-default">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                   className="text-stone-700">
-                <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" />
-                <line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-              </svg>
-              <div>
-                <p className="text-xs font-medium text-stone-500">Chrome</p>
-                <p className="text-[10px] text-stone-700 mt-0.5">Coming soon</p>
-              </div>
-            </div>
-
-            {/* Email */}
-            <button
-              onClick={() => {
-                window.location.href = 'mailto:capture@poddit.com';
-              }}
-              className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
-                         hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                   className="text-stone-600 group-hover:text-teal-400 transition-colors">
-                <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-              </svg>
-              <div>
-                <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Email</p>
-                <p className="text-[10px] text-stone-600 mt-0.5 font-mono">capture@poddit.com</p>
-              </div>
-            </button>
-
-            {/* Direct Input */}
-            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
-              <div className="flex items-center gap-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-stone-300">Type or speak</p>
-                <p className="text-[10px] text-stone-600 mt-0.5">Links or topics</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Phone number prompt */}
-          {showPhonePrompt && (
-            <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
-              <button
-                onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }}
-                className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors"
-                aria-label="Close"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-              <p className="text-xs text-stone-300 mb-2">
-                Add your phone number so Poddit can match your texts to your account
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="tel"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && savePhone()}
-                  placeholder="(555) 123-4567"
-                  className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white
-                             placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors"
-                  autoFocus
-                />
-                <button
-                  onClick={savePhone}
-                  disabled={phoneSaving || !phoneInput.trim()}
-                  className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20
-                             hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
-                >
-                  {phoneSaving ? 'Saving...' : 'Save & Text'}
-                </button>
-              </div>
-              {phoneError && (
-                <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-poddit-900 border border-stone-800
+                                  rounded-xl shadow-lg overflow-hidden">
+                    <div className="px-3 py-2 border-b border-stone-800/60">
+                      <p className="text-xs text-stone-500 truncate">{session.user.email}</p>
+                    </div>
+                    <Link href="/settings" className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors">Settings</Link>
+                    <Link href="/usage" className="block px-3 py-2 text-sm text-stone-300 hover:bg-poddit-800 hover:text-white transition-colors">Usage</Link>
+                    <button onClick={() => { setShowFeedbackPanel(true); setShowUserMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-amber-300/80 hover:bg-poddit-800 hover:text-amber-300 transition-colors">Feedback</button>
+                    <button onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-poddit-800 hover:text-red-400 transition-colors">Sign out</button>
+                  </div>
+                </>
               )}
             </div>
           )}
+          </div>
         </div>
-      )}
 
-      {/* ── How It Works expanded panel ── */}
-      {showHowItWorks && (
-        <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
-          {([
-            { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
-            { label: 'Generate', desc: 'Hit Poddit Now or wait for your weekly roundup every Friday.', color: 'violet', step: 2 },
-            { label: 'Listen', desc: 'Get a personalized audio episode explaining what it all means.', color: 'amber', step: 3 },
-          ] as const).map(({ label, desc, color, step }) => {
-            const isActive = step === activeStep;
-            const isFuture = step > activeStep;
-            const borderClass = isActive
-              ? color === 'teal' ? 'border-teal-500/30' : color === 'violet' ? 'border-violet-400/30' : 'border-amber-500/30'
-              : isFuture ? 'border-stone-800/10' : 'border-stone-800/20';
-            const glowClass = isActive
-              ? color === 'teal' ? 'animate-glow-pulse-teal' : color === 'violet' ? 'animate-glow-pulse-violet' : 'animate-glow-pulse-amber'
-              : '';
-            const badgeClass = isActive
-              ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
-              : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
-            const gradientFrom = color === 'teal' ? 'from-teal-500/[0.04]' : color === 'violet' ? 'from-violet-400/[0.04]' : 'from-amber-500/[0.04]';
-            const hoverBorder = color === 'teal' ? 'hover:border-teal-500/15' : color === 'violet' ? 'hover:border-violet-400/15' : 'hover:border-amber-500/15';
+        {/* Hero greeting panel — light background with inner bokeh */}
+        <div className="relative mb-6 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden">
+          {/* Inner bokeh orbs */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-[-20%] left-[-10%] w-48 h-48 rounded-full bg-teal-500/20 blur-3xl bokeh-orb bokeh-1" />
+            <div className="absolute bottom-[-15%] right-[-5%] w-40 h-40 rounded-full bg-violet-400/18 blur-3xl bokeh-orb bokeh-2" />
+            <div className="absolute top-[30%] right-[20%] w-32 h-32 rounded-full bg-amber-400/12 blur-2xl bokeh-orb bokeh-3" />
+          </div>
+          <div className="relative z-10">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
+              {getGreeting()}{userName ? `, ${userName}` : ''} &mdash;<br className="sm:hidden" /> welcome to <span className="text-teal-400">Poddit</span>.
+            </h1>
+            <p className="text-lg sm:text-xl text-stone-300 font-light mb-1">Your world, explained.</p>
+            <p className="text-sm text-stone-400 leading-relaxed max-w-xl">{getHeroSubtitle()}</p>
+          </div>
+        </div>
 
-            return (
-              <div
-                key={label}
-                className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
-                            relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
-                            ${isFuture ? 'opacity-40' : ''} ${glowClass}`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
-                                ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-                <span className={`relative flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>
-                  {step}
-                </span>
-                <div className="relative">
-                  <p className={`text-sm font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
-                  <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
-                </div>
+        {/* Capture input */}
+        <div className="mb-2">
+          {inputError && (
+            <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
+              <span>{inputError}</span>
+              <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+            </div>
+          )}
+          {inputSuccess && (
+            <div className="mb-2 p-2 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-xs">
+              {'\u2713'} {inputSuccess}
+            </div>
+          )}
+
+          {recording ? (
+            <button onClick={stopRecording} className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
+              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+              {formatTime(recordingTime)} &mdash; Recording...
+              <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
+            </button>
+          ) : processing ? (
+            <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400 flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4 text-teal-400" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Transcribing...
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1 input-lens-flare">
+                <input
+                  type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
+                  onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
+                  placeholder={!isEmptyState ? 'Save a link, topic, or thought...' : ' '} disabled={submitting}
+                  className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
+                             placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
+                             focus:bg-white/[0.10] disabled:opacity-40 transition-all
+                             ${isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
+                />
+                {isEmptyState && !textInput && !inputFocused && (
+                  <span className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}>
+                    {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
+                  </span>
+                )}
+                <span className="flare-right" /><span className="flare-bottom" /><span className="flare-left" />
               </div>
-            );
-          })}
+              <div className="flex gap-2">
+                <button onClick={submitText} disabled={submitting || !textInput.trim()}
+                  className="flex-1 sm:flex-none px-6 py-3.5 bg-white text-poddit-950 text-sm font-bold rounded-xl hover:bg-stone-100 disabled:bg-stone-800 disabled:text-stone-600 disabled:cursor-not-allowed shadow-[0_2px_8px_rgba(255,255,255,0.10)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:shadow-none transition-all flex-shrink-0">
+                  {submitting ? '...' : 'Add'}
+                </button>
+                <button onClick={startRecording} disabled={submitting} title="Record a voice note"
+                  className={`px-3 py-3.5 border rounded-xl hover:border-white/30 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0
+                             ${isEmptyState ? 'border-white/20 text-stone-300 animate-mic-pulse' : 'border-white/15 text-stone-400'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* ── Welcome Banner (first-time users) ── */}
-      {!loading && !welcomeDismissed && episodes.length === 0 && signals.length === 0 && (
-        <div className="mb-5 p-4 rounded-xl border border-teal-500/15 bg-gradient-to-r from-teal-500/[0.06] via-violet-400/[0.04] to-amber-500/[0.06]
-                        relative overflow-hidden opacity-0 animate-fade-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
-          <button
-            onClick={() => setWelcomeDismissed(true)}
-            className="absolute top-3 right-3 text-stone-600 hover:text-stone-400 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-          <h3 className="text-sm font-semibold text-white mb-1.5">Welcome to Poddit!</h3>
-          <p className="text-xs text-stone-400 leading-relaxed max-w-lg">
-            Start by saving anything that catches your eye — a link, a topic, or a voice note.
-            When you&apos;re ready, hit <span className="text-teal-400 font-medium">Poddit Now</span> to
-            turn your signals into a personalized audio episode. Head to{' '}
-            <Link href="/settings" className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
-              Settings
-            </Link>{' '}
-            to customize your experience.
-          </p>
-        </div>
-      )}
+      </section>
 
       {/* Share confirmation toast */}
       {shared === 'success' && (
@@ -1636,224 +1407,412 @@ function Dashboard() {
         </div>
       )}
 
-      {/* ── Two-Column Layout (desktop) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-        {/* ── Left: Signal Queue ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">
-              Queue
-              {totalQueued > 0 && (
-                <span className="ml-2 text-xs font-normal text-stone-500 normal-case tracking-normal">
-                  {totalQueued} signal{totalQueued !== 1 ? 's' : ''} waiting
-                </span>
-              )}
-            </h2>
-            {signals.length > 0 && (
-              <button
-                onClick={toggleAll}
-                disabled={generating}
-                className="text-xs text-violet-400 hover:text-violet-300 disabled:text-poddit-600 transition-colors"
-              >
-                {allSelected ? 'Deselect All' : 'Select All'}
-              </button>
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── YOUR QUEUE ───────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <section className="mb-6">
+        <button onClick={() => setQueueExpanded(prev => !prev)} className="w-full flex items-center justify-between py-3 group">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-white">Your Queue</h2>
+            {totalQueued > 0 && (
+              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-500/15 text-teal-400 border border-teal-500/20">{totalQueued}</span>
             )}
           </div>
+          <div className="flex items-center gap-3">
+            {signals.length > 0 && !queueExpanded && (
+              <span className="text-xs text-stone-500">{signals.length} signal{signals.length !== 1 ? 's' : ''} ready</span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" className={`text-stone-500 transition-transform duration-300 ${queueExpanded ? 'rotate-180' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </button>
 
-          {/* Poddit Now button */}
-          {signals.length > 0 && (
-            atEpisodeLimit ? (
-              <div className="mb-4 p-3 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl text-center">
-                <p className="text-sm text-amber-300/90 font-medium mb-1">
-                  You&apos;ve hit your {episodeLimit}-episode limit
-                </p>
-                <p className="text-xs text-stone-500">
-                  Your feedback helps us unlock more &mdash; tap Feedback in the account menu.
+        {queueExpanded && (
+          <div className="animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
+            {/* Poddit Now button */}
+            {signals.length > 0 && (
+              atEpisodeLimit ? (
+                <div className="mb-4 p-3 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl text-center">
+                  <p className="text-sm text-amber-300/90 font-medium mb-1">You&apos;ve hit your {episodeLimit}-episode limit</p>
+                  <p className="text-xs text-stone-500">Your feedback helps us unlock more &mdash; tap Feedback in the account menu.</p>
+                </div>
+              ) : (
+                <button onClick={generateNow} disabled={generating || selectedIds.size === 0}
+                  className={`relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden ${generating ? 'animate-glow-pulse' : ''}`}>
+                  {generating && <div className="absolute inset-0 bg-teal-600 transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />}
+                  <span className="relative z-10 flex items-center gap-2 drop-shadow-sm">
+                    {generating ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span className="transition-opacity duration-500">{STATUS_PHRASES[statusPhrase]}</span>
+                      </>
+                    ) : (
+                      <>Generate My Episode ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
+                    )}
+                  </span>
+                </button>
+              )
+            )}
+
+            {/* Select all / count */}
+            {signals.length > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                {!allSelected && selectedIds.size > 0 && (
+                  <p className="text-xs text-stone-500">{selectedIds.size} of {signals.length} selected</p>
+                )}
+                <button onClick={toggleAll} disabled={generating} className="text-xs text-violet-400 hover:text-violet-300 disabled:text-poddit-600 transition-colors ml-auto">
+                  {allSelected ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+            )}
+
+            {/* Signal cards or empty state */}
+            {signals.length === 0 ? (
+              <div className="py-8 px-4 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal-400">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </div>
+                <p className="text-sm text-stone-400 font-medium mb-1">No signals yet</p>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                  Drop a link, type a topic, or record a voice note above. Your signals queue up here, ready for your next episode.
                 </p>
               </div>
             ) : (
-              <button
-                onClick={generateNow}
-                disabled={generating || selectedIds.size === 0}
-                className={`relative w-full mb-4 py-3 px-4 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                           hover:bg-teal-400 disabled:bg-poddit-800 disabled:text-poddit-500 disabled:cursor-not-allowed
-                           transition-all flex items-center justify-center gap-2 uppercase tracking-wide overflow-hidden
-                           ${generating ? 'animate-glow-pulse' : ''}`}
-              >
-                {/* Progress bar overlay */}
-                {generating && (
-                  <div
-                    className="absolute inset-0 bg-teal-600 transition-all duration-1000 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2 drop-shadow-sm">
-                  {generating ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span className="transition-opacity duration-500">{STATUS_PHRASES[statusPhrase]}</span>
-                    </>
-                  ) : (
-                    <>Poddit <span className="italic text-teal-200">Now</span> ({selectedIds.size} signal{selectedIds.size !== 1 ? 's' : ''})</>
-                  )}
-                </span>
-              </button>
-            )
-          )}
-
-          {/* Selection count */}
-          {signals.length > 0 && !allSelected && selectedIds.size > 0 && (
-            <p className="text-xs text-stone-500 mb-3">
-              {selectedIds.size} of {signals.length} selected
-            </p>
-          )}
-
-          {signals.length === 0 ? (
-            <div className="relative">
-              {/* Placeholder queue cards — visual hint of what fills this space */}
-              <div className="space-y-2 opacity-[0.04]">
-                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
-                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
-                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
-              </div>
-              {/* Instructive copy overlaid */}
-              <div className="absolute inset-0 flex items-center justify-center px-4">
-                <p className="text-sm text-stone-500 leading-relaxed text-center max-w-sm">
-                  Send anything that catches your eye &mdash; links, topics, voice notes &mdash; and they&apos;ll queue up here,
-                  ready to become your next personalized episode.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {signals.map((signal, idx) => (
-                <div
-                  key={signal.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl overflow-hidden ${
-                    signalsCollapsing && selectedIds.has(signal.id)
-                      ? 'animate-signal-collapse'
-                      : selectedIds.has(signal.id)
-                        ? 'bg-teal-500/5 border border-teal-500/15 transition-all'
-                        : 'bg-poddit-900/30 border border-transparent hover:border-stone-800 transition-all'
-                  }`}
-                  style={signalsCollapsing && selectedIds.has(signal.id) ? {
-                    animationDelay: `${idx * 80}ms`,
-                    animationFillMode: 'forwards',
-                  } : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(signal.id)}
-                    onChange={() => toggleSignal(signal.id)}
-                    disabled={generating}
-                    className="w-4 h-4 rounded border-stone-600 mt-0.5 flex-shrink-0 accent-teal-500"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
-                        {signal.channel}
-                      </span>
-                      <p className="text-sm text-poddit-100 truncate">
-                        {signal.title || signal.rawContent.slice(0, 80)}
-                      </p>
+              <div className="space-y-2">
+                {signals.map((signal, idx) => (
+                  <div key={signal.id}
+                    className={`flex items-start gap-3 p-3 rounded-xl overflow-hidden ${
+                      signalsCollapsing && selectedIds.has(signal.id)
+                        ? 'animate-signal-collapse'
+                        : selectedIds.has(signal.id)
+                          ? 'bg-teal-500/5 border border-teal-500/15 transition-all'
+                          : 'bg-poddit-900/30 border border-transparent hover:border-stone-800 transition-all'
+                    }`}
+                    style={signalsCollapsing && selectedIds.has(signal.id) ? { animationDelay: `${idx * 80}ms`, animationFillMode: 'forwards' } : undefined}>
+                    <input type="checkbox" checked={selectedIds.has(signal.id)} onChange={() => toggleSignal(signal.id)} disabled={generating} className="w-4 h-4 rounded border-stone-600 mt-0.5 flex-shrink-0 accent-teal-500" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">{signal.channel}</span>
+                        <p className="text-sm text-poddit-100 truncate">{signal.title || signal.rawContent.slice(0, 80)}</p>
+                      </div>
+                      {signal.source && <p className="text-xs text-stone-500">{signal.source}</p>}
+                      {signal.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {signal.topics.map((topic) => (
+                            <span key={topic} className="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">{topic}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {signal.source && (
-                      <p className="text-xs text-stone-500 ml-0">{signal.source}</p>
+                    <span className="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">{new Date(signal.createdAt).toLocaleDateString()}</span>
+                    <button onClick={() => deleteSignal(signal.id)} disabled={generating} className="text-poddit-700 hover:text-red-400 disabled:hover:text-poddit-700 transition-colors p-1 -mr-1 flex-shrink-0" title="Remove from queue">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── YOUR EPISODES ────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">Your Episodes</h2>
+          {episodes.length > 0 && (
+            <span className="text-xs text-stone-500">
+              {episodeLimit > 0 ? `${episodes.length} of ${episodeLimit}` : `${episodes.length}`}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2].map(i => <div key={i} className="h-28 bg-poddit-900/50 rounded-2xl animate-pulse" />)}
+          </div>
+        ) : episodes.length === 0 ? (
+          <div className="py-10 px-4 text-center bg-poddit-900/30 border border-stone-800/30 rounded-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-violet-400/10 flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet-400">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+            </div>
+            <p className="text-sm text-stone-400 font-medium mb-1">No episodes yet</p>
+            <p className="text-xs text-stone-500 max-w-sm mx-auto">
+              Once you have signals in your queue, hit Poddit Now to generate your first personalized audio episode.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {episodes.map((ep, idx) => {
+              const accent = EPISODE_ACCENTS[idx % EPISODE_ACCENTS.length];
+              const isExpanded = expandedEpisodeId === ep.id;
+              return (
+                <div key={ep.id}
+                  className={`relative rounded-2xl ${accent.bg} border ${accent.border} overflow-hidden hover:border-stone-700/50 transition-all
+                             ${ep.id === newEpisodeId ? 'animate-episode-reveal ring-1 ring-white/10' : ''} lens-flare-edge lens-flare-edge-alt`}>
+                  <div className="p-4">
+                    {/* Play button — top right */}
+                    <Link href={`/player/${ep.id}`}
+                      className="absolute top-4 right-4 flex-shrink-0 w-10 h-10 rounded-xl bg-teal-500 text-poddit-950 flex items-center justify-center hover:bg-teal-400 transition-colors shadow-[0_0_12px_rgba(20,184,166,0.2)]">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="ml-0.5">
+                        <polygon points="6 3 20 12 6 21 6 3"/>
+                      </svg>
+                    </Link>
+                    {/* Content — no left gap needed, play button is absolute positioned */}
+                    <div className="pr-14">
+                      <Link href={`/player/${ep.id}`} className="group">
+                        <h3 className="font-bold text-white text-base group-hover:text-stone-200 transition-colors leading-snug">{ep.title}</h3>
+                      </Link>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+                        {formatDuration(ep.audioDuration) && <span>{formatDuration(ep.audioDuration)}</span>}
+                        {formatDuration(ep.audioDuration) && <span className="text-stone-700">&bull;</span>}
+                        <span>{ep.signalCount} signal{ep.signalCount !== 1 ? 's' : ''}</span>
+                        <span className="text-stone-700">&bull;</span>
+                        <span>{new Date(ep.generatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+                    {/* Synopsis */}
+                    {ep.summary && (
+                      <div className="mt-2">
+                        <p className={`text-sm text-stone-400 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>{ep.summary}</p>
+                        {ep.summary.length > 120 && (
+                          <button onClick={(e) => { e.preventDefault(); setExpandedEpisodeId(isExpanded ? null : ep.id); }}
+                            className={`text-xs ${accent.text} opacity-70 hover:opacity-100 mt-1 transition-opacity`}>
+                            {isExpanded ? 'Show less' : 'Read more'}
+                          </button>
+                        )}
+                      </div>
                     )}
-                    {signal.topics.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {signal.topics.map((topic) => (
-                          <span
-                            key={topic}
-                            className="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full"
-                          >
-                            {topic}
-                          </span>
+                    {/* Topic pills */}
+                    {ep.topicsCovered.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {ep.topicsCovered.slice(0, 4).map(topic => (
+                          <span key={topic} className={`text-xs ${accent.pill} px-2 py-0.5 rounded-full`}>{topic}</span>
                         ))}
+                        {ep.topicsCovered.length > 4 && <span className="text-xs text-stone-600">+{ep.topicsCovered.length - 4}</span>}
+                      </div>
+                    )}
+
+                    {/* Episode rating CTA */}
+                    {ep.rated ? (
+                      <div className="flex items-center gap-1.5 mt-2.5 text-xs text-stone-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Rated
+                      </div>
+                    ) : (
+                      <Link href={`/player/${ep.id}#rate`} className={`inline-flex items-center gap-1.5 mt-2.5 text-xs ${accent.text} opacity-70 hover:opacity-100 transition-opacity`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        How was it?
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── YOUR INSIGHTS ────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      <section className="mb-6 relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
+        {/* Inner bokeh for Insights panel */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute bottom-[-10%] left-[-5%] w-36 h-36 rounded-full bg-violet-400/10 blur-3xl bokeh-orb bokeh-2" />
+          <div className="absolute top-[-15%] right-[-5%] w-28 h-28 rounded-full bg-amber-400/8 blur-2xl bokeh-orb bokeh-4" />
+        </div>
+        <div className="relative z-10 p-5">
+          <button onClick={() => setInsightsExpanded(prev => !prev)} className="w-full flex items-center justify-between group">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-white">Your Highlights</h2>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" className={`text-stone-500 transition-transform duration-300 ${insightsExpanded ? 'rotate-180' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {insightsExpanded && (
+            <div className="mt-4">
+              {topicFrequency.length === 0 && episodes.length === 0 ? (
+                <div className="py-8 px-4 text-center bg-white/[0.02] border border-white/[0.05] rounded-2xl">
+                  <p className="text-sm text-stone-400 font-medium mb-1">Your highlights will appear here</p>
+                  <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                    As you capture signals and generate episodes, Poddit learns what interests you most.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Conversational highlight cards */}
+                  {topicFrequency.length > 0 && (
+                    <div className="p-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl">
+                      <p className="text-sm text-stone-300 leading-relaxed">
+                        You&apos;ve been most curious about{' '}
+                        <span className="font-semibold text-violet-400">{topicFrequency[0]?.[0]}</span>
+                        {topicFrequency.length > 1 && (<>, <span className="font-semibold text-amber-400">{topicFrequency[1]?.[0]}</span></>)}
+                        {topicFrequency.length > 2 && (<>, and <span className="font-semibold text-rose-400">{topicFrequency[2]?.[0]}</span></>)}
+                        {topicFrequency.length > 3 && ` — plus ${topicFrequency.length - 3} more topic${topicFrequency.length - 3 !== 1 ? 's' : ''}`}.
+                      </p>
+                      {topicFrequency.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {topicFrequency.map(([topic, count], i) => {
+                            const colors = ['bg-violet-400/15 text-violet-300', 'bg-amber-400/15 text-amber-300', 'bg-rose-400/15 text-rose-300', 'bg-teal-400/15 text-teal-300', 'bg-stone-700/50 text-stone-400'];
+                            return (
+                              <span key={topic} className={`text-xs px-2.5 py-1 rounded-full ${colors[Math.min(i, colors.length - 1)]}`}>
+                                {topic} <span className="opacity-50">×{count}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Activity snapshot */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {episodes.length > 0 && (
+                      <div className="p-3 bg-white/[0.03] border border-white/[0.05] rounded-xl text-center">
+                        <p className="text-2xl font-bold text-white">{episodes.length}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">episode{episodes.length !== 1 ? 's' : ''} created</p>
+                      </div>
+                    )}
+                    {signals.length > 0 && (
+                      <div className="p-3 bg-white/[0.03] border border-white/[0.05] rounded-xl text-center">
+                        <p className="text-2xl font-bold text-white">{signals.length}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">signal{signals.length !== 1 ? 's' : ''} captured</p>
+                      </div>
+                    )}
+                    {channelBreakdown.length > 0 && (
+                      <div className="p-3 bg-white/[0.03] border border-white/[0.05] rounded-xl text-center">
+                        <p className="text-2xl font-bold text-white">{channelBreakdown.length}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">capture channel{channelBreakdown.length !== 1 ? 's' : ''} used</p>
                       </div>
                     )}
                   </div>
-                  <span className="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">
-                    {new Date(signal.createdAt).toLocaleDateString()}
-                  </span>
-                  <button
-                    onClick={() => deleteSignal(signal.id)}
-                    disabled={generating}
-                    className="text-poddit-700 hover:text-red-400 disabled:hover:text-poddit-700 transition-colors p-1 -mr-1 flex-shrink-0"
-                    title="Remove from queue"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+
+                  {/* Favourite channel nudge */}
+                  {channelBreakdown.length > 0 && (() => {
+                    const labels: Record<string, string> = { SMS: 'texting', EMAIL: 'email', EXTENSION: 'the Chrome extension', SHARE_SHEET: 'share sheet', API: 'direct input' };
+                    const topChannel = channelBreakdown[0]?.[0];
+                    const topLabel = labels[topChannel] || topChannel;
+                    return (
+                      <p className="text-xs text-stone-500 leading-relaxed">
+                        Your favourite way to capture is <span className="text-stone-300 font-medium">{topLabel}</span> — keep it up.
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── HOW TO USE (triggered from top bar button) ─────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {showCollectSignals && (
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-stone-300">How Poddit Works</h2>
+            <button onClick={() => setShowCollectSignals(false)} className="text-stone-600 hover:text-stone-400 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-5 bg-poddit-950/60 border border-stone-800/25 rounded-2xl animate-fade-in-up lens-flare-edge" style={{ animationFillMode: 'forwards' }}>
+            {/* How it works steps */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              {([
+                { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
+                { label: 'Generate', desc: 'Hit Poddit Now or wait for your weekly Friday roundup.', color: 'violet', step: 2 },
+                { label: 'Listen', desc: 'Get a personalized audio episode explaining everything.', color: 'amber', step: 3 },
+              ] as const).map(({ label, desc, color, step }) => {
+                const isActive = step === activeStep;
+                const isFuture = step > activeStep;
+                const badgeClass = isActive
+                  ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
+                  : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
+                return (
+                  <div key={label} className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20 ${isFuture ? 'opacity-40' : ''}`}>
+                    <span className={`flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>{step}</span>
+                    <div>
+                      <p className={`text-sm font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
+                      <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-stone-800/30 pt-4">
+              <p className="text-xs text-stone-500 mb-3"><span className="text-stone-300 font-medium">Capture channels</span></p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = 'sms:+18555065970'; } else { navigator.clipboard.writeText('+18555065970').then(() => { setInputSuccess('Phone number copied!'); setTimeout(() => setInputSuccess(null), 3000); }); } }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400 transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                  <div><p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p><p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p></div>
+                </button>
+                <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-poddit-950/20 opacity-50 text-center cursor-default">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-700"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></svg>
+                  <div><p className="text-xs font-medium text-stone-500">Chrome</p><p className="text-[10px] text-stone-700 mt-0.5">Coming soon</p></div>
+                </div>
+                <button onClick={() => { window.location.href = 'mailto:capture@poddit.com'; }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400 transition-colors"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+                  <div><p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Email</p><p className="text-[10px] text-stone-600 mt-0.5 font-mono">capture@poddit.com</p></div>
+                </button>
+                <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
+                  <div className="flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
+                  </div>
+                  <div><p className="text-xs font-medium text-stone-300">Type or speak</p><p className="text-[10px] text-stone-600 mt-0.5">Links or topics</p></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phone number prompt */}
+            {showPhonePrompt && (
+              <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
+                <button onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }} className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Close">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <p className="text-xs text-stone-300 mb-2">Add your phone number so Poddit can match your texts to your account</p>
+                <div className="flex gap-2">
+                  <input type="tel" value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && savePhone()}
+                    placeholder="(555) 123-4567" autoFocus
+                    className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors" />
+                  <button onClick={savePhone} disabled={phoneSaving || !phoneInput.trim()}
+                    className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+                    {phoneSaving ? 'Saving...' : 'Save & Text'}
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── Right: Episodes ── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Episodes</h2>
-            {episodes.length > 0 && (
-              <span className="text-xs text-stone-600">
-                {episodeLimit > 0 ? `${episodes.length}/${episodeLimit}` : `${episodes.length}`} episodes
-              </span>
+                {phoneError && <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>}
+              </div>
             )}
           </div>
-
-          {loading ? (
-            <div className="p-6 text-center text-stone-500">Loading...</div>
-          ) : episodes.length === 0 ? (
-            <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
-              <p className="text-stone-400 mb-2">No episodes yet.</p>
-              <p className="text-sm text-stone-500">
-                Capture a few signals, then hit Poddit Now &mdash; or sit back and get a weekly roundup every Friday.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {episodes.map((ep) => (
-                <Link
-                  key={ep.id}
-                  href={`/player/${ep.id}`}
-                  className={`block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
-                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group lens-flare-edge lens-flare-edge-alt
-                             ${ep.id === newEpisodeId ? 'animate-episode-reveal ring-1 ring-teal-500/30' : ''}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-white group-hover:text-violet-300 transition-colors">{ep.title}</h3>
-                      <p className="text-sm text-stone-400 mt-1 line-clamp-2">{ep.summary?.slice(0, 120)}...</p>
-                    </div>
-                    <span className="text-sm text-stone-500 whitespace-nowrap ml-4 flex-shrink-0">
-                      {formatDuration(ep.audioDuration)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-3 text-xs text-stone-500">
-                    <span>{ep.signalCount} signal{ep.signalCount !== 1 ? 's' : ''}</span>
-                    <span className="text-teal-500/40">&bull;</span>
-                    <span>{new Date(ep.generatedAt).toLocaleDateString()}</span>
-                    {ep.topicsCovered.length > 0 && (
-                      <>
-                        <span className="text-teal-500/40">&bull;</span>
-                        <span className="text-stone-400 truncate">{ep.topicsCovered.slice(0, 3).join(', ')}</span>
-                      </>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
         </section>
-
-      </div>
+      )}
 
       {/* ── Feedback Modal (opened from account dropdown) ── */}
       {showFeedbackPanel && (

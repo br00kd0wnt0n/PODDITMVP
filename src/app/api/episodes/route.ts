@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(episode);
   }
 
-  // List recent episodes for this user
+  // List recent episodes for this user (with rating status)
   const episodes = await prisma.episode.findMany({
     where: { userId, status: 'READY' },
     orderBy: { generatedAt: 'desc' },
@@ -57,8 +57,19 @@ export async function GET(request: NextRequest) {
       generatedAt: true,
       periodStart: true,
       periodEnd: true,
+      ratings: {
+        where: { userId },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
 
-  return NextResponse.json(episodes);
+  // Flatten: add `rated` boolean, remove nested ratings array
+  const result = episodes.map(({ ratings, ...ep }) => ({
+    ...ep,
+    rated: ratings.length > 0,
+  }));
+
+  return NextResponse.json(result);
 }

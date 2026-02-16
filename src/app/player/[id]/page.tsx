@@ -77,6 +77,16 @@ export default function PlayerPage() {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number | null>(null);
+  const ratingRef = useRef<HTMLDivElement>(null);
+
+  // Episode rating state
+  const [showRating, setShowRating] = useState(false);
+  const [ratings, setRatings] = useState<{ enjoyment: number; resonance: number; connections: number }>({ enjoyment: 0, resonance: 0, connections: 0 });
+  const [followUpText, setFollowUpText] = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [existingRating, setExistingRating] = useState<{ enjoyment: number; resonance: number; connections: number; feedback: string | null } | null>(null);
+  const [audioEnded, setAudioEnded] = useState(false);
 
   useEffect(() => {
     fetch(`/api/episodes?id=${params.id}`)
@@ -86,6 +96,25 @@ export default function PlayerPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Check for existing rating
+    fetch(`/api/episodes/rate?episodeId=${params.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.rated && data.rating) {
+          setExistingRating(data.rating);
+          setRatings({ enjoyment: data.rating.enjoyment, resonance: data.rating.resonance, connections: data.rating.connections });
+          setRatingSubmitted(true);
+        }
+      })
+      .catch(() => {});
+
+    // Auto-open rating if navigated with #rate hash
+    if (typeof window !== 'undefined' && window.location.hash === '#rate') {
+      setShowRating(true);
+      // Scroll to rating section after render
+      setTimeout(() => ratingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
+    }
   }, [params.id]);
 
   // Clean up on unmount
@@ -207,6 +236,36 @@ export default function PlayerPage() {
     }
   }, []);
 
+  // Submit episode rating
+  const submitRating = useCallback(async () => {
+    if (!episode || ratingSubmitting) return;
+    if (ratings.enjoyment === 0 || ratings.resonance === 0 || ratings.connections === 0) return;
+
+    setRatingSubmitting(true);
+    try {
+      const res = await fetch('/api/episodes/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          episodeId: episode.id,
+          ...ratings,
+          feedback: followUpText.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        setRatingSubmitted(true);
+        setExistingRating({ ...ratings, feedback: followUpText.trim() || null });
+      }
+    } catch (e) {
+      console.error('[Rating] Submit failed:', e);
+    } finally {
+      setRatingSubmitting(false);
+    }
+  }, [episode, ratings, followUpText, ratingSubmitting]);
+
+  const needsFollowUp = ratings.enjoyment <= 2 || ratings.resonance <= 2 || ratings.connections <= 2;
+  const allRated = ratings.enjoyment > 0 && ratings.resonance > 0 && ratings.connections > 0;
+
   if (loading) {
     return (
       <main className="max-w-2xl mx-auto px-4 py-8">
@@ -280,9 +339,15 @@ export default function PlayerPage() {
             onLoadedMetadata={(e) => setDuration((e.target as HTMLAudioElement).duration)}
             onEnded={() => {
               setIsPlaying(false);
+              setAudioEnded(true);
               if (animFrameRef.current) {
                 cancelAnimationFrame(animFrameRef.current);
                 animFrameRef.current = null;
+              }
+              // Auto-show rating after playback if not already rated
+              if (!ratingSubmitted) {
+                setShowRating(true);
+                setTimeout(() => ratingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
               }
             }}
             onError={() => setAudioError(true)}
@@ -476,7 +541,7 @@ export default function PlayerPage() {
       </section>
 
       {/* Original signals */}
-      <section>
+      <section className="mb-8">
         <h2 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider mb-3">Captured Signals</h2>
         <div className="space-y-1">
           {episode.signals.map((signal) => (
@@ -495,6 +560,130 @@ export default function PlayerPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ─── Episode Rating ─── */}
+      <section ref={ratingRef} id="rate" className="mb-8">
+        {/* Show rating prompt: after audio ends, or when user clicks "Rate this episode", or if already rated */}
+        {!showRating && !ratingSubmitted && (
+          <button
+            onClick={() => { setShowRating(true); setTimeout(() => ratingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); }}
+            className="w-full py-3 px-4 rounded-xl border border-stone-800/60 bg-poddit-900/50 text-stone-400 hover:text-white hover:border-teal-500/30 transition-all text-sm flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Rate this episode
+          </button>
+        )}
+
+        {(showRating || ratingSubmitted) && (
+          <div className={`rounded-xl border overflow-hidden transition-all duration-500 ${
+            ratingSubmitted
+              ? 'border-teal-500/20 bg-teal-500/[0.03]'
+              : audioEnded
+                ? 'border-teal-500/30 bg-poddit-900 shadow-[0_0_20px_rgba(20,184,166,0.08)]'
+                : 'border-stone-800/60 bg-poddit-900'
+          }`}>
+            <div className="p-5">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  {ratingSubmitted ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Thanks for your feedback
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      How was this episode?
+                    </>
+                  )}
+                </h2>
+                {!ratingSubmitted && (
+                  <button onClick={() => setShowRating(false)} className="text-stone-600 hover:text-stone-400 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Rating questions */}
+              <div className="space-y-4">
+                {([
+                  { key: 'enjoyment' as const, label: 'Did you enjoy it?' },
+                  { key: 'resonance' as const, label: 'Did it resonate?' },
+                  { key: 'connections' as const, label: 'Useful connections?' },
+                ]).map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between gap-3">
+                    <span className={`text-sm ${ratingSubmitted ? 'text-stone-500' : 'text-stone-300'}`}>{label}</span>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map(n => {
+                        const isSelected = ratings[key] >= n;
+                        const color = n <= 2
+                          ? (isSelected ? 'bg-amber-400' : 'bg-stone-800 hover:bg-stone-700')
+                          : n === 3
+                            ? (isSelected ? 'bg-stone-400' : 'bg-stone-800 hover:bg-stone-700')
+                            : (isSelected ? 'bg-teal-400' : 'bg-stone-800 hover:bg-stone-700');
+                        return (
+                          <button
+                            key={n}
+                            disabled={ratingSubmitted}
+                            onClick={() => setRatings(prev => ({ ...prev, [key]: n }))}
+                            className={`w-8 h-8 rounded-full transition-all duration-150 text-xs font-bold ${color} ${
+                              isSelected ? 'text-poddit-950 scale-110' : 'text-stone-500'
+                            } ${ratingSubmitted ? 'cursor-default' : 'cursor-pointer active:scale-95'}`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Follow-up field (if any rating ≤ 2) */}
+              {needsFollowUp && !ratingSubmitted && allRated && (
+                <div className="mt-4 pt-4 border-t border-stone-800/60">
+                  <p className="text-xs text-amber-400/80 mb-2">We want to get better. What could we improve?</p>
+                  <textarea
+                    value={followUpText}
+                    onChange={e => setFollowUpText(e.target.value)}
+                    placeholder="What would make this episode better..."
+                    rows={3}
+                    maxLength={5000}
+                    className="w-full bg-poddit-950/50 border border-stone-800 rounded-lg px-3 py-2 text-sm text-white placeholder-stone-600 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500/40 focus:border-teal-500/40"
+                  />
+                </div>
+              )}
+
+              {/* Submit button */}
+              {!ratingSubmitted && allRated && (
+                <button
+                  onClick={submitRating}
+                  disabled={ratingSubmitting}
+                  className="mt-4 w-full py-2.5 rounded-lg bg-teal-500 text-poddit-950 text-sm font-semibold hover:bg-teal-400 disabled:opacity-50 transition-all"
+                >
+                  {ratingSubmitting ? 'Submitting...' : 'Submit'}
+                </button>
+              )}
+
+              {/* Already rated summary */}
+              {ratingSubmitted && existingRating?.feedback && (
+                <div className="mt-3 pt-3 border-t border-stone-800/40">
+                  <p className="text-xs text-stone-500">Your feedback: <span className="text-stone-400">{existingRating.feedback}</span></p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

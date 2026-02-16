@@ -4,6 +4,7 @@ import { writeFile, readFile, unlink, access } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { withRetry } from './retry';
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
@@ -40,31 +41,9 @@ const MUSIC_VOLUME = 0.14;
 // Seconds of intro music that plays solo before voiceover begins
 const INTRO_LEAD_IN = 4;
 
-// ──────────────────────────────────────────────
-// RETRY HELPER
-// ──────────────────────────────────────────────
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  { attempts = 3, delayMs = 1000, label = 'operation' }: { attempts?: number; delayMs?: number; label?: string } = {}
-): Promise<T> {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      const isLast = i === attempts - 1;
-      const status = error?.status || error?.statusCode;
-      const isRetryable = !status || status === 429 || status >= 500;
-
-      if (isLast || !isRetryable) throw error;
-
-      const wait = delayMs * Math.pow(2, i);
-      console.log(`[TTS] ${label} failed (attempt ${i + 1}/${attempts}), retrying in ${wait}ms...`);
-      await new Promise(r => setTimeout(r, wait));
-    }
-  }
-  throw new Error(`${label} failed after ${attempts} attempts`);
-}
+// Seconds of overlap: outro music starts UNDER the final narration
+// then lingers after speech ends for a natural fade-out
+const OUTRO_OVERLAP = 8;
 
 // ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
@@ -226,7 +205,9 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     if (hasOutro) {
       // Outro: delay to start near the end (account for narration offset)
       const outroDuration = await getAudioDuration(OUTRO_MUSIC);
-      const outroDelay = Math.max(0, totalDuration - outroDuration);
+      // Start outro earlier so it plays UNDER the closing narration,
+      // then the music tail lingers after speech ends
+      const outroDelay = Math.max(0, totalDuration - outroDuration - OUTRO_OVERLAP);
       const outroDelayMs = Math.round(outroDelay * 1000);
 
       filterParts.push(

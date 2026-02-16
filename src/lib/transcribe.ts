@@ -119,9 +119,7 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
   }
 
   // Convert unsupported formats (like AMR from iPhone voice memos) to WAV
-  const rawBuffer = Buffer.alloc(audioBuffer.byteLength);
-  const view = new Uint8Array(audioBuffer);
-  for (let i = 0; i < rawBuffer.length; i++) rawBuffer[i] = view[i];
+  const rawBuffer = Buffer.from(audioBuffer);
 
   let finalExt = ext;
   let finalMime = contentType;

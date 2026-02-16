@@ -10,14 +10,16 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>();
 
 // Periodic cleanup — prevent memory growth from stale keys
+// unref() allows the process to exit cleanly during graceful shutdown
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
+  const cleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of store) {
       entry.timestamps = entry.timestamps.filter(t => now - t < 600_000);
       if (entry.timestamps.length === 0) store.delete(key);
     }
   }, 60_000);
+  if (cleanup.unref) cleanup.unref();
 }
 
 /**

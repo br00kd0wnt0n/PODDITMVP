@@ -34,6 +34,7 @@ model User {
   signals  Signal[]
   episodes Episode[]
   feedback Feedback[]
+  episodeRatings EpisodeRating[]
   questionnaireResponses QuestionnaireResponse[]
 
   // Bonus episodes granted via questionnaire completion
@@ -169,6 +170,7 @@ model Episode {
   // Relations
   signals     Signal[]
   segments    Segment[]
+  ratings     EpisodeRating[]
   signalCount Int           @default(0)
 
   createdAt   DateTime      @default(now())
@@ -241,6 +243,30 @@ enum FeedbackStatus {
   NEW
   REVIEWED
   RESOLVED
+}
+
+// ──────────────────────────────────────────
+// Episode Ratings — per-episode user feedback
+// ──────────────────────────────────────────
+model EpisodeRating {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  // 3 rating questions (1–5 scale)
+  enjoyment   Int      // "Did you enjoy this episode?"
+  resonance   Int      // "Did it resonate with you?"
+  connections Int      // "Did it make useful connections?"
+
+  // Optional follow-up (only if ratings suggest room for improvement)
+  feedback    String?  @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, episodeId])
+  @@index([episodeId])
 }
 
 // ──────────────────────────────────────────
