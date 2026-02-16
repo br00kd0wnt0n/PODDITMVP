@@ -80,6 +80,9 @@ export async function GET(request: NextRequest) {
       totalFeedback,
       newFeedbackCount,
       recentFeedback,
+      totalEpisodeRatings,
+      recentEpisodeRatings,
+      ratingAverages,
       questionnaireResponses,
       users,
     ] = await Promise.all([
@@ -148,6 +151,25 @@ export async function GET(request: NextRequest) {
             select: { name: true, email: true },
           },
         },
+      }),
+      // Episode ratings
+      prisma.episodeRating.count(),
+      prisma.episodeRating.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          enjoyment: true,
+          resonance: true,
+          connections: true,
+          feedback: true,
+          createdAt: true,
+          user: { select: { name: true, email: true } },
+          episode: { select: { id: true, title: true } },
+        },
+      }),
+      prisma.episodeRating.aggregate({
+        _avg: { enjoyment: true, resonance: true, connections: true },
       }),
       // Questionnaire responses
       prisma.questionnaireResponse.findMany({
@@ -242,6 +264,15 @@ export async function GET(request: NextRequest) {
         episodeCount: u._count.episodes,
         signalCount: u._count.signals,
       })),
+      episodeRatings: {
+        total: totalEpisodeRatings,
+        averages: {
+          enjoyment: ratingAverages._avg.enjoyment,
+          resonance: ratingAverages._avg.resonance,
+          connections: ratingAverages._avg.connections,
+        },
+        recent: recentEpisodeRatings,
+      },
       questionnaire: {
         total: questionnaireResponses.length,
         responses: questionnaireResponses,

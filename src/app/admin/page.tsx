@@ -82,6 +82,24 @@ interface AdminStats {
     episodeCount: number;
     signalCount: number;
   }>;
+  episodeRatings: {
+    total: number;
+    averages: {
+      enjoyment: number | null;
+      resonance: number | null;
+      connections: number | null;
+    };
+    recent: Array<{
+      id: string;
+      enjoyment: number;
+      resonance: number;
+      connections: number;
+      feedback: string | null;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+      episode: { id: string; title: string | null };
+    }>;
+  };
   questionnaire: {
     total: number;
     responses: Array<{
@@ -742,6 +760,75 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Episode Ratings ── */}
+      {(stats.episodeRatings?.total || 0) > 0 && (
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-violet-400/60" />
+              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Episode Ratings</h2>
+            </div>
+            <span className="text-xs text-stone-600">{stats.episodeRatings.total} total</span>
+          </div>
+
+          {/* Average scores */}
+          {stats.episodeRatings.averages.enjoyment !== null && (
+            <div className="flex flex-wrap gap-3 mb-5">
+              {[
+                { label: 'Enjoyment', value: stats.episodeRatings.averages.enjoyment, color: 'teal' },
+                { label: 'Resonance', value: stats.episodeRatings.averages.resonance, color: 'violet' },
+                { label: 'Connections', value: stats.episodeRatings.averages.connections, color: 'amber' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex-1 min-w-[100px] p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+                  <p className="text-xs text-stone-500 mb-1">{label}</p>
+                  <p className={`text-xl font-extrabold ${
+                    color === 'teal' ? 'text-teal-300' : color === 'violet' ? 'text-violet-300' : 'text-amber-300'
+                  }`}>
+                    {value !== null ? value.toFixed(1) : '--'}
+                  </p>
+                  <p className="text-xs text-stone-600">/ 5</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Recent ratings */}
+          <div className="space-y-2">
+            {stats.episodeRatings.recent.map((rating) => {
+              const avg = ((rating.enjoyment + rating.resonance + rating.connections) / 3);
+              const hasLow = rating.enjoyment <= 2 || rating.resonance <= 2 || rating.connections <= 2;
+              return (
+                <div key={rating.id} className={`p-3 bg-poddit-950/40 border rounded-lg ${
+                  hasLow ? 'border-amber-500/20' : 'border-stone-800/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm text-white truncate">{rating.episode.title || 'Untitled'}</span>
+                      {hasLow && (
+                        <span className="text-xs bg-amber-500/15 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">Low</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-stone-600 flex-shrink-0 ml-2">{timeAgo(rating.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-xs text-stone-500">Enjoy: <span className="text-teal-300 font-mono">{rating.enjoyment}</span></span>
+                    <span className="text-xs text-stone-500">Reson: <span className="text-violet-300 font-mono">{rating.resonance}</span></span>
+                    <span className="text-xs text-stone-500">Conn: <span className="text-amber-300 font-mono">{rating.connections}</span></span>
+                    <span className="text-xs text-stone-600 font-mono ml-auto">avg {avg.toFixed(1)}</span>
+                  </div>
+                  {rating.feedback && (
+                    <p className="text-xs text-stone-300 mt-1.5 line-clamp-2 border-t border-stone-800/30 pt-1.5">&ldquo;{rating.feedback}&rdquo;</p>
+                  )}
+                  <p className="text-xs text-stone-600 mt-1">
+                    {rating.user.name || rating.user.email || 'Unknown user'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Questionnaire Responses ── */}
       {(stats.questionnaire?.responses || []).length > 0 && (
