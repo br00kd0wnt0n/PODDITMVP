@@ -79,6 +79,8 @@ function Dashboard() {
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [showSendSignals, setShowSendSignals] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -121,6 +123,9 @@ function Dashboard() {
   // Welcome overlay (first-load only, persisted in localStorage)
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const [welcomeOverlayExiting, setWelcomeOverlayExiting] = useState(false);
+
+  // Feedback panel (opened from account dropdown)
+  const [showFeedbackPanel, setShowFeedbackPanel] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && !loading) {
@@ -758,15 +763,12 @@ function Dashboard() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
 
-      {/* Dashboard-local bokeh boost — visible only in empty state */}
-      <div
-        aria-hidden="true"
-        className={`fixed inset-0 overflow-hidden pointer-events-none z-0 transition-opacity duration-1000
-                    ${isEmptyState ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <div className="bokeh-orb bokeh-3 absolute top-[10%] right-[15%] w-[35vw] h-[35vw] rounded-full bg-teal-400/[0.06] blur-3xl" />
-        <div className="bokeh-orb bokeh-1 absolute bottom-[15%] left-[10%] w-[30vw] h-[30vw] rounded-full bg-violet-400/[0.05] blur-3xl" />
-        <div className="bokeh-orb bokeh-5 absolute top-[50%] left-[60%] w-[25vw] h-[25vw] rounded-full bg-amber-400/[0.04] blur-2xl" />
+      {/* Dashboard bokeh + lens flare — always visible for atmosphere */}
+      <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="bokeh-orb bokeh-3 absolute top-[8%] right-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/[0.07] blur-3xl" />
+        <div className="bokeh-orb bokeh-1 absolute bottom-[12%] left-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-400/[0.06] blur-3xl" />
+        <div className="bokeh-orb bokeh-5 absolute top-[45%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.05] blur-2xl" />
+        <div className="bokeh-orb bokeh-2 absolute top-[20%] left-[25%] w-[20vw] h-[20vw] rounded-full bg-amber-300/[0.04] blur-2xl" />
       </div>
 
       {/* ── Welcome Overlay (first load) ── */}
@@ -843,8 +845,8 @@ function Dashboard() {
                 <div>
                   <p className="text-sm font-medium text-amber-300/90">Your feedback shapes Poddit</p>
                   <p className="text-xs text-stone-500 mt-0.5">
-                    As an early tester, your input is invaluable. Use the <span className="text-amber-300/70">feedback section</span> at the
-                    bottom of the page to report bugs, share ideas, or tell us what you think — text or voice.
+                    As an early tester, your input is invaluable. Tap the <span className="text-amber-300/70">Feedback</span> option
+                    in your account menu to report bugs, share ideas, or tell us what you think — text or voice.
                   </p>
                 </div>
               </div>
@@ -1165,7 +1167,7 @@ function Dashboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 relative z-30">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10">
             <video
@@ -1227,6 +1229,12 @@ function Dashboard() {
                     Usage
                   </Link>
                   <button
+                    onClick={() => { setShowFeedbackPanel(true); setShowUserMenu(false); }}
+                    className="w-full text-left px-3 py-2 text-sm text-amber-300/80 hover:bg-poddit-800 hover:text-amber-300 transition-colors"
+                  >
+                    Feedback
+                  </button>
+                  <button
                     onClick={() => signOut({ callbackUrl: '/auth/signin' })}
                     className="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-poddit-800 hover:text-red-400 transition-colors"
                   >
@@ -1239,229 +1247,8 @@ function Dashboard() {
         )}
       </div>
 
-      {/* ── Send Signals Module ── */}
-      <div className="mb-6 p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl relative overflow-hidden
-                       opacity-0 animate-fade-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
-        {/* Subtle inner glow */}
-        <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.03] blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-amber-500/[0.02] blur-2xl pointer-events-none" />
-        <p className="text-xs text-stone-500 mb-3 relative">
-          <span className="text-stone-300 font-medium">Send signals to Poddit</span> via
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Text / Voice */}
-          <button
-             onClick={() => {
-               if (!userPhone) {
-                 // No phone on file — prompt to add one
-                 setShowPhonePrompt(true);
-                 setPhoneError(null);
-                 return;
-               }
-               // Phone is set — proceed to SMS
-               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-               if (isMobile) {
-                 window.location.href = 'sms:+18555065970';
-               } else {
-                 navigator.clipboard.writeText('+18555065970').then(() => {
-                   setInputSuccess('Phone number copied!');
-                   setTimeout(() => setInputSuccess(null), 3000);
-                 });
-               }
-             }}
-             className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
-                        hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-600 group-hover:text-teal-400 transition-colors">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <div>
-              <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p>
-              <p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p>
-            </div>
-          </button>
-
-          {/* Chrome Extension */}
-          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-poddit-950/20
-                          opacity-50 text-center cursor-default">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-700">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="4" />
-              <line x1="21.17" y1="8" x2="12" y2="8" />
-              <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
-              <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
-            </svg>
-            <div>
-              <p className="text-xs font-medium text-stone-500">Chrome</p>
-              <p className="text-[10px] text-stone-700 mt-0.5">Coming soon</p>
-            </div>
-          </div>
-
-          {/* App Share */}
-          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <polyline points="16 6 12 2 8 6" />
-              <line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-            <div>
-              <p className="text-xs font-medium text-stone-300">Share</p>
-              <p className="text-[10px] text-stone-600 mt-0.5">From any app</p>
-            </div>
-          </div>
-
-          {/* Direct Input */}
-          <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
-            <div className="flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-              </svg>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" x2="12" y1="19" y2="22" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-stone-300">Type or speak below</p>
-              <p className="text-[10px] text-stone-600 mt-0.5">Links or topics</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Phone number prompt (shown when user taps Text/Voice without a phone on file) */}
-        {showPhonePrompt && (
-          <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
-            <button
-              onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }}
-              className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors"
-              aria-label="Close"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            <p className="text-xs text-stone-300 mb-2">
-              Add your phone number so Poddit can match your texts to your account
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                value={phoneInput}
-                onChange={(e) => setPhoneInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && savePhone()}
-                placeholder="(555) 123-4567"
-                className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white
-                           placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors"
-                autoFocus
-              />
-              <button
-                onClick={savePhone}
-                disabled={phoneSaving || !phoneInput.trim()}
-                className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20
-                           hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
-              >
-                {phoneSaving ? 'Saving...' : 'Save & Text'}
-              </button>
-            </div>
-            {phoneError && (
-              <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── How It Works — active step indicators ── */}
-      <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {([
-          { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
-          { label: 'Generate', desc: 'Hit Poddit Now or wait for your weekly roundup every Friday.', color: 'violet', step: 2 },
-          { label: 'Listen', desc: 'Get a personalized audio episode explaining what it all means.', color: 'amber', step: 3 },
-        ] as const).map(({ label, desc, color, step }, i) => {
-          const isActive = step === activeStep;
-          const isFuture = step > activeStep;
-          const borderClass = isActive
-            ? color === 'teal' ? 'border-teal-500/30' : color === 'violet' ? 'border-violet-400/30' : 'border-amber-500/30'
-            : isFuture ? 'border-stone-800/10' : 'border-stone-800/20';
-          const glowClass = isActive
-            ? color === 'teal' ? 'animate-glow-pulse-teal' : color === 'violet' ? 'animate-glow-pulse-violet' : 'animate-glow-pulse-amber'
-            : '';
-          const badgeClass = isActive
-            ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
-            : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
-          const gradientFrom = color === 'teal' ? 'from-teal-500/[0.04]' : color === 'violet' ? 'from-violet-400/[0.04]' : 'from-amber-500/[0.04]';
-          const hoverBorder = color === 'teal' ? 'hover:border-teal-500/15' : color === 'violet' ? 'hover:border-violet-400/15' : 'hover:border-amber-500/15';
-
-          return (
-            <div
-              key={label}
-              className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
-                          relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
-                          ${isFuture ? 'opacity-40' : ''} ${glowClass}`}
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
-                              ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-              <span className={`relative flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>
-                {step}
-              </span>
-              <div className="relative">
-                <p className={`text-sm font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
-                <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Welcome Banner (first-time users) ── */}
-      {!loading && !welcomeDismissed && episodes.length === 0 && signals.length === 0 && (
-        <div className="mb-6 p-4 rounded-xl border border-teal-500/15 bg-gradient-to-r from-teal-500/[0.06] via-violet-400/[0.04] to-amber-500/[0.06]
-                        relative overflow-hidden opacity-0 animate-fade-in-up" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
-          <button
-            onClick={() => setWelcomeDismissed(true)}
-            className="absolute top-3 right-3 text-stone-600 hover:text-stone-400 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-          <h3 className="text-sm font-semibold text-white mb-1.5">Welcome to Poddit!</h3>
-          <p className="text-xs text-stone-400 leading-relaxed max-w-lg">
-            Start by saving anything that catches your eye — a link, a topic, or a voice note.
-            When you&apos;re ready, hit <span className="text-teal-400 font-medium">Poddit Now</span> to
-            turn your signals into a personalized audio episode. Head to{' '}
-            <Link href="/settings" className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
-              Settings
-            </Link>{' '}
-            to customize your experience.
-          </p>
-        </div>
-      )}
-
-      {/* Share confirmation toast */}
-      {shared === 'success' && (
-        <div className="mb-6 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
-          Captured! It&apos;ll show up in your next episode.
-        </div>
-      )}
-
-      {/* Generate error toast */}
-      {generateError && (
-        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
-          <span>Generation failed: {generateError}</span>
-          <button onClick={() => setGenerateError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-        </div>
-      )}
-
-      {/* ── Capture Input Bar ── */}
-      <section className={`mb-8 transition-all duration-700 ${isEmptyState ? '-mt-2 mb-10' : ''}`}>
+      {/* ── Capture Input Bar — prominent, right after header ── */}
+      <section className={`mb-4 transition-all duration-700 ${isEmptyState ? '-mt-2' : ''}`}>
         {/* Input error */}
         {inputError && (
           <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
@@ -1500,7 +1287,7 @@ function Dashboard() {
         ) : (
           /* Default: text input + buttons */
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 input-lens-flare">
               <input
                 type="text"
                 value={textInput}
@@ -1527,6 +1314,10 @@ function Dashboard() {
                   {HERO_PLACEHOLDERS[placeholderIndex]}
                 </span>
               )}
+              {/* Lens flare edges — right, bottom, left (top uses ::before) */}
+              <span className="flare-right" />
+              <span className="flare-bottom" />
+              <span className="flare-left" />
             </div>
             <div className="flex gap-2">
               <button
@@ -1564,6 +1355,279 @@ function Dashboard() {
         )}
       </section>
 
+      {/* ── Collapsible Chips: Send Signals + How It Works ── */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {/* Send Signals chip */}
+        <button
+          onClick={() => setShowSendSignals(prev => !prev)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
+                     ${showSendSignals
+                       ? 'border-teal-500/30 bg-teal-500/10 text-teal-300'
+                       : 'border-stone-800/50 bg-poddit-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300'
+                     }`}
+        >
+          {/* Source icons row */}
+          <span className="flex items-center gap-1 opacity-70">
+            {/* SMS */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {/* Share */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            {/* Mic */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            </svg>
+            {/* Link */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </span>
+          Send Signals
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showSendSignals ? 'rotate-180' : ''}`}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        {/* How It Works chip */}
+        <button
+          onClick={() => setShowHowItWorks(prev => !prev)}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
+                     ${showHowItWorks
+                       ? 'border-violet-400/30 bg-violet-400/10 text-violet-300'
+                       : 'border-stone-800/50 bg-poddit-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300'
+                     }`}
+        >
+          {/* Step indicator dots */}
+          <span className="flex items-center gap-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 1 ? 'bg-teal-400' : 'bg-stone-700'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 2 ? 'bg-violet-400' : 'bg-stone-700'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${activeStep >= 3 ? 'bg-amber-400' : 'bg-stone-700'}`} />
+          </span>
+          How It Works
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showHowItWorks ? 'rotate-180' : ''}`}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ── Send Signals expanded panel ── */}
+      {showSendSignals && (
+        <div className="mb-5 p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl relative overflow-hidden
+                         animate-fade-in-up lens-flare-edge" style={{ animationFillMode: 'forwards' }}>
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.03] blur-2xl pointer-events-none" />
+          <p className="text-xs text-stone-500 mb-3">
+            <span className="text-stone-300 font-medium">Send signals to Poddit</span> via
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Text / Voice */}
+            <button
+               onClick={() => {
+                 if (!userPhone) {
+                   setShowPhonePrompt(true);
+                   setPhoneError(null);
+                   return;
+                 }
+                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                 if (isMobile) {
+                   window.location.href = 'sms:+18555065970';
+                 } else {
+                   navigator.clipboard.writeText('+18555065970').then(() => {
+                     setInputSuccess('Phone number copied!');
+                     setTimeout(() => setInputSuccess(null), 3000);
+                   });
+                 }
+               }}
+               className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
+                          hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                   className="text-stone-600 group-hover:text-teal-400 transition-colors">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <div>
+                <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p>
+                <p className="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p>
+              </div>
+            </button>
+
+            {/* Chrome Extension */}
+            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-poddit-950/20
+                            opacity-50 text-center cursor-default">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                   className="text-stone-700">
+                <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" />
+                <line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+              </svg>
+              <div>
+                <p className="text-xs font-medium text-stone-500">Chrome</p>
+                <p className="text-[10px] text-stone-700 mt-0.5">Coming soon</p>
+              </div>
+            </div>
+
+            {/* App Share */}
+            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+              <div>
+                <p className="text-xs font-medium text-stone-300">Share</p>
+                <p className="text-[10px] text-stone-600 mt-0.5">From any app</p>
+              </div>
+            </div>
+
+            {/* Direct Input */}
+            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
+              <div className="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-stone-300">Type or speak</p>
+                <p className="text-[10px] text-stone-600 mt-0.5">Links or topics</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Phone number prompt */}
+          {showPhonePrompt && (
+            <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
+              <button
+                onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }}
+                className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <p className="text-xs text-stone-300 mb-2">
+                Add your phone number so Poddit can match your texts to your account
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && savePhone()}
+                  placeholder="(555) 123-4567"
+                  className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white
+                             placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors"
+                  autoFocus
+                />
+                <button
+                  onClick={savePhone}
+                  disabled={phoneSaving || !phoneInput.trim()}
+                  className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20
+                             hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                >
+                  {phoneSaving ? 'Saving...' : 'Save & Text'}
+                </button>
+              </div>
+              {phoneError && (
+                <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── How It Works expanded panel ── */}
+      {showHowItWorks && (
+        <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
+          {([
+            { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
+            { label: 'Generate', desc: 'Hit Poddit Now or wait for your weekly roundup every Friday.', color: 'violet', step: 2 },
+            { label: 'Listen', desc: 'Get a personalized audio episode explaining what it all means.', color: 'amber', step: 3 },
+          ] as const).map(({ label, desc, color, step }) => {
+            const isActive = step === activeStep;
+            const isFuture = step > activeStep;
+            const borderClass = isActive
+              ? color === 'teal' ? 'border-teal-500/30' : color === 'violet' ? 'border-violet-400/30' : 'border-amber-500/30'
+              : isFuture ? 'border-stone-800/10' : 'border-stone-800/20';
+            const glowClass = isActive
+              ? color === 'teal' ? 'animate-glow-pulse-teal' : color === 'violet' ? 'animate-glow-pulse-violet' : 'animate-glow-pulse-amber'
+              : '';
+            const badgeClass = isActive
+              ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
+              : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
+            const gradientFrom = color === 'teal' ? 'from-teal-500/[0.04]' : color === 'violet' ? 'from-violet-400/[0.04]' : 'from-amber-500/[0.04]';
+            const hoverBorder = color === 'teal' ? 'hover:border-teal-500/15' : color === 'violet' ? 'hover:border-violet-400/15' : 'hover:border-amber-500/15';
+
+            return (
+              <div
+                key={label}
+                className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border ${borderClass}
+                            relative overflow-hidden group ${!isFuture ? hoverBorder : ''} transition-all
+                            ${isFuture ? 'opacity-40' : ''} ${glowClass}`}
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} to-transparent transition-opacity
+                                ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                <span className={`relative flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>
+                  {step}
+                </span>
+                <div className="relative">
+                  <p className={`text-sm font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
+                  <p className="text-xs text-stone-600 mt-0.5">{desc}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Welcome Banner (first-time users) ── */}
+      {!loading && !welcomeDismissed && episodes.length === 0 && signals.length === 0 && (
+        <div className="mb-5 p-4 rounded-xl border border-teal-500/15 bg-gradient-to-r from-teal-500/[0.06] via-violet-400/[0.04] to-amber-500/[0.06]
+                        relative overflow-hidden opacity-0 animate-fade-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
+          <button
+            onClick={() => setWelcomeDismissed(true)}
+            className="absolute top-3 right-3 text-stone-600 hover:text-stone-400 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <h3 className="text-sm font-semibold text-white mb-1.5">Welcome to Poddit!</h3>
+          <p className="text-xs text-stone-400 leading-relaxed max-w-lg">
+            Start by saving anything that catches your eye — a link, a topic, or a voice note.
+            When you&apos;re ready, hit <span className="text-teal-400 font-medium">Poddit Now</span> to
+            turn your signals into a personalized audio episode. Head to{' '}
+            <Link href="/settings" className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors">
+              Settings
+            </Link>{' '}
+            to customize your experience.
+          </p>
+        </div>
+      )}
+
+      {/* Share confirmation toast */}
+      {shared === 'success' && (
+        <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
+          Captured! It&apos;ll show up in your next episode.
+        </div>
+      )}
+
+      {/* Generate error toast */}
+      {generateError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+          <span>Generation failed: {generateError}</span>
+          <button onClick={() => setGenerateError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+        </div>
+      )}
+
       {/* ── Two-Column Layout (desktop) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -1597,7 +1661,7 @@ function Dashboard() {
                   You&apos;ve hit your {episodeLimit}-episode limit
                 </p>
                 <p className="text-xs text-stone-500">
-                  Your feedback helps us unlock more &mdash; use the feedback section below.
+                  Your feedback helps us unlock more &mdash; tap Feedback in the account menu.
                 </p>
               </div>
             ) : (
@@ -1808,7 +1872,7 @@ function Dashboard() {
                   key={ep.id}
                   href={`/player/${ep.id}`}
                   className={`block p-4 bg-poddit-900/50 border border-stone-800/50 rounded-xl
-                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group
+                             hover:border-violet-400/30 hover:bg-poddit-900 transition-all group lens-flare-edge lens-flare-edge-alt
                              ${ep.id === newEpisodeId ? 'animate-episode-reveal ring-1 ring-teal-500/30' : ''}`}
                 >
                   <div className="flex items-start justify-between">
@@ -1839,102 +1903,112 @@ function Dashboard() {
 
       </div>
 
-      {/* ── Early Access Support + Feedback ── */}
-      <section className="mt-12 mb-4">
-        <div className="p-5 bg-poddit-950/60 border border-amber-500/10 rounded-xl relative overflow-hidden">
-          {/* Subtle amber glow */}
-          <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-amber-500/[0.03] blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-12 -left-12 w-32 h-32 rounded-full bg-amber-400/[0.02] blur-2xl pointer-events-none" />
-
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-amber-400/60" />
-              <h3 className="text-sm font-semibold text-amber-300/80 uppercase tracking-wider">Early Access Feedback</h3>
-            </div>
-            <p className="text-xs text-stone-500 mb-4">
-              Found a bug? Have an idea? We&apos;d love to hear from you — text or voice.
-            </p>
-
-            {/* Feedback error */}
-            {feedbackError && (
-              <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
-                <span>{feedbackError}</span>
-                <button onClick={() => setFeedbackError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-              </div>
-            )}
-
-            {/* Feedback success */}
-            {feedbackSuccess && (
-              <div className="mb-3 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs">
-                {'\u2713'} {feedbackSuccess}
-              </div>
-            )}
-
-            {/* Feedback recording state */}
-            {feedbackRecording ? (
-              <button
-                onClick={stopFeedbackRecording}
-                className="w-full py-2.5 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
-                           hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
-              >
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                {formatTime(feedbackRecordingTime)} &mdash; Recording feedback...
-                <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
-              </button>
-            ) : feedbackProcessing ? (
-              <div className="w-full py-2.5 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
-                              flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Transcribing feedback...
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="What's on your mind? Bugs, ideas, anything..."
-                  disabled={feedbackSubmitting}
-                  rows={2}
-                  className="flex-1 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
-                             placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30
-                             disabled:opacity-40 transition-all resize-none"
-                />
-                <div className="flex flex-col gap-2">
+      {/* ── Feedback Modal (opened from account dropdown) ── */}
+      {showFeedbackPanel && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFeedbackPanel(false)} />
+          <div className="min-h-full flex items-center justify-center px-4 py-6">
+            <div className="relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-400/60" />
+                    <h3 className="text-sm font-semibold text-amber-300/80 uppercase tracking-wider">Feedback</h3>
+                  </div>
                   <button
-                    onClick={submitFeedback}
-                    disabled={feedbackSubmitting || !feedbackText.trim()}
-                    className="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg
-                               hover:bg-amber-500/25 hover:border-amber-500/30
-                               disabled:bg-poddit-800/50 disabled:text-poddit-600 disabled:border-stone-800/30 disabled:cursor-not-allowed
-                               transition-all flex-shrink-0"
+                    onClick={() => setShowFeedbackPanel(false)}
+                    className="text-stone-600 hover:text-stone-400 transition-colors"
                   >
-                    {feedbackSubmitting ? '...' : 'Send'}
-                  </button>
-                  <button
-                    onClick={startFeedbackRecording}
-                    disabled={feedbackSubmitting}
-                    className="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500
-                               hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5
-                               disabled:opacity-40 disabled:cursor-not-allowed
-                               transition-all flex-shrink-0 flex items-center justify-center"
-                    title="Record voice feedback"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" x2="12" y1="19" y2="22" />
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
                 </div>
+                <p className="text-xs text-stone-500 mb-4">
+                  Found a bug? Have an idea? We&apos;d love to hear from you — text or voice.
+                </p>
+
+                {feedbackError && (
+                  <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
+                    <span>{feedbackError}</span>
+                    <button onClick={() => setFeedbackError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+                  </div>
+                )}
+
+                {feedbackSuccess && (
+                  <div className="mb-3 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs">
+                    {'\u2713'} {feedbackSuccess}
+                  </div>
+                )}
+
+                {feedbackRecording ? (
+                  <button
+                    onClick={stopFeedbackRecording}
+                    className="w-full py-2.5 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
+                               hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    {formatTime(feedbackRecordingTime)} &mdash; Recording...
+                    <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
+                  </button>
+                ) : feedbackProcessing ? (
+                  <div className="w-full py-2.5 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
+                                  flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Transcribing...
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <textarea
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      placeholder="Bugs, ideas, anything..."
+                      disabled={feedbackSubmitting}
+                      rows={3}
+                      autoFocus
+                      className="flex-1 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
+                                 placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30
+                                 disabled:opacity-40 transition-all resize-none"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={submitFeedback}
+                        disabled={feedbackSubmitting || !feedbackText.trim()}
+                        className="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg
+                                   hover:bg-amber-500/25 hover:border-amber-500/30
+                                   disabled:bg-poddit-800/50 disabled:text-poddit-600 disabled:border-stone-800/30 disabled:cursor-not-allowed
+                                   transition-all flex-shrink-0"
+                      >
+                        {feedbackSubmitting ? '...' : 'Send'}
+                      </button>
+                      <button
+                        onClick={startFeedbackRecording}
+                        disabled={feedbackSubmitting}
+                        className="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500
+                                   hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5
+                                   disabled:opacity-40 disabled:cursor-not-allowed
+                                   transition-all flex-shrink-0 flex items-center justify-center"
+                        title="Record voice feedback"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          <line x1="12" x2="12" y1="19" y2="22" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </section>
+      )}
 
     </main>
   );

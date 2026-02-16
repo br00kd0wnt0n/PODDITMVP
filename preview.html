@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>Poddit — Dashboard Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            poddit: {
+              50: '#f7f7f5', 100: '#e8e6e1', 200: '#d1ccc3', 300: '#b5aea1',
+              400: '#9a9080', 500: '#857a6a', 600: '#6e6456', 700: '#5a5147',
+              800: '#4b443d', 900: '#413c37', 950: '#1a1816',
+            },
+          },
+          fontFamily: { display: ['Inter', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #1a1816; color: #e8e6e1; font-family: Inter, system-ui, sans-serif; }
+
+    /* Bokeh drift — multi-waypoint, GPU-composited */
+    @keyframes bokeh-drift-1 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      25% { transform: translate(8vw, -6vh) scale(1.1); }
+      50% { transform: translate(-4vw, 10vh) scale(0.95); }
+      75% { transform: translate(12vw, 4vh) scale(1.05); }
+    }
+    @keyframes bokeh-drift-2 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33% { transform: translate(-10vw, 8vh) scale(1.08); }
+      66% { transform: translate(6vw, -12vh) scale(0.92); }
+    }
+    @keyframes bokeh-drift-3 {
+      0%, 100% { transform: translate(0,0) scale(1); opacity: 0.6; }
+      20% { transform: translate(14vw, 6vh) scale(1.12); opacity: 1; }
+      50% { transform: translate(-6vw, -8vh) scale(0.88); opacity: 0.7; }
+      80% { transform: translate(4vw, 14vh) scale(1.06); opacity: 0.9; }
+    }
+    @keyframes bokeh-drift-5 {
+      0%, 100% { transform: translate(0,0) scale(1); opacity: 0.8; }
+      40% { transform: translate(6vw, 12vh) scale(1.1); opacity: 0.6; }
+      70% { transform: translate(-12vw, -4vh) scale(0.95); opacity: 1; }
+    }
+    .bokeh-orb { will-change: transform; }
+    .bokeh-1 { animation: bokeh-drift-1 45s ease-in-out infinite; }
+    .bokeh-2 { animation: bokeh-drift-2 55s ease-in-out infinite; }
+    .bokeh-3 { animation: bokeh-drift-3 60s ease-in-out infinite; }
+    .bokeh-5 { animation: bokeh-drift-5 65s ease-in-out infinite; }
+
+    /* Ambient flare streaks */
+    @keyframes ambient-flare {
+      0%, 100% { opacity: 0; transform: translateX(-10%) scaleX(0.8); }
+      50% { opacity: 1; transform: translateX(10%) scaleX(1); }
+    }
+    .ambient-flare { animation: ambient-flare 20s ease-in-out infinite; will-change: transform, opacity; }
+
+    /* Lens flare sweep on panel edges */
+    @keyframes flare-sweep {
+      0% { transform: translateX(-100%); opacity: 0; }
+      15% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { transform: translateX(200%); opacity: 0; }
+    }
+    @keyframes flare-sweep-v {
+      0% { transform: translateY(-100%); opacity: 0; }
+      15% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { transform: translateY(200%); opacity: 0; }
+    }
+    .lens-flare-edge { position: relative; overflow: hidden; }
+    .lens-flare-edge::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(20,184,166,0.3), rgba(167,139,250,0.15), transparent);
+      animation: flare-sweep 8s ease-in-out infinite; will-change: transform; pointer-events: none; z-index: 1;
+    }
+    .lens-flare-edge::after {
+      content: ''; position: absolute; top: 0; left: 0; width: 1px; height: 30%;
+      background: linear-gradient(180deg, transparent, rgba(20,184,166,0.2), transparent);
+      animation: flare-sweep-v 12s ease-in-out 3s infinite; will-change: transform; pointer-events: none; z-index: 1;
+    }
+    .lens-flare-edge-alt::before {
+      animation-delay: 4s; animation-duration: 10s;
+      background: linear-gradient(90deg, transparent, rgba(245,158,11,0.2), rgba(20,184,166,0.15), transparent);
+    }
+    .lens-flare-edge-alt::after { animation-delay: 7s; animation-duration: 14s; }
+
+    @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.15); } 50% { box-shadow: 0 0 12px 4px rgba(167,139,250,0.08); } }
+    .mic-pulse { animation: micPulse 2.5s ease-in-out infinite; }
+
+    /* Input field circulating lens flare */
+    @keyframes input-flare-top {
+      0% { left: -40%; opacity: 0; } 5% { opacity: 1; } 25% { left: 100%; opacity: 0; } 100% { left: 100%; opacity: 0; }
+    }
+    @keyframes input-flare-right {
+      0%, 25% { top: -30%; opacity: 0; } 30% { opacity: 1; } 50% { top: 100%; opacity: 0; } 100% { top: 100%; opacity: 0; }
+    }
+    @keyframes input-flare-bottom {
+      0%, 50% { right: -40%; opacity: 0; } 55% { opacity: 1; } 75% { right: 100%; opacity: 0; } 100% { right: 100%; opacity: 0; }
+    }
+    @keyframes input-flare-left {
+      0%, 75% { bottom: -30%; opacity: 0; } 80% { opacity: 1; } 100% { bottom: 100%; opacity: 0; }
+    }
+    .input-lens-flare { position: relative; overflow: hidden; border-radius: 0.75rem; }
+    .input-lens-flare::before {
+      content: ''; position: absolute; top: 0; left: -40%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(20,184,166,0.4), rgba(167,139,250,0.2), transparent);
+      animation: input-flare-top 10s ease-in-out infinite; will-change: left, opacity; pointer-events: none; z-index: 2;
+    }
+    .input-lens-flare .flare-right {
+      position: absolute; top: -30%; right: 0; width: 1px; height: 30%;
+      background: linear-gradient(180deg, transparent, rgba(20,184,166,0.3), transparent);
+      animation: input-flare-right 10s ease-in-out infinite; will-change: top, opacity; pointer-events: none; z-index: 2;
+    }
+    .input-lens-flare .flare-bottom {
+      position: absolute; bottom: 0; right: -40%; width: 40%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(167,139,250,0.2), rgba(20,184,166,0.35), transparent);
+      animation: input-flare-bottom 10s ease-in-out infinite; will-change: right, opacity; pointer-events: none; z-index: 2;
+    }
+    .input-lens-flare .flare-left {
+      position: absolute; left: 0; bottom: -30%; width: 1px; height: 30%;
+      background: linear-gradient(180deg, transparent, rgba(20,184,166,0.25), transparent);
+      animation: input-flare-left 10s ease-in-out infinite; will-change: bottom, opacity; pointer-events: none; z-index: 2;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div id="app" class="max-w-5xl mx-auto px-4 py-8 relative z-10">
+
+    <!-- Bokeh overlay -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      <div class="bokeh-orb bokeh-3 absolute top-[8%] right-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/[0.07] blur-3xl"></div>
+      <div class="bokeh-orb bokeh-1 absolute bottom-[12%] left-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-400/[0.06] blur-3xl"></div>
+      <div class="bokeh-orb bokeh-5 absolute top-[45%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.05] blur-2xl"></div>
+      <div class="bokeh-orb bokeh-2 absolute top-[20%] left-[25%] w-[20vw] h-[20vw] rounded-full bg-amber-300/[0.04] blur-2xl"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8 relative z-30">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500/30 to-violet-400/20 flex-shrink-0 ring-1 ring-white/10 flex items-center justify-center text-teal-400 font-bold text-lg">P</div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-extrabold text-white tracking-tight">PODDIT</h1>
+            <span class="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
+          </div>
+          <p class="text-stone-400 text-xs tracking-widest uppercase">Your world, explained</p>
+        </div>
+      </div>
+      <div class="relative">
+        <button onclick="document.getElementById('user-menu').classList.toggle('hidden')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/60 hover:border-stone-700 hover:bg-stone-900/60 transition-all text-sm">
+          <div class="w-7 h-7 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 text-xs font-bold">B</div>
+          <span class="text-stone-400 hidden sm:inline">brook</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-stone-600"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="user-menu" class="hidden absolute right-0 top-full mt-1 z-50 w-48 bg-stone-900 border border-stone-800 rounded-xl shadow-lg overflow-hidden">
+          <div class="px-3 py-2 border-b border-stone-800/60"><p class="text-xs text-stone-500">brook@poddit.com</p></div>
+          <a href="#" class="block px-3 py-2 text-sm text-stone-300 hover:bg-stone-800 hover:text-white">Settings</a>
+          <a href="#" class="block px-3 py-2 text-sm text-stone-300 hover:bg-stone-800 hover:text-white">Usage</a>
+          <button onclick="document.getElementById('feedback-modal').classList.remove('hidden')" class="w-full text-left px-3 py-2 text-sm text-amber-300/80 hover:bg-stone-800 hover:text-amber-300">Feedback</button>
+          <button class="w-full text-left px-3 py-2 text-sm text-stone-400 hover:bg-stone-800 hover:text-red-400">Sign out</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capture Input Bar — prominent, right after header -->
+    <section class="mb-4 relative z-10">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="relative flex-1 input-lens-flare">
+          <input type="text" placeholder="Save a link, topic, or thought..." class="w-full px-4 py-3 bg-stone-900/80 border border-teal-500/20 rounded-xl text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40 shadow-[0_0_16px_rgba(20,184,166,0.08)] transition-all" />
+          <span class="flare-right"></span>
+          <span class="flare-bottom"></span>
+          <span class="flare-left"></span>
+        </div>
+        <div class="flex gap-2">
+          <button class="flex-1 sm:flex-none px-5 py-3 bg-teal-500 text-stone-950 text-sm font-bold rounded-xl hover:bg-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] hover:shadow-[0_0_16px_rgba(20,184,166,0.25)] transition-all flex-shrink-0">Add</button>
+          <button class="px-3 py-3 border border-violet-400/25 text-violet-400/60 rounded-xl hover:border-violet-400/40 hover:text-violet-400 hover:bg-violet-400/5 transition-all flex-shrink-0 mic-pulse" title="Record a voice note">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collapsible Chips -->
+    <div class="flex flex-wrap gap-2 mb-5 relative z-10">
+      <!-- Send Signals chip -->
+      <button onclick="document.getElementById('send-signals-panel').classList.toggle('hidden')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/50 bg-stone-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300 text-xs font-medium transition-all">
+        <span class="flex items-center gap-1 opacity-70">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </span>
+        Send Signals
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      <!-- How It Works chip -->
+      <button onclick="document.getElementById('how-it-works-panel').classList.toggle('hidden')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-stone-800/50 bg-stone-950/60 text-stone-400 hover:border-stone-700 hover:text-stone-300 text-xs font-medium transition-all">
+        <span class="flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-stone-700"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-stone-700"></span>
+        </span>
+        How It Works
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+
+    <!-- Send Signals expanded (hidden by default) -->
+    <div id="send-signals-panel" class="hidden mb-5 p-4 bg-stone-950/60 border border-stone-800/25 rounded-xl relative overflow-hidden z-10 lens-flare-edge">
+      <div class="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal-500/[0.03] blur-2xl pointer-events-none"></div>
+      <p class="text-xs text-stone-500 mb-3"><span class="text-stone-300 font-medium">Send signals to Poddit</span> via</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button class="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-stone-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-600 group-hover:text-teal-400 transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div><p class="text-xs font-medium text-stone-300 group-hover:text-teal-300">Text / Voice</p><p class="text-[10px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p></div>
+        </button>
+        <div class="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/20 bg-stone-950/20 opacity-50 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-700"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+          <div><p class="text-xs font-medium text-stone-500">Chrome</p><p class="text-[10px] text-stone-700 mt-0.5">Coming soon</p></div>
+        </div>
+        <div class="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-stone-950/30 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-600"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <div><p class="text-xs font-medium text-stone-300">Share</p><p class="text-[10px] text-stone-600 mt-0.5">From any app</p></div>
+        </div>
+        <div class="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-stone-950/30 text-center">
+          <div class="flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-600"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-stone-600"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          </div>
+          <div><p class="text-xs font-medium text-stone-300">Type or speak</p><p class="text-[10px] text-stone-600 mt-0.5">Links or topics</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- How It Works expanded (hidden by default) -->
+    <div id="how-it-works-panel" class="hidden mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10">
+      <div class="flex items-start gap-3 p-3 rounded-xl bg-stone-950/40 border border-teal-500/30 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-teal-500/[0.04] to-transparent"></div>
+        <span class="relative flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/15 text-teal-400 text-[11px] font-bold flex items-center justify-center">1</span>
+        <div class="relative"><p class="text-sm font-medium text-stone-200">Capture</p><p class="text-xs text-stone-600 mt-0.5">Save links, topics, or voice notes as they catch your eye.</p></div>
+      </div>
+      <div class="flex items-start gap-3 p-3 rounded-xl bg-stone-950/40 border border-stone-800/10 relative overflow-hidden opacity-40">
+        <span class="relative flex-shrink-0 w-6 h-6 rounded-full bg-violet-400/8 text-violet-400/70 text-[11px] font-bold flex items-center justify-center">2</span>
+        <div class="relative"><p class="text-sm font-medium text-stone-300">Generate</p><p class="text-xs text-stone-600 mt-0.5">Hit Poddit Now or wait for your weekly roundup every Friday.</p></div>
+      </div>
+      <div class="flex items-start gap-3 p-3 rounded-xl bg-stone-950/40 border border-stone-800/10 relative overflow-hidden opacity-40">
+        <span class="relative flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/8 text-amber-400/70 text-[11px] font-bold flex items-center justify-center">3</span>
+        <div class="relative"><p class="text-sm font-medium text-stone-300">Listen</p><p class="text-xs text-stone-600 mt-0.5">Get a personalized audio episode explaining what it all means.</p></div>
+      </div>
+    </div>
+
+    <!-- Two-Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+      <!-- Queue -->
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-stone-400 uppercase tracking-wider">Queue <span class="ml-2 text-xs font-normal text-stone-500 normal-case tracking-normal">3 signals waiting</span></h2>
+          <button class="text-xs text-violet-400 hover:text-violet-300">Deselect All</button>
+        </div>
+
+        <!-- Poddit Now button -->
+        <button class="relative w-full mb-4 py-3 px-4 bg-teal-500 text-stone-950 text-sm font-bold rounded-xl hover:bg-teal-400 transition-all flex items-center justify-center gap-2 uppercase tracking-wide">
+          <span class="relative z-10">Poddit <span class="italic text-teal-200">Now</span> (3 signals)</span>
+        </button>
+
+        <!-- Dummy signals -->
+        <div class="space-y-2">
+          <div class="flex items-start gap-3 p-3 rounded-xl bg-teal-500/5 border border-teal-500/15">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-stone-600 mt-0.5 accent-teal-500" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">SMS</span>
+                <p class="text-sm text-stone-200 truncate">Why is everyone talking about quantum computing?</p>
+              </div>
+              <div class="flex gap-1 mt-1.5">
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">Science</span>
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">Tech</span>
+              </div>
+            </div>
+            <span class="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">2/15/2026</span>
+            <button class="text-stone-700 hover:text-red-400 transition-colors p-1 -mr-1 flex-shrink-0" title="Remove from queue">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="flex items-start gap-3 p-3 rounded-xl bg-teal-500/5 border border-teal-500/15">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-stone-600 mt-0.5 accent-teal-500" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">WEB</span>
+                <p class="text-sm text-stone-200 truncate">The Next Wave of AI Breakthroughs</p>
+              </div>
+              <p class="text-xs text-stone-500">theverge.com</p>
+              <div class="flex gap-1 mt-1.5">
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">AI</span>
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">Future</span>
+              </div>
+            </div>
+            <span class="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">2/14/2026</span>
+            <button class="text-stone-700 hover:text-red-400 transition-colors p-1 -mr-1 flex-shrink-0" title="Remove from queue">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="flex items-start gap-3 p-3 rounded-xl bg-teal-500/5 border border-teal-500/15">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-stone-600 mt-0.5 accent-teal-500" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">APP</span>
+                <p class="text-sm text-stone-200 truncate">Interesting podcast about deep sea exploration</p>
+              </div>
+              <div class="flex gap-1 mt-1.5">
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">Ocean</span>
+                <span class="text-xs bg-violet-400/15 text-violet-300 px-2 py-0.5 rounded-full">Discovery</span>
+              </div>
+            </div>
+            <span class="text-xs text-stone-600 whitespace-nowrap flex-shrink-0">2/13/2026</span>
+            <button class="text-stone-700 hover:text-red-400 transition-colors p-1 -mr-1 flex-shrink-0" title="Remove from queue">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Episodes -->
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-stone-400 uppercase tracking-wider">Episodes</h2>
+          <span class="text-xs text-stone-600">2/3 episodes</span>
+        </div>
+        <div class="space-y-3">
+          <a href="#" class="block p-4 bg-stone-900/50 border border-stone-800/50 rounded-xl hover:border-violet-400/30 hover:bg-stone-900 transition-all group lens-flare-edge lens-flare-edge-alt">
+            <div class="flex items-start justify-between">
+              <div class="min-w-0">
+                <h3 class="font-semibold text-white group-hover:text-violet-300 transition-colors">The Future of Computing</h3>
+                <p class="text-sm text-stone-400 mt-1 line-clamp-2">From quantum breakthroughs to neural interfaces — this week's signals paint a picture of computing's next decade...</p>
+              </div>
+              <span class="text-sm text-stone-500 whitespace-nowrap ml-4 flex-shrink-0">12 min</span>
+            </div>
+            <div class="flex items-center gap-3 mt-3 text-xs text-stone-500">
+              <span>5 signals</span>
+              <span class="text-teal-500/40">&bull;</span>
+              <span>2/14/2026</span>
+              <span class="text-teal-500/40">&bull;</span>
+              <span class="text-stone-400 truncate">Quantum, AI, Neural</span>
+            </div>
+          </a>
+          <a href="#" class="block p-4 bg-stone-900/50 border border-stone-800/50 rounded-xl hover:border-violet-400/30 hover:bg-stone-900 transition-all group lens-flare-edge">
+            <div class="flex items-start justify-between">
+              <div class="min-w-0">
+                <h3 class="font-semibold text-white group-hover:text-violet-300 transition-colors">Deep Dive: Ocean Frontiers</h3>
+                <p class="text-sm text-stone-400 mt-1 line-clamp-2">New discoveries in the Mariana Trench and what they mean for our understanding of extremophile life...</p>
+              </div>
+              <span class="text-sm text-stone-500 whitespace-nowrap ml-4 flex-shrink-0">8 min</span>
+            </div>
+            <div class="flex items-center gap-3 mt-3 text-xs text-stone-500">
+              <span>3 signals</span>
+              <span class="text-teal-500/40">&bull;</span>
+              <span>2/10/2026</span>
+              <span class="text-teal-500/40">&bull;</span>
+              <span class="text-stone-400 truncate">Ocean, Biology, Discovery</span>
+            </div>
+          </a>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <!-- Feedback Modal (hidden by default) -->
+  <div id="feedback-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('feedback-modal').classList.add('hidden')"></div>
+    <div class="min-h-full flex items-center justify-center px-4 py-6">
+      <div class="relative w-full max-w-md bg-stone-950 border border-stone-800/60 rounded-2xl shadow-2xl">
+        <div class="p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-amber-400/60"></div>
+              <h3 class="text-sm font-semibold text-amber-300/80 uppercase tracking-wider">Feedback</h3>
+            </div>
+            <button onclick="document.getElementById('feedback-modal').classList.add('hidden')" class="text-stone-600 hover:text-stone-400 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <p class="text-xs text-stone-500 mb-4">Found a bug? Have an idea? We'd love to hear from you — text or voice.</p>
+          <div class="flex gap-2">
+            <textarea placeholder="Bugs, ideas, anything..." rows="3" class="flex-1 px-3 py-2.5 bg-stone-900/80 border border-stone-800/50 rounded-xl text-sm text-white placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30 resize-none"></textarea>
+            <div class="flex flex-col gap-2">
+              <button class="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg hover:bg-amber-500/25">Send</button>
+              <button class="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500 hover:border-amber-500/30 hover:text-amber-400 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

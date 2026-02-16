@@ -50,6 +50,175 @@ body {
 .bokeh-4 { animation: bokeh-drift-4 50s ease-in-out infinite; }
 .bokeh-5 { animation: bokeh-drift-5 65s ease-in-out infinite; }
 
+/* Lens flare — subtle traveling highlight along panel edges */
+@keyframes flare-sweep {
+  0% { transform: translateX(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(200%); opacity: 0; }
+}
+
+@keyframes flare-sweep-slow {
+  0% { transform: translateX(-120%); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { transform: translateX(220%); opacity: 0; }
+}
+
+/* Vertical flare for side edges */
+@keyframes flare-sweep-v {
+  0% { transform: translateY(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(200%); opacity: 0; }
+}
+
+.lens-flare-edge {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top edge flare */
+.lens-flare-edge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.3), rgba(167, 139, 250, 0.15), transparent);
+  animation: flare-sweep 8s ease-in-out infinite;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Left edge flare */
+.lens-flare-edge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 30%;
+  background: linear-gradient(180deg, transparent, rgba(20, 184, 166, 0.2), transparent);
+  animation: flare-sweep-v 12s ease-in-out 3s infinite;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Alternate flare timing for variety */
+.lens-flare-edge-alt::before {
+  animation-delay: 4s;
+  animation-duration: 10s;
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.2), rgba(20, 184, 166, 0.15), transparent);
+}
+
+.lens-flare-edge-alt::after {
+  animation-delay: 7s;
+  animation-duration: 14s;
+}
+
+/* Full-width ambient flare streak */
+@keyframes ambient-flare {
+  0%, 100% { opacity: 0; transform: translateX(-10%) scaleX(0.8); }
+  50% { opacity: 1; transform: translateX(10%) scaleX(1); }
+}
+
+.ambient-flare {
+  animation: ambient-flare 20s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Input field circulating lens flare — travels around all 4 edges */
+@keyframes input-flare-top {
+  0% { left: -40%; opacity: 0; }
+  5% { opacity: 1; }
+  25% { left: 100%; opacity: 0; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes input-flare-right {
+  0%, 25% { top: -30%; opacity: 0; }
+  30% { opacity: 1; }
+  50% { top: 100%; opacity: 0; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes input-flare-bottom {
+  0%, 50% { right: -40%; opacity: 0; }
+  55% { opacity: 1; }
+  75% { right: 100%; opacity: 0; }
+  100% { right: 100%; opacity: 0; }
+}
+@keyframes input-flare-left {
+  0%, 75% { bottom: -30%; opacity: 0; }
+  80% { opacity: 1; }
+  100% { bottom: 100%; opacity: 0; }
+}
+
+.input-lens-flare {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+/* Top edge — travels left to right */
+.input-lens-flare::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.4), rgba(167, 139, 250, 0.2), transparent);
+  animation: input-flare-top 10s ease-in-out infinite;
+  will-change: left, opacity;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Right edge — travels top to bottom (uses a child span) */
+.input-lens-flare .flare-right {
+  position: absolute;
+  top: -30%;
+  right: 0;
+  width: 1px;
+  height: 30%;
+  background: linear-gradient(180deg, transparent, rgba(20, 184, 166, 0.3), transparent);
+  animation: input-flare-right 10s ease-in-out infinite;
+  will-change: top, opacity;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Bottom edge — travels right to left (uses a child span) */
+.input-lens-flare .flare-bottom {
+  position: absolute;
+  bottom: 0;
+  right: -40%;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.2), rgba(20, 184, 166, 0.35), transparent);
+  animation: input-flare-bottom 10s ease-in-out infinite;
+  will-change: right, opacity;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Left edge — travels bottom to top (uses a child span) */
+.input-lens-flare .flare-left {
+  position: absolute;
+  left: 0;
+  bottom: -30%;
+  width: 1px;
+  height: 30%;
+  background: linear-gradient(180deg, transparent, rgba(20, 184, 166, 0.25), transparent);
+  animation: input-flare-left 10s ease-in-out infinite;
+  will-change: bottom, opacity;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* Selection styling */
 ::selection {
   background: rgba(255, 255, 255, 0.15);
