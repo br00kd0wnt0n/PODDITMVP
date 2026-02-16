@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
@@ -297,16 +297,16 @@ function Dashboard() {
     return 'Good evening';
   };
 
-  const getHeroSubtitle = () => {
+  const getHeroSubtitle = (): React.ReactNode => {
     if (atEpisodeLimit) {
       return `You've generated ${episodes.length} episode${episodes.length !== 1 ? 's' : ''} so far. Complete the questionnaire to unlock more.`;
     }
     const latestEpisode = episodes.length > 0 ? episodes[0] : null;
     if (latestEpisode && signals.length > 0) {
-      return `Your latest episode "${latestEpisode.title}" is ready. ${signals.length} new signal${signals.length !== 1 ? 's' : ''} waiting.`;
+      return <>Your latest episode <strong className="italic">&ldquo;{latestEpisode.title}&rdquo;</strong> is ready. {signals.length} new signal{signals.length !== 1 ? 's' : ''} waiting.</>;
     }
     if (latestEpisode) {
-      return `Your latest episode "${latestEpisode.title}" is ready to play.`;
+      return <>Your latest episode <strong className="italic">&ldquo;{latestEpisode.title}&rdquo;</strong> is ready to play.</>;
     }
     if (signals.length >= 5) {
       return `${signals.length} signals queued up \u2014 you've got a great episode brewing.`;
@@ -1346,7 +1346,7 @@ function Dashboard() {
         )}
 
         {/* Hero greeting panel — light background with inner bokeh */}
-        <div className="relative mb-6 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden">
+        <div className="relative mb-5 p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden">
           {/* Inner bokeh orbs */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-[-20%] left-[-10%] w-48 h-48 rounded-full bg-teal-500/20 blur-3xl bokeh-orb bokeh-1" />
@@ -1504,10 +1504,10 @@ function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── TWO-COLUMN LAYOUT: Queue + Episodes (side-by-side on lg) */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:grid-rows-[auto_auto]">
 
       {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
-      <section className="mb-6 lg:mb-0">
+      <section className="mb-6 lg:mb-6">
         {/* Share confirmation toast */}
         {shared === 'success' && (
           <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
@@ -1727,8 +1727,8 @@ function Dashboard() {
           </div>
       </section>
 
-      {/* ── YOUR EPISODES (right column on desktop) ─────────────── */}
-      <section className="mb-6 lg:mb-0">
+      {/* ── YOUR EPISODES (right column on desktop, spans both rows) */}
+      <section className="mb-6 lg:mb-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Your Episodes</h2>
           {episodes.length > 0 && (
@@ -1830,12 +1830,10 @@ function Dashboard() {
         )}
       </section>
 
-      </div>{/* end two-column grid */}
-
       {/* ══════════════════════════════════════════════════════════════ */}
-      {/* ── YOUR HIGHLIGHTS ────────────────────────────────────────── */}
+      {/* ── YOUR HIGHLIGHTS (left column row 2 on desktop) ─────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-6 relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
+      <section className="mb-6 lg:mb-0 lg:col-start-1 lg:row-start-2 relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
         {/* Inner bokeh for Insights panel */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute bottom-[-10%] left-[-5%] w-36 h-36 rounded-full bg-violet-400/10 blur-3xl bokeh-orb bokeh-2" />
@@ -1928,6 +1926,7 @@ function Dashboard() {
         </div>
       </section>
 
+      </div>{/* end two-column grid */}
 
       {/* ── Feedback Modal (opened from account dropdown) ── */}
       {showFeedbackPanel && (
