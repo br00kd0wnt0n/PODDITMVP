@@ -49,3 +49,11 @@ export function rateLimit(
   store.set(key, entry);
   return { allowed: true, retryAfterMs: 0 };
 }
+
+/**
+ * Clear all rate limit entries for a key.
+ * Useful for resetting after a failed attempt so the user can retry.
+ */
+export function clearRateLimit(key: string): void {
+  store.delete(key);
+}

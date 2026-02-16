@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEpisode } from '@/lib/synthesize';
 import { requireSession } from '@/lib/auth';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, clearRateLimit } from '@/lib/rate-limit';
 import prisma from '@/lib/db';
 
-// Allow up to 2 minutes for generation (Claude + TTS + upload)
-export const maxDuration = 120;
+// Allow up to 5 minutes for generation (Claude + TTS + ffmpeg + upload)
+export const maxDuration = 300;
 
 // ──────────────────────────────────────────────
 // POST /api/generate-now
@@ -13,11 +13,13 @@ export const maxDuration = 120;
 // ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  try {
-    const sessionResult = await requireSession();
-    if (sessionResult instanceof NextResponse) return sessionResult;
-    const { userId } = sessionResult;
+  // Extract session outside try/catch so userId is available in catch
+  const sessionResult = await requireSession();
+  if (sessionResult instanceof NextResponse) return sessionResult;
+  const { userId } = sessionResult;
+  const rateLimitKey = `generate:${userId}`;
 
+  try {
     // Episode cap based on user type + questionnaire bonuses
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit: 1 generation per 5 minutes per user
-    const { allowed, retryAfterMs } = rateLimit(`generate:${userId}`, 1, 300_000);
+    const { allowed, retryAfterMs } = rateLimit(rateLimitKey, 1, 300_000);
     if (!allowed) {
       return NextResponse.json(
         { error: 'Please wait a few minutes before generating another episode.' },
@@ -84,6 +86,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('[GenerateNow] Error:', error);
+    // Clear rate limit on failure so user can retry immediately
+    clearRateLimit(rateLimitKey);
     return NextResponse.json(
       { error: error.message || 'Generation failed' },
       { status: 500 }
