@@ -26,6 +26,7 @@ interface Episode {
   signalCount: number;
   topicsCovered: string[];
   generatedAt: string;
+  status?: string;
   rated?: boolean;
 }
 
@@ -482,6 +483,7 @@ function Dashboard() {
     return () => {
       clearInterval(poll);
       abortRef.current?.abort();
+      if (generatePollRef.current) clearInterval(generatePollRef.current);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
@@ -651,6 +653,8 @@ function Dashboard() {
     setProgress(100);
   }, []);
 
+  const generatePollRef = useRef<NodeJS.Timeout | null>(null);
+
   const generateNow = async () => {
     if (selectedIds.size === 0) return;
     setGenerating(true);
@@ -658,29 +662,106 @@ function Dashboard() {
     setNewEpisodeId(null);
     startTheatre();
 
-    try {
-      const res = await fetch('/api/generate-now', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signalIds: Array.from(selectedIds) }),
-      });
+    // Snapshot the current episode IDs so we can detect the new one
+    const knownEpisodeIds = new Set(episodes.map(e => e.id));
 
+    // Fire the generation request — don't rely on it completing (proxy may timeout)
+    const fetchPromise = fetch('/api/generate-now', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signalIds: Array.from(selectedIds) }),
+    }).then(async (res) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
+      return data;
+    });
 
-      stopTheatre();
-      setNewEpisodeId(data.episodeId);
+    // Handle immediate errors (400, 403, 429) within the first few seconds
+    let fetchFailed = false;
+    fetchPromise.catch((err: Error) => {
+      // If polling hasn't already detected success, show the error
+      if (generatePollRef.current) {
+        fetchFailed = true;
+        // Only show error for real API errors, not network timeouts
+        if (err.message && !err.message.includes('network') && !err.message.includes('abort') && !err.message.includes('Failed to fetch')) {
+          clearInterval(generatePollRef.current!);
+          generatePollRef.current = null;
+          stopTheatre();
+          setGenerateError(err.message);
+          setGenerating(false);
+          setSignalsCollapsing(false);
+          setProgress(0);
+        }
+      }
+    });
 
-      // Brief pause to show 100%, then refresh
-      await new Promise(r => setTimeout(r, 800));
-      await refreshData();
-    } catch (error: any) {
-      stopTheatre();
-      setGenerateError(error.message);
-    } finally {
-      setGenerating(false);
-      setSignalsCollapsing(false);
-      setProgress(0);
+    // Poll for the episode to appear/complete (every 5s, up to 6 minutes)
+    let pollCount = 0;
+    const maxPolls = 72; // 6 minutes at 5s intervals
+    generatePollRef.current = setInterval(async () => {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        // Timed out — give up
+        if (generatePollRef.current) clearInterval(generatePollRef.current);
+        generatePollRef.current = null;
+        stopTheatre();
+        setGenerateError('Generation is taking longer than expected. Check back in a few minutes.');
+        setGenerating(false);
+        setSignalsCollapsing(false);
+        setProgress(0);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/episodes');
+        if (!res.ok) return; // skip this poll cycle
+        const eps = await res.json();
+        if (!Array.isArray(eps)) return;
+
+        // Look for a new episode that wasn't in the snapshot
+        const newEp = eps.find((e: Episode) => !knownEpisodeIds.has(e.id));
+        if (newEp && newEp.status === 'READY') {
+          // Episode is done!
+          if (generatePollRef.current) clearInterval(generatePollRef.current);
+          generatePollRef.current = null;
+          stopTheatre();
+          setNewEpisodeId(newEp.id);
+          setEpisodes(eps);
+          await new Promise(r => setTimeout(r, 800));
+          // Force fresh signal selection rebuild after generation
+          setSelectedIds(new Set());
+          await refreshData();
+          setGenerating(false);
+          setSignalsCollapsing(false);
+          setProgress(0);
+        } else if (newEp && (newEp.status === 'GENERATING' || newEp.status === 'SYNTHESIZING')) {
+          // Still generating — update episodes list to show the placeholder card
+          setEpisodes(eps);
+        }
+      } catch {
+        // Network error on poll — just skip this cycle
+      }
+    }, 5000);
+
+    // Also try to await the fetch in case it completes cleanly
+    try {
+      const data = await fetchPromise;
+      // Fetch completed successfully — if poll hasn't already handled it, finish up
+      if (generatePollRef.current) {
+        clearInterval(generatePollRef.current);
+        generatePollRef.current = null;
+        stopTheatre();
+        setNewEpisodeId(data.episodeId);
+        await new Promise(r => setTimeout(r, 800));
+        setSelectedIds(new Set());
+        await refreshData();
+        setGenerating(false);
+        setSignalsCollapsing(false);
+        setProgress(0);
+      }
+    } catch {
+      // Fetch failed (likely timeout) — polling will handle it
+      // If fetch failed with a real error, it was already handled above
     }
   };
 
@@ -1731,9 +1812,9 @@ function Dashboard() {
       <section className="mb-6 lg:mb-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Your Episodes</h2>
-          {episodes.length > 0 && (
+          {episodes.filter(e => e.status === 'READY' || !e.status).length > 0 && (
             <span className="text-xs text-stone-500">
-              {episodeLimit > 0 ? `${episodes.length} of ${episodeLimit}` : `${episodes.length}`}
+              {(() => { const readyCount = episodes.filter(e => e.status === 'READY' || !e.status).length; return episodeLimit > 0 ? `${readyCount} of ${episodeLimit}` : `${readyCount}`; })()}
             </span>
           )}
         </div>
@@ -1742,7 +1823,7 @@ function Dashboard() {
           <div className="space-y-3">
             {[1, 2].map(i => <div key={i} className="h-28 bg-poddit-900/50 rounded-2xl animate-pulse" />)}
           </div>
-        ) : episodes.length === 0 ? (
+        ) : episodes.length === 0 && !generating ? (
           <div className="py-10 px-4 text-center bg-poddit-900/30 border border-stone-800/30 rounded-2xl">
             <div className="w-14 h-14 rounded-2xl bg-violet-400/10 flex items-center justify-center mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-violet-400">
@@ -1757,6 +1838,35 @@ function Dashboard() {
         ) : (
           <div className="space-y-3">
             {episodes.map((ep, idx) => {
+              // Generating/synthesizing placeholder card
+              if (ep.status === 'GENERATING' || ep.status === 'SYNTHESIZING') {
+                return (
+                  <div key={ep.id} className="relative rounded-2xl bg-teal-500/[0.06] border border-teal-500/15 overflow-hidden animate-pulse">
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-teal-500/15 flex items-center justify-center flex-shrink-0">
+                          <svg className="animate-spin h-5 w-5 text-teal-400" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">Generating your episode...</p>
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            {ep.status === 'SYNTHESIZING' ? 'Creating audio — almost there' : 'Synthesising your signals — this takes a few minutes'}
+                          </p>
+                        </div>
+                      </div>
+                      {/* Mini progress bar */}
+                      <div className="mt-3 h-1 rounded-full bg-white/[0.05] overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-teal-500/30 via-teal-400/50 to-teal-500/30 animate-pulse transition-all duration-1000"
+                          style={{ width: ep.status === 'SYNTHESIZING' ? '75%' : '40%' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               const accent = EPISODE_ACCENTS[idx % EPISODE_ACCENTS.length];
               const isExpanded = expandedEpisodeId === ep.id;
               return (

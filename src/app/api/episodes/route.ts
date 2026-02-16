@@ -42,9 +42,10 @@ export async function GET(request: NextRequest) {
   }
 
   // List recent episodes for this user (with rating status)
+  // Include GENERATING/SYNTHESIZING episodes so frontend can show progress
   const episodes = await prisma.episode.findMany({
-    where: { userId, status: 'READY' },
-    orderBy: { generatedAt: 'desc' },
+    where: { userId, status: { in: ['READY', 'GENERATING', 'SYNTHESIZING'] } },
+    orderBy: [{ status: 'asc' }, { generatedAt: 'desc' }],
     take: 20,
     select: {
       id: true,
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
       generatedAt: true,
       periodStart: true,
       periodEnd: true,
+      status: true,
       ratings: {
         where: { userId },
         select: { id: true },
