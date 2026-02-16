@@ -6,6 +6,14 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// Pick the right Twilio sender number based on the recipient's country
+function senderFor(to: string): string {
+  if (to.startsWith('+44') && process.env.TWILIO_PHONE_NUMBER_UK) {
+    return process.env.TWILIO_PHONE_NUMBER_UK;
+  }
+  return process.env.TWILIO_PHONE_NUMBER || '';
+}
+
 // ──────────────────────────────────────────────
 // NOTIFY USER THAT EPISODE IS READY
 // ──────────────────────────────────────────────
@@ -46,7 +54,7 @@ export async function notifyEpisodeReady(params: {
   try {
     await client.messages.create({
       body: message,
-      from: process.env.TWILIO_PHONE_NUMBER,
+      from: senderFor(phone),
       to: phone,
     });
     console.log(`[Deliver] SMS sent for episode ${episodeId} to ${phone}`);
@@ -67,7 +75,7 @@ export async function confirmCapture(params: {
   try {
     await client.messages.create({
       body: `✓ Poddit captured: "${params.preview.slice(0, 60)}${params.preview.length > 60 ? '...' : ''}"`,
-      from: process.env.TWILIO_PHONE_NUMBER,
+      from: senderFor(params.to),
       to: params.to,
     });
   } catch (error) {

@@ -436,7 +436,8 @@ See `.env.example` for all required variables. Critical ones:
 - `ACCESS_CODE` — Global login access code (fallback for per-user invite codes)
 - `ANTHROPIC_API_KEY` — For synthesis
 - `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` — For TTS
-- `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` — For SMS
+- `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_PHONE_NUMBER` — For SMS (US)
+- `TWILIO_PHONE_NUMBER_UK` — UK Twilio number for outbound SMS to +44 numbers
 - `S3_*` variables — For audio file storage
 - `API_SECRET` — Shared secret for extension + generate endpoints
 - `ADMIN_SECRET` — Admin dashboard auth (falls back to API_SECRET)

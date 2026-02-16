@@ -49,6 +49,10 @@ const HERO_TAGLINES = [
   'From signals to synthesis \u2014 your weekly deep dive.',
 ];
 
+// Twilio inbound numbers per region
+const PODDIT_SMS_US = { e164: '+18555065970', display: '(855) 506-5970' };
+const PODDIT_SMS_UK = { e164: '+447426985763', display: '+44 7426 985763' };
+
 const HERO_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
   'What topic are you curious about?',
@@ -83,6 +87,18 @@ function Dashboard() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showCollectSignals, setShowCollectSignals] = useState(false);
+
+  // Derive which Poddit SMS number to show based on user's phone country
+  const podditSms = useMemo(() => {
+    if (userPhone.startsWith('+44')) return PODDIT_SMS_UK;
+    if (userPhone) return PODDIT_SMS_US;
+    // No phone saved yet — check browser locale
+    if (typeof navigator !== 'undefined') {
+      const lang = navigator.language || '';
+      if (lang.endsWith('-GB') || lang === 'en-GB') return PODDIT_SMS_UK;
+    }
+    return PODDIT_SMS_US;
+  }, [userPhone]);
 
   const [insightsExpanded, setInsightsExpanded] = useState(true);
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
@@ -217,12 +233,13 @@ function Dashboard() {
       setUserPhone(formatted);
       setShowPhonePrompt(false);
       setPhoneInput('');
-      // Now open SMS
+      // Now open SMS — pick the right number for the user's country
+      const smsNum = formatted.startsWith('+44') ? PODDIT_SMS_UK : PODDIT_SMS_US;
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       if (isMobile) {
-        window.location.href = 'sms:+18555065970';
+        window.location.href = `sms:${smsNum.e164}`;
       } else {
-        navigator.clipboard.writeText('+18555065970').then(() => {
+        navigator.clipboard.writeText(smsNum.e164).then(() => {
           setInputSuccess('Phone saved! Number copied — text your signals.');
           setTimeout(() => setInputSuccess(null), 3000);
         });
@@ -1564,10 +1581,10 @@ function Dashboard() {
               <div className="border-t border-stone-800/30 pt-3">
                 <p className="text-[11px] text-stone-500 mb-2"><span className="text-stone-400 font-medium">Capture channels</span></p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = 'sms:+18555065970'; } else { navigator.clipboard.writeText('+18555065970').then(() => { setInputSuccess('Phone number copied!'); setTimeout(() => setInputSuccess(null), 3000); }); } }}
+                  <button onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `sms:${podditSms.e164}`; } else { navigator.clipboard.writeText(podditSms.e164).then(() => { setInputSuccess('Phone number copied!'); setTimeout(() => setInputSuccess(null), 3000); }); } }}
                     className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/30 bg-poddit-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400 transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                    <div><p className="text-[11px] font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p><p className="text-[9px] text-stone-600 mt-0.5 font-mono">(855) 506-5970</p></div>
+                    <div><p className="text-[11px] font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p><p className="text-[9px] text-stone-600 mt-0.5 font-mono">{podditSms.display}</p></div>
                   </button>
                   <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/20 bg-poddit-950/20 opacity-50 text-center cursor-default">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-700"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></svg>

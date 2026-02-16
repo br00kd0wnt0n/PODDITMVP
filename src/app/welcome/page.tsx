@@ -72,7 +72,7 @@ export default function WelcomePage() {
               <div>
                 <p className="text-sm font-medium text-white">Text or Voice Message</p>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Text a link, topic, or voice note to <span className="text-teal-400 font-mono">(855) 506-5970</span>
+                  Text a link, topic, or voice note to <span className="text-teal-400 font-mono">(855) 506-5970</span> (US) or <span className="text-teal-400 font-mono">+44 7426 985763</span> (UK)
                 </p>
               </div>
             </div>
