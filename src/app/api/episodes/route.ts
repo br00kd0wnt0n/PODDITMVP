@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   // Include GENERATING/SYNTHESIZING episodes so frontend can show progress
   const episodes = await prisma.episode.findMany({
     where: { userId, status: { in: ['READY', 'GENERATING', 'SYNTHESIZING'] } },
-    orderBy: [{ status: 'asc' }, { generatedAt: 'desc' }],
+    orderBy: { createdAt: 'desc' },
     take: 20,
     select: {
       id: true,

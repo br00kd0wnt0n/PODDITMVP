@@ -107,6 +107,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
+  const generatingRef = useRef(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Input state
@@ -489,6 +490,8 @@ function Dashboard() {
   }, []);
 
   const refreshData = async () => {
+    // Skip during generation — the 5s generation poll handles episode updates
+    if (generatingRef.current) return;
     // Cancel any in-flight request from a previous poll cycle
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -654,115 +657,100 @@ function Dashboard() {
   }, []);
 
   const generatePollRef = useRef<NodeJS.Timeout | null>(null);
+  const generateDoneRef = useRef(false);
+
+  // Single cleanup function — every completion path calls this
+  const finishGeneration = useCallback(async (outcome: { episodeId?: string; error?: string }) => {
+    // Mutual exclusion: first caller wins, rest are no-ops
+    if (generateDoneRef.current) return;
+    generateDoneRef.current = true;
+
+    // Stop polling
+    if (generatePollRef.current) {
+      clearInterval(generatePollRef.current);
+      generatePollRef.current = null;
+    }
+
+    stopTheatre();
+
+    if (outcome.error) {
+      setGenerateError(outcome.error);
+    } else if (outcome.episodeId) {
+      setNewEpisodeId(outcome.episodeId);
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    // Fresh state rebuild — clear ref BEFORE refreshData so it actually runs
+    generatingRef.current = false;
+    setSelectedIds(new Set());
+    await refreshData();
+    setGenerating(false);
+    setSignalsCollapsing(false);
+    setProgress(0);
+  }, [stopTheatre]);
 
   const generateNow = async () => {
     if (selectedIds.size === 0) return;
+    generateDoneRef.current = false;
+    generatingRef.current = true;
     setGenerating(true);
     setGenerateError(null);
     setNewEpisodeId(null);
     startTheatre();
 
-    // Snapshot the current episode IDs so we can detect the new one
+    // Snapshot current episode IDs to detect the new one
     const knownEpisodeIds = new Set(episodes.map(e => e.id));
 
-    // Fire the generation request — don't rely on it completing (proxy may timeout)
-    const fetchPromise = fetch('/api/generate-now', {
+    // 1. Fire the generation request
+    fetch('/api/generate-now', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signalIds: Array.from(selectedIds) }),
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
-      return data;
-    });
-
-    // Handle immediate errors (400, 403, 429) within the first few seconds
-    let fetchFailed = false;
-    fetchPromise.catch((err: Error) => {
-      // If polling hasn't already detected success, show the error
-      if (generatePollRef.current) {
-        fetchFailed = true;
-        // Only show error for real API errors, not network timeouts
-        if (err.message && !err.message.includes('network') && !err.message.includes('abort') && !err.message.includes('Failed to fetch')) {
-          clearInterval(generatePollRef.current!);
-          generatePollRef.current = null;
-          stopTheatre();
-          setGenerateError(err.message);
-          setGenerating(false);
-          setSignalsCollapsing(false);
-          setProgress(0);
-        }
+      // Fetch completed — finish if polling hasn't already
+      finishGeneration({ episodeId: data.episodeId });
+    }).catch((err: Error) => {
+      // Distinguish API errors (show to user) from network timeouts (let polling handle)
+      const msg = err.message || '';
+      const isNetworkError = msg.includes('Failed to fetch') || msg.includes('network') || msg.includes('abort');
+      if (!isNetworkError) {
+        finishGeneration({ error: msg });
       }
+      // Network timeouts are silently ignored — polling will detect the episode
     });
 
-    // Poll for the episode to appear/complete (every 5s, up to 6 minutes)
+    // 2. Poll /api/episodes every 5s to track progress (replaces dashboard poll during generation)
     let pollCount = 0;
-    const maxPolls = 72; // 6 minutes at 5s intervals
+    const maxPolls = 72; // 6 minutes
     generatePollRef.current = setInterval(async () => {
+      if (generateDoneRef.current) return; // already finished via fetch
       pollCount++;
+
       if (pollCount > maxPolls) {
-        // Timed out — give up
-        if (generatePollRef.current) clearInterval(generatePollRef.current);
-        generatePollRef.current = null;
-        stopTheatre();
-        setGenerateError('Generation is taking longer than expected. Check back in a few minutes.');
-        setGenerating(false);
-        setSignalsCollapsing(false);
-        setProgress(0);
+        finishGeneration({ error: 'Generation is taking longer than expected. Check back in a few minutes.' });
         return;
       }
 
       try {
         const res = await fetch('/api/episodes');
-        if (!res.ok) return; // skip this poll cycle
+        if (!res.ok) return;
         const eps = await res.json();
         if (!Array.isArray(eps)) return;
 
-        // Look for a new episode that wasn't in the snapshot
+        // Always update episodes list (shows GENERATING placeholder)
+        setEpisodes(eps);
+
+        // Check if the new episode has landed
         const newEp = eps.find((e: Episode) => !knownEpisodeIds.has(e.id));
-        if (newEp && newEp.status === 'READY') {
-          // Episode is done!
-          if (generatePollRef.current) clearInterval(generatePollRef.current);
-          generatePollRef.current = null;
-          stopTheatre();
-          setNewEpisodeId(newEp.id);
-          setEpisodes(eps);
-          await new Promise(r => setTimeout(r, 800));
-          // Force fresh signal selection rebuild after generation
-          setSelectedIds(new Set());
-          await refreshData();
-          setGenerating(false);
-          setSignalsCollapsing(false);
-          setProgress(0);
-        } else if (newEp && (newEp.status === 'GENERATING' || newEp.status === 'SYNTHESIZING')) {
-          // Still generating — update episodes list to show the placeholder card
-          setEpisodes(eps);
+        if (newEp?.status === 'READY') {
+          finishGeneration({ episodeId: newEp.id });
         }
       } catch {
-        // Network error on poll — just skip this cycle
+        // Network blip — skip this cycle
       }
     }, 5000);
-
-    // Also try to await the fetch in case it completes cleanly
-    try {
-      const data = await fetchPromise;
-      // Fetch completed successfully — if poll hasn't already handled it, finish up
-      if (generatePollRef.current) {
-        clearInterval(generatePollRef.current);
-        generatePollRef.current = null;
-        stopTheatre();
-        setNewEpisodeId(data.episodeId);
-        await new Promise(r => setTimeout(r, 800));
-        setSelectedIds(new Set());
-        await refreshData();
-        setGenerating(false);
-        setSignalsCollapsing(false);
-        setProgress(0);
-      }
-    } catch {
-      // Fetch failed (likely timeout) — polling will handle it
-      // If fetch failed with a real error, it was already handled above
-    }
   };
 
   // ── Text Input ──
