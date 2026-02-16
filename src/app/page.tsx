@@ -1363,32 +1363,30 @@ function Dashboard() {
               <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-500/15 text-teal-400 border border-teal-500/20">{totalQueued}</span>
             )}
           </div>
-          {/* + button: opens "How to use" in empty state, shows in queue header when signals exist */}
-          {signals.length > 0 && (
+          {/* +/× button: toggles "How to use" panel */}
+          {(signals.length > 0 || showCollectSignals) && (
             <button
               onClick={() => setShowCollectSignals(prev => !prev)}
               className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all
                          ${showCollectSignals ? 'border-teal-500/25 bg-teal-500/10 text-teal-400' : 'border-stone-800/60 text-stone-500 hover:border-stone-700 hover:text-stone-300 hover:bg-white/[0.03]'}`}
-              title="How to capture signals"
+              title={showCollectSignals ? 'Close' : 'How to capture signals'}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
+              {showCollectSignals ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              )}
             </button>
           )}
         </div>
 
-        {/* ── How to use (inline in queue, triggered by + button) ── */}
+        {/* ── How to use (inline in queue, triggered by +/× button) ── */}
         {showCollectSignals && (
           <div className="mb-4 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-stone-400">How Poddit Works</p>
-              <button onClick={() => setShowCollectSignals(false)} className="text-stone-600 hover:text-stone-400 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
             <div className="p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl">
               {/* How it works steps */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
@@ -1507,11 +1505,11 @@ function Dashboard() {
 
             {/* Signal cards or empty state */}
             {signals.length === 0 ? (
+              showCollectSignals ? null : (
               <div className="py-8 px-4 text-center">
                 <button
-                  onClick={() => setShowCollectSignals(prev => !prev)}
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all
-                             ${showCollectSignals ? 'bg-teal-500/20 border border-teal-500/25 text-teal-400' : 'bg-teal-500/10 border border-transparent text-teal-400 hover:bg-teal-500/15 hover:border-teal-500/20'}`}
+                  onClick={() => setShowCollectSignals(true)}
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all bg-teal-500/10 border border-transparent text-teal-400 hover:bg-teal-500/15 hover:border-teal-500/20"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M12 5v14M5 12h14"/>
@@ -1522,6 +1520,7 @@ function Dashboard() {
                   Drop a link, type a topic, or record a voice note above. Tap <span className="text-teal-400/70 font-medium">+</span> to see all capture channels.
                 </p>
               </div>
+              )
             ) : (
               <div className="space-y-2">
                 {signals.map((signal, idx) => (
