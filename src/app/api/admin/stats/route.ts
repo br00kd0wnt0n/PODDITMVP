@@ -102,6 +102,7 @@ export async function GET(request: NextRequest) {
           signalCount: true,
           generatedAt: true,
           error: true,
+          user: { select: { name: true, email: true } },
         },
       }),
       prisma.episode.groupBy({ by: ['status'], _count: true }),

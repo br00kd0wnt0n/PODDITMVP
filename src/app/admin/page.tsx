@@ -30,6 +30,7 @@ interface AdminStats {
       signalCount: number;
       generatedAt: string | null;
       error: string | null;
+      user?: { name: string | null; email: string | null };
     }>;
     byStatus: Array<{ status: string; count: number }>;
   };
@@ -582,6 +583,9 @@ function AdminDashboard() {
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[ep.status] || 'bg-stone-500'}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
+                  {ep.user && (
+                    <p className="text-xs text-stone-500 truncate">{ep.user.name || ep.user.email || 'Unknown user'}</p>
+                  )}
                   {ep.error && (
                     <p className="text-xs text-red-400 truncate">{ep.error}</p>
                   )}
