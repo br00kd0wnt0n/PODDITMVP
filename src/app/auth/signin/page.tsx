@@ -46,34 +46,30 @@ export default function SignInPage() {
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden transition-all ${exiting ? 'page-exit' : ''}`}>
-      {/* Extra bokeh for signin — more prominent than global */}
-      <div className="absolute top-[15%] -right-16 w-80 h-80 rounded-full bg-amber-500/[0.06] blur-3xl" />
-      <div className="absolute top-[25%] right-24 w-40 h-40 rounded-full bg-amber-400/[0.08] blur-2xl" />
-      <div className="absolute bottom-[20%] -left-12 w-64 h-64 rounded-full bg-teal-500/[0.05] blur-3xl" />
-      <div className="absolute bottom-[35%] left-16 w-24 h-24 rounded-full bg-amber-300/[0.07] blur-xl" />
-      {/* Horizontal lens flare streak */}
-      <div className="absolute top-[38%] left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/[0.15] to-transparent" />
-      {/* Secondary softer flare */}
-      <div className="absolute top-[38%] left-0 right-0 h-[12px] bg-gradient-to-r from-transparent via-amber-500/[0.04] to-transparent blur-sm" />
+      {/* Bokeh orbs — bright, warm */}
+      <div className="absolute top-[10%] -right-16 w-80 h-80 rounded-full bg-violet-500/[0.08] blur-3xl" />
+      <div className="absolute top-[25%] right-24 w-48 h-48 rounded-full bg-amber-400/[0.10] blur-2xl" />
+      <div className="absolute bottom-[15%] -left-12 w-72 h-72 rounded-full bg-teal-500/[0.06] blur-3xl" />
+      <div className="absolute bottom-[40%] left-20 w-28 h-28 rounded-full bg-rose-400/[0.08] blur-xl" />
 
-      {/* Hero lockup: animated logo + title + subtitle */}
+      {/* Hero lockup */}
       <div className="relative z-10 flex flex-col items-center mb-10">
-        <Image src="/logo.png" alt="Poddit" width={112} height={112} className="rounded-3xl ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.12] mb-6" />
+        <Image src="/logo.png" alt="Poddit" width={112} height={112} className="rounded-3xl ring-1 ring-white/10 shadow-2xl shadow-violet-500/[0.12] mb-6" />
         <h1 className="text-4xl font-extrabold text-white tracking-tight font-display mb-1">PODDIT</h1>
         <p className="text-stone-400 text-sm tracking-widest uppercase">Your world, explained</p>
       </div>
 
       {/* Sign-in form */}
       <form onSubmit={handleSubmit} className="w-full max-w-sm relative z-10">
-        <div className="p-6 bg-poddit-900/60 border border-stone-800/60 rounded-xl backdrop-blur-sm">
+        <div className="p-6 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl backdrop-blur-sm">
 
           {error && (
-            <div role="alert" className="mb-4 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
+            <div role="alert" className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">
               {error}
             </div>
           )}
 
-          <label htmlFor="email" className="block text-xs text-stone-500 mb-1.5">Email address</label>
+          <label htmlFor="email" className="block text-xs text-stone-400 mb-1.5 font-medium">Email address</label>
           <input
             id="email"
             type="email"
@@ -83,12 +79,12 @@ export default function SignInPage() {
             autoComplete="email"
             autoFocus
             required
-            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
-                       placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30
-                       focus:border-stone-600 mb-4"
+            className="w-full px-4 py-3 bg-white/[0.07] border border-white/15 rounded-xl text-sm text-white
+                       placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20
+                       focus:border-white/30 focus:bg-white/[0.10] transition-all mb-4"
           />
 
-          <label htmlFor="code" className="block text-xs text-stone-500 mb-1.5">Access code</label>
+          <label htmlFor="code" className="block text-xs text-stone-400 mb-1.5 font-medium">Access code</label>
           <input
             id="code"
             type="password"
@@ -96,17 +92,17 @@ export default function SignInPage() {
             onChange={(e) => setCode(e.target.value)}
             placeholder="Enter access code"
             required
-            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
-                       placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30
-                       focus:border-stone-600 mb-4"
+            className="w-full px-4 py-3 bg-white/[0.07] border border-white/15 rounded-xl text-sm text-white
+                       placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20
+                       focus:border-white/30 focus:bg-white/[0.10] transition-all mb-4"
           />
 
-          <label className="flex items-start gap-2.5 mb-4 cursor-pointer group">
+          <label className="flex items-start gap-2.5 mb-5 cursor-pointer group">
             <input
               type="checkbox"
               checked={consent}
               onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-stone-600 accent-teal-500 flex-shrink-0"
+              className="mt-0.5 w-4 h-4 rounded border-stone-600 accent-white flex-shrink-0"
             />
             <span className="text-xs text-stone-500 leading-relaxed group-hover:text-stone-400 transition-colors">
               I agree to receive episode notifications and product updates via email and SMS.
@@ -117,9 +113,10 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={loading || !email.trim() || !code.trim() || !consent}
-            className="w-full py-2.5 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                       hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500
-                       disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-white text-poddit-950 text-sm font-bold rounded-xl
+                       hover:bg-stone-100 disabled:bg-stone-800 disabled:text-stone-600
+                       disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2
+                       shadow-[0_2px_8px_rgba(255,255,255,0.10)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:shadow-none"
           >
             {loading ? (
               <>
@@ -134,11 +131,11 @@ export default function SignInPage() {
             )}
           </button>
 
-          <p className="text-xs text-stone-600 text-center mt-4">
+          <p className="text-xs text-stone-500 text-center mt-4">
             Early access — check your invite email for the code.
           </p>
-          <p className="text-xs text-stone-600 text-center mt-1">
-            Need help? <a href="mailto:Hello@poddit.com" className="text-teal-500/70 hover:text-teal-400 transition-colors">Hello@poddit.com</a>
+          <p className="text-xs text-stone-500 text-center mt-1">
+            Need help? <a href="mailto:Hello@poddit.com" className="text-stone-300 hover:text-white transition-colors">Hello@poddit.com</a>
           </p>
         </div>
       </form>
