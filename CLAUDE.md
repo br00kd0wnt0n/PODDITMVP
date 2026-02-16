@@ -12,14 +12,14 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 
 ```
 /poddit
-├── prisma/schema.prisma     # Data model (User, Signal, Episode, Segment, Feedback, QuestionnaireResponse)
+├── prisma/schema.prisma     # Data model (User, Signal, Episode, Segment, Feedback, QuestionnaireResponse, EpisodeRating)
 ├── src/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── capture/      # Ingest endpoints (SMS, email, extension, share, quick)
 │   │   │   ├── generate/     # Manual episode generation trigger
 │   │   │   ├── generate-now/ # Dashboard-triggered generation with signal selection
-│   │   │   ├── episodes/     # Episode listing and retrieval
+│   │   │   ├── episodes/     # Episode listing and retrieval + /rate (per-episode feedback)
 │   │   │   ├── signals/      # Signal queue management
 │   │   │   ├── feedback/     # User feedback (text + voice + request) submission
 │   │   │   ├── admin/
@@ -29,9 +29,9 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 │   │   │   ├── user/preferences/ # User prefs, consent toggle, episode limit info
 │   │   │   ├── cron/         # Weekly automated generation
 │   │   │   └── voices/       # Voice listing and samples
-│   │   ├── page.tsx          # Dashboard (capture input, collapsible panels, queue, episodes, feedback modal)
+│   │   ├── page.tsx          # Dashboard (capture input, queue, episodes, highlights, feedback modal, welcome overlay)
 │   │   ├── admin/            # Mission Control (admin dashboard)
-│   │   ├── player/[id]/      # Episode player with segments + sources
+│   │   ├── player/[id]/      # Episode player with segments + sources + rating UI
 │   │   ├── settings/         # User preferences (voice, length, name, phone, notifications)
 │   │   ├── welcome/          # Capture channel guide + PWA install instructions
 │   │   ├── usage/            # Episode usage progress + request more episodes
@@ -48,6 +48,7 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 │       ├── auth.ts           # Auth helpers (requireSession, requireAuth, requireAdminAuth, requireCronAuth)
 │       ├── auth-config.ts    # NextAuth config (Credentials provider, per-user invite codes + global fallback)
 │       ├── rate-limit.ts     # In-memory sliding-window rate limiter (+ clearRateLimit helper)
+│       ├── retry.ts          # Shared withRetry utility (exponential backoff)
 │       ├── transcribe.ts     # OpenAI Whisper transcription
 │       └── db.ts             # Prisma client singleton
 ├── extension/                # Chrome extension (capture from browser)
@@ -91,6 +92,13 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 
 ### Feedback
 - Types: TEXT, VOICE, REQUEST (request = episode increase request from /usage)
+
+### EpisodeRating
+- Per-episode feedback: enjoyment, resonance, connections (1-5 scale)
+- Optional follow-up text (shown when any rating ≤ 2)
+- Unique constraint on [userId, episodeId] — upsert pattern
+- Auto-prompted after audio playback ends, or via #rate deep link
+- Episodes list API includes `rated: boolean` for dashboard badges
 
 ### QuestionnaireResponse
 - Milestone-based triggers (3, 6, 9...) with duplicate prevention per milestone
@@ -236,9 +244,9 @@ curl -X POST http://localhost:3000/api/generate \
 
 ### Sprint: Brand & Design Polish ✅
 - [x] **Glass P logo** — replaced across app, PWA icons, extension icons from logo2.png source
-- [x] **Animated logo loop** — logo_loop.mp4 in dashboard header (curved square mask)
+- [x] **Animated logo loop** — logo_loop.mp4 replaced with static gradient P logo (logo.png) across all pages (dashboard, welcome overlay, sign-in)
 - [x] **Ambient background glow** — drifting bokeh orbs (5 unique CSS keyframes, 45-65s cycles, GPU-composited)
-- [x] **Sign-in page hero** — large centered logo loop + title lockup, prominent bokeh + lens flare streaks
+- [x] **Sign-in page hero** — large centered gradient P logo + title lockup, prominent bokeh + lens flare streaks
 - [x] **Segment header glow** — warm teal/amber box-shadow on active segment tab in player
 - [x] **Direct input card** — updated to "Type or speak below" with pencil + mic icons
 - [x] **Chrome extension card** — "Coming soon" toast instead of GitHub link
@@ -347,6 +355,33 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Preview file** — `preview.html` added for standalone visual testing with Tailwind CDN + dummy data (no server needed)
 - [x] **Episode limit + welcome text updates** — feedback references changed from "section below" to "account menu"
 
+### Sprint: Stability Hardening ✅
+- [x] **Shared withRetry utility** — extracted duplicate retry logic from synthesize.ts and tts.ts into src/lib/retry.ts with configurable retries, delay, and backoff
+- [x] **Buffer.from fix** — replaced deprecated `new Buffer()` with `Buffer.from()` in transcribe.ts
+- [x] **Rate limiter cleanup** — used `unref()` on setInterval so it doesn't keep the process alive
+- [x] **Dashboard polling reduction** — reduced from 10s to 30s interval, added AbortController for cleanup on unmount
+
+### Sprint: Episode Feedback + Dashboard UX ✅
+- [x] **EpisodeRating model** — Prisma schema: enjoyment/resonance/connections (1-5), optional feedback text, unique [userId, episodeId] constraint
+- [x] **Episode rate API** — POST /api/episodes/rate (upsert rating), GET (check if rated). Session auth, rate limited 10/min
+- [x] **Player rating UI** — 3-question visual rater with color-coded circles, follow-up text when any rating ≤ 2, auto-shows after playback ends, #rate deep link
+- [x] **Dashboard rated badges** — "How was it?" link (unrated) or "Rated" checkmark on episode cards, links to /player/{id}#rate
+- [x] **Episodes list rated field** — episodes API joins EpisodeRating, returns `rated: boolean` per episode
+- [x] **Outro music timing fix** — OUTRO_OVERLAP constant (8s), outro now overlaps final narration instead of starting after speech ends
+
+### Sprint: Dashboard Design Refresh ✅
+- [x] **Greeting panel** — frosted glass panel with 3 bright inner bokeh orbs (teal 20%, violet 18%, amber 12%), personalized greeting + subtitle
+- [x] **Episode card accents** — full background color (violet/amber/rose at 12% opacity), no more left-border-only. Play button moved to absolute top-right (teal). Topic pills use accent-matching colors
+- [x] **Generate button CTA** — changed from "Poddit Now (X signals)" to "Generate My Episode (X signals)"
+- [x] **"How to use" in top bar** — "How to Collect Signals" section moved from bottom of page into compact top-bar button (? icon) left of account dropdown
+- [x] **Highlights panel** — renamed from "Your Insights" to "Your Highlights". Conversational topic sentence, color-coded topic pills with counts, activity snapshot cards (episodes/signals/channels), favourite channel nudge. Open by default, frosted glass background with bokeh
+- [x] **White input bar** — input field uses bg-white/7% + border-white/20% (not teal). Focus ring is white. Distinct from brand accents
+- [x] **White Add button** — solid white bg with dark text, clear action affordance. Shadow glow on hover
+- [x] **White mic button** — border-white/20% to match input bar, clean functional appearance
+- [x] **Static gradient P logo** — replaced logo_loop.mp4 video with logo.png across dashboard header, welcome overlay, and sign-in page
+- [x] **Color convention** — teal reserved for action/navigation buttons only (play, generate). Content accents use violet/amber/rose. Input controls use white/glass
+- [x] **Preview.html updated** — all design changes reflected in standalone preview file
+
 ### Upcoming — P1 (Early Access → Pre-Launch)
 - [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
@@ -384,8 +419,9 @@ curl -X POST http://localhost:3000/api/generate \
 - `SignalStatus.PENDING` enum value is never written (orphaned but harmless)
 - No service worker for PWA
 - Audio player ARIA attributes still needed
-- Monolithic page.tsx (~2000 lines) — extraction candidates: Header, CaptureInput, OnboardingPanels, SignalQueue, EpisodeList, FeedbackModal, WelcomeOverlay, EmptyState
+- Monolithic page.tsx (~1800 lines) — extraction candidates: Header, CaptureInput, SignalQueue, EpisodeList, HighlightsPanel, FeedbackModal, WelcomeOverlay, EmptyState
 - `Episode.signalCount` denormalization has no sync mechanism
+- `logo_loop.mp4` still exists in `/public/` but is no longer referenced anywhere — can be removed
 
 ### Reference Documents
 Detailed strategy documents are in `/documents/` (git-ignored, not committed):
