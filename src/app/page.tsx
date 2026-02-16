@@ -106,8 +106,7 @@ function Dashboard() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Welcome banner state
-  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+
 
   // Empty state — typewriter placeholder
   const [typedText, setTypedText] = useState('');
@@ -116,9 +115,8 @@ function Dashboard() {
   const typewriterRef = useRef<NodeJS.Timeout | null>(null);
   const twStateRef = useRef({ phraseIdx: 0, charIdx: 0, phase: 'typing' as 'typing' | 'holding' | 'fading' | 'pause' });
 
-  // Welcome overlay (first-load only, persisted in localStorage)
-  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
-  const [welcomeOverlayExiting, setWelcomeOverlayExiting] = useState(false);
+  // Welcome banner (first-load only, persisted in localStorage)
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
 
   // Feedback panel (opened from account dropdown)
   const [showFeedbackPanel, setShowFeedbackPanel] = useState(false);
@@ -127,18 +125,14 @@ function Dashboard() {
     if (status === 'authenticated' && !loading) {
       const seen = localStorage.getItem('poddit-welcome-seen');
       if (!seen) {
-        setShowWelcomeOverlay(true);
+        setShowWelcomeBanner(true);
       }
     }
   }, [status, loading]);
 
-  const dismissWelcomeOverlay = () => {
-    setWelcomeOverlayExiting(true);
-    setTimeout(() => {
-      setShowWelcomeOverlay(false);
-      setWelcomeOverlayExiting(false);
-      localStorage.setItem('poddit-welcome-seen', '1');
-    }, 250);
+  const dismissWelcomeBanner = () => {
+    setShowWelcomeBanner(false);
+    localStorage.setItem('poddit-welcome-seen', '1');
   };
 
   // Save phone number (flexible input — auto-prepends +1 for 10-digit numbers)
@@ -862,93 +856,6 @@ function Dashboard() {
         <div className="bokeh-orb bokeh-2 absolute top-[20%] left-[25%] w-[20vw] h-[20vw] rounded-full bg-amber-300/[0.04] blur-2xl" />
       </div>
 
-      {/* ── Welcome Overlay (first load) ── */}
-      {showWelcomeOverlay && (
-        <div className={`fixed inset-0 z-50 overflow-y-auto ${welcomeOverlayExiting ? 'overlay-exit' : 'overlay-enter'}`}>
-          {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={dismissWelcomeOverlay} />
-
-          {/* Centering wrapper — min-height trick ensures true centering even on short viewports */}
-          <div className="min-h-full flex items-center justify-center px-4 py-6">
-            {/* Modal */}
-            <div className={`relative w-full max-w-md bg-poddit-950 border border-stone-800/60 rounded-2xl shadow-2xl
-                             ${welcomeOverlayExiting ? 'modal-exit' : 'modal-enter'}`}>
-
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-5">
-                <Image src="/logo.png" alt="Poddit" width={40} height={40} className="rounded-xl ring-1 ring-white/10 flex-shrink-0" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-extrabold text-white">Welcome to <span className="font-display">PODDIT</span></h2>
-                    <span className="text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
-                  </div>
-                  <p className="text-xs text-stone-500">Early Access Preview</p>
-                </div>
-              </div>
-
-              {/* Steps */}
-              <div className="space-y-3 mb-5">
-                <div className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/15 text-teal-400 text-[11px] font-bold flex items-center justify-center mt-0.5">1</span>
-                  <div>
-                    <p className="text-sm font-medium text-white">Capture signals</p>
-                    <p className="text-xs text-stone-500 mt-0.5">Save links, topics, or voice notes — via text, the input bar, or the share sheet.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-400/15 text-violet-400 text-[11px] font-bold flex items-center justify-center mt-0.5">2</span>
-                  <div>
-                    <p className="text-sm font-medium text-white">Generate an episode</p>
-                    <p className="text-xs text-stone-500 mt-0.5">Hit <span className="text-teal-400 font-medium">Poddit Now</span> anytime, or wait for your automated Friday roundup.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
-                  <div>
-                    <p className="text-sm font-medium text-white">Listen &amp; learn</p>
-                    <p className="text-xs text-stone-500 mt-0.5">Get a personalized audio episode that researches and explains everything you saved.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-stone-800/60 my-4" />
-
-              {/* Feedback callout */}
-              <div className="flex items-start gap-3 p-3 bg-amber-500/[0.05] border border-amber-500/10 rounded-xl">
-                <div className="w-5 h-5 rounded-full bg-amber-400/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                       className="text-amber-400">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-300/90">Your feedback shapes Poddit</p>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    As an early tester, your input is invaluable. Tap the <span className="text-amber-300/70">Feedback</span> option
-                    in your account menu to report bugs, share ideas, or tell us what you think — text or voice.
-                  </p>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <button
-                onClick={() => {
-                  dismissWelcomeOverlay();
-                  router.push('/welcome');
-                }}
-                className="w-full mt-5 py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                           hover:bg-teal-400 transition-colors shadow-[0_0_16px_rgba(20,184,166,0.15)]"
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Questionnaire Modal (at episode limit) ── */}
       {showQuestionnaire && (
@@ -1300,6 +1207,53 @@ function Dashboard() {
           )}
           </div>
         </div>
+
+        {/* ── Welcome banner (first visit only, top of page) ── */}
+        {showWelcomeBanner && (
+          <div className="mb-5 p-5 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl animate-fade-in-up relative" style={{ animationFillMode: 'forwards' }}>
+            <button onClick={dismissWelcomeBanner} className="absolute top-4 right-4 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Dismiss">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-sm font-bold text-white">Welcome to <span className="font-display">Poddit</span></h2>
+              <span className="text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-500/15 text-teal-400 text-[10px] font-bold flex items-center justify-center">1</span>
+                <div>
+                  <p className="text-xs font-medium text-stone-200">Capture</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Save links, topics, or voice notes as they catch your eye.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-400/15 text-violet-400 text-[10px] font-bold flex items-center justify-center">2</span>
+                <div>
+                  <p className="text-xs font-medium text-stone-200">Generate</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Hit <span className="text-teal-400/80 font-medium">Generate My Episode</span> or wait for your weekly roundup.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold flex items-center justify-center">3</span>
+                <div>
+                  <p className="text-xs font-medium text-stone-200">Listen</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Get a personalized audio episode that explains everything you saved.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-xs text-stone-500">Your feedback shapes Poddit — tap <span className="text-amber-300/70 font-medium">Feedback</span> in the account menu anytime.</p>
+              <Link href="/welcome" onClick={dismissWelcomeBanner} className="text-xs text-teal-400 hover:text-teal-300 font-medium transition-colors whitespace-nowrap">
+                View capture channels →
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Hero greeting panel — light background with inner bokeh */}
         <div className="relative mb-6 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden">
