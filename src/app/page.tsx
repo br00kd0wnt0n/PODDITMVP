@@ -75,7 +75,7 @@ function Dashboard() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showCollectSignals, setShowCollectSignals] = useState(false);
-  const [queueExpanded, setQueueExpanded] = useState(true);
+
   const [insightsExpanded, setInsightsExpanded] = useState(true);
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
@@ -267,10 +267,6 @@ function Dashboard() {
     { bg: 'bg-rose-500/[0.12]', text: 'text-rose-400', border: 'border-rose-500/20', pill: 'bg-rose-400/15 text-rose-300' },
   ];
 
-  // Force queue open during generation so theatre is visible
-  useEffect(() => {
-    if (generating) setQueueExpanded(true);
-  }, [generating]);
 
   // Check if questionnaire is needed when at episode limit
   useEffect(() => {
@@ -1258,18 +1254,6 @@ function Dashboard() {
 
           {/* Top-right controls */}
           <div className="flex items-center gap-2">
-            {/* How to use button */}
-            <button
-              onClick={() => setShowCollectSignals(prev => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all
-                         ${showCollectSignals ? 'border-teal-500/25 bg-teal-500/5 text-teal-300' : 'border-stone-800/60 text-stone-500 hover:border-stone-700 hover:text-stone-300'}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              <span className="hidden sm:inline">How to use</span>
-            </button>
-
             {/* User menu */}
             {session?.user && (
             <div className="relative">
@@ -1411,26 +1395,29 @@ function Dashboard() {
       {/* ── YOUR QUEUE ───────────────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
       <section className="mb-6">
-        <button onClick={() => setQueueExpanded(prev => !prev)} className="w-full flex items-center justify-between py-3 group">
+        <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">Your Queue</h2>
             {totalQueued > 0 && (
               <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-500/15 text-teal-400 border border-teal-500/20">{totalQueued}</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {signals.length > 0 && !queueExpanded && (
-              <span className="text-xs text-stone-500">{signals.length} signal{signals.length !== 1 ? 's' : ''} ready</span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2" className={`text-stone-500 transition-transform duration-300 ${queueExpanded ? 'rotate-180' : ''}`}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-        </button>
+          {/* + button: opens "How to use" in empty state, shows in queue header when signals exist */}
+          {signals.length > 0 && (
+            <button
+              onClick={() => setShowCollectSignals(prev => !prev)}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all
+                         ${showCollectSignals ? 'border-teal-500/25 bg-teal-500/10 text-teal-400' : 'border-stone-800/60 text-stone-500 hover:border-stone-700 hover:text-stone-300 hover:bg-white/[0.03]'}`}
+              title="How to capture signals"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {queueExpanded && (
-          <div className="animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
+        <div>
             {/* Poddit Now button */}
             {signals.length > 0 && (
               atEpisodeLimit ? (
@@ -1474,14 +1461,18 @@ function Dashboard() {
             {/* Signal cards or empty state */}
             {signals.length === 0 ? (
               <div className="py-8 px-4 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal-400">
+                <button
+                  onClick={() => setShowCollectSignals(prev => !prev)}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all
+                             ${showCollectSignals ? 'bg-teal-500/20 border border-teal-500/25 text-teal-400' : 'bg-teal-500/10 border border-transparent text-teal-400 hover:bg-teal-500/15 hover:border-teal-500/20'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M12 5v14M5 12h14"/>
                   </svg>
-                </div>
+                </button>
                 <p className="text-sm text-stone-400 font-medium mb-1">No signals yet</p>
                 <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                  Drop a link, type a topic, or record a voice note above. Your signals queue up here, ready for your next episode.
+                  Drop a link, type a topic, or record a voice note above. Tap <span className="text-teal-400/70 font-medium">+</span> to see all capture channels.
                 </p>
               </div>
             ) : (
@@ -1522,7 +1513,6 @@ function Dashboard() {
               </div>
             )}
           </div>
-        )}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════ */}
@@ -1551,7 +1541,7 @@ function Dashboard() {
             </div>
             <p className="text-sm text-stone-400 font-medium mb-1">No episodes yet</p>
             <p className="text-xs text-stone-500 max-w-sm mx-auto">
-              Once you have signals in your queue, hit Poddit Now to generate your first personalized audio episode.
+              Once you have signals in your queue, hit Generate My Episode to create your first personalized audio episode.
             </p>
           </div>
         ) : (
