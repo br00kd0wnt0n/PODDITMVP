@@ -42,6 +42,15 @@ interface Signal {
   createdAt: string;
 }
 
+const HERO_TAGLINES = [
+  "Let\u2019s connect the dots behind your curiosity.",
+  'Your interests, synthesized into sound.',
+  'Everything you saved, woven into one story.',
+  'Turn scattered curiosity into clear understanding.',
+  'The throughline across everything on your mind.',
+  'From signals to synthesis \u2014 your weekly deep dive.',
+];
+
 const HERO_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
   'What topic are you curious about?',
@@ -55,6 +64,7 @@ function Dashboard() {
   const shared = searchParams.get('shared');
   const { data: session, status } = useSession();
   const router = useRouter();
+  const heroTagline = useMemo(() => HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)], []);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Client-side auth guard — redirect if no session
@@ -1267,7 +1277,7 @@ function Dashboard() {
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
               {getGreeting()}{userName ? `, ${userName}` : ''} &mdash;<br className="sm:hidden" /> welcome to your <span className="text-teal-400">Poddit</span>.
             </h1>
-            <p className="text-lg sm:text-xl text-stone-300 font-light mb-1">Your world, explained.</p>
+            <p className="text-lg sm:text-xl text-stone-300 font-light mb-1">{heroTagline}</p>
             <p className="text-sm text-stone-400 leading-relaxed max-w-xl">{getHeroSubtitle()}</p>
           </div>
         </div>
