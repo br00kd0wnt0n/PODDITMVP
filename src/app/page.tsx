@@ -41,12 +41,6 @@ interface Signal {
   createdAt: string;
 }
 
-const GHOST_SIGNALS = [
-  { type: 'topic' as const, text: 'Why is everyone talking about quantum computing?', topics: ['Science', 'Tech'] },
-  { type: 'link' as const, text: 'The Next Wave of AI Breakthroughs', source: 'theverge.com', topics: ['AI', 'Future'] },
-  { type: 'voice' as const, text: '', waveform: true },
-];
-
 const HERO_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
   'What topic are you curious about?',
@@ -111,13 +105,9 @@ function Dashboard() {
   // Welcome banner state
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
 
-  // Empty state visual overhaul
-  const [ghostVisible, setGhostVisible] = useState(true);
-  const [showGhosts, setShowGhosts] = useState(true);
-  const [activeGhostIndex, setActiveGhostIndex] = useState(0);
+  // Empty state
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [inputFocused, setInputFocused] = useState(false);
-  const ghostTimerRef = useRef<NodeJS.Timeout | null>(null);
   const placeholderTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Welcome overlay (first-load only, persisted in localStorage)
@@ -276,30 +266,6 @@ function Dashboard() {
     finally { setQuestionnaireSubmitting(false); }
   };
 
-  // Ghost signal cycling timer
-  useEffect(() => {
-    if (!isEmptyState) return;
-    ghostTimerRef.current = setInterval(() => {
-      setActiveGhostIndex(prev => (prev + 1) % GHOST_SIGNALS.length);
-    }, 4000);
-    return () => {
-      if (ghostTimerRef.current) clearInterval(ghostTimerRef.current);
-    };
-  }, [isEmptyState]);
-
-  // Ghost exit transition when first signal arrives
-  useEffect(() => {
-    if (signals.length > 0 && showGhosts) {
-      setGhostVisible(false);
-      const timer = setTimeout(() => setShowGhosts(false), 600);
-      return () => clearTimeout(timer);
-    }
-    if (signals.length === 0 && !showGhosts) {
-      setShowGhosts(true);
-      setGhostVisible(true);
-    }
-  }, [signals.length, showGhosts]);
-
   // Placeholder text cycling timer
   useEffect(() => {
     if (!isEmptyState) {
@@ -322,7 +288,6 @@ function Dashboard() {
       if (fbTimerRef.current) clearInterval(fbTimerRef.current);
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (ghostTimerRef.current) clearInterval(ghostTimerRef.current);
       if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
@@ -1704,77 +1669,21 @@ function Dashboard() {
             </p>
           )}
 
-          {signals.length === 0 && showGhosts ? (
-            <div className={`space-y-2 ${ghostVisible ? '' : 'ghost-container-exit'}`}>
-              {GHOST_SIGNALS.map((ghost, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-900/30 border border-stone-800/20
-                              ${i === activeGhostIndex ? 'ghost-signal-breathe-active' : 'ghost-signal-breathe'}`}
-                >
-                  <div className="w-4 h-4 rounded bg-stone-800/50 mt-0.5 flex-shrink-0 flex items-center justify-center">
-                    {ghost.type === 'link' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
-                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                      </svg>
-                    )}
-                    {ghost.type === 'topic' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
-                    )}
-                    {ghost.type === 'voice' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-600">
-                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                      </svg>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    {ghost.type === 'voice' ? (
-                      <div className="flex items-end gap-[2px] h-4">
-                        {[3, 7, 5, 10, 8, 4, 9, 6, 3, 7, 5, 8].map((h, j) => (
-                          <div
-                            key={j}
-                            className="w-[3px] bg-stone-700/60 rounded-full ghost-waveform-bar"
-                            style={{ height: `${h}px`, animationDelay: `${j * 0.08}s` }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-mono bg-stone-800/40 text-stone-600 px-1.5 py-0.5 rounded flex-shrink-0">
-                            {ghost.type === 'link' ? 'web' : 'app'}
-                          </span>
-                          <p className="text-sm text-stone-600 truncate">{ghost.text}</p>
-                        </div>
-                        {'source' in ghost && ghost.source && (
-                          <p className="text-xs text-stone-700">{ghost.source}</p>
-                        )}
-                        {'topics' in ghost && ghost.topics && (
-                          <div className="flex gap-1 mt-1.5">
-                            {ghost.topics.map(t => (
-                              <span key={t} className="text-xs bg-violet-400/8 text-stone-600 px-2 py-0.5 rounded-full">{t}</span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <p className="text-center text-[11px] text-stone-700/60 mt-4 italic">Your signals will appear here</p>
-            </div>
-          ) : signals.length === 0 ? (
-            <div className="p-8 bg-poddit-900/50 border border-stone-800/50 rounded-xl text-center">
-              <p className="text-stone-400 mb-2">Your queue is empty.</p>
-              <p className="text-sm text-stone-500">
-                Save what catches your eye &mdash; a link, a topic, a voice note.
-              </p>
+          {signals.length === 0 ? (
+            <div className="relative">
+              {/* Placeholder queue cards — visual hint of what fills this space */}
+              <div className="space-y-2 opacity-[0.04]">
+                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
+                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
+                <div className="h-14 rounded-xl bg-stone-500 border border-stone-700" />
+              </div>
+              {/* Instructive copy overlaid */}
+              <div className="absolute inset-0 flex items-center justify-center px-4">
+                <p className="text-sm text-stone-500 leading-relaxed text-center max-w-sm">
+                  Send anything that catches your eye &mdash; links, topics, voice notes &mdash; and they&apos;ll queue up here,
+                  ready to become your next personalized episode.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="space-y-2">
