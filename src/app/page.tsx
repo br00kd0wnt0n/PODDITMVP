@@ -1280,12 +1280,6 @@ function Dashboard() {
               <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
             </div>
           )}
-          {inputSuccess && (
-            <div className="mb-2 p-2 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-xs">
-              {'\u2713'} {inputSuccess}
-            </div>
-          )}
-
           {recording ? (
             <button onClick={stopRecording} className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
               <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
@@ -1306,17 +1300,21 @@ function Dashboard() {
                 <input
                   type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
                   onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                  placeholder={!isEmptyState ? 'Save a link, topic, or thought...' : ' '} disabled={submitting}
+                  placeholder={inputSuccess ? ' ' : !isEmptyState ? 'Save a link, topic, or thought...' : ' '} disabled={submitting}
                   className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
                              placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
                              focus:bg-white/[0.10] disabled:opacity-40 transition-all
-                             ${isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
+                             ${inputSuccess ? 'border-teal-500/25 shadow-[0_0_12px_rgba(20,184,166,0.08)]' : isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
                 />
-                {isEmptyState && !textInput && !inputFocused && (
+                {inputSuccess && !textInput && !inputFocused ? (
+                  <span className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap">
+                    ✓ {inputSuccess}
+                  </span>
+                ) : isEmptyState && !textInput && !inputFocused && !inputSuccess ? (
                   <span className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}>
                     {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
                   </span>
-                )}
+                ) : null}
                 <span className="flare-right" /><span className="flare-bottom" /><span className="flare-left" />
               </div>
               <div className="flex gap-2">
