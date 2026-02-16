@@ -130,18 +130,39 @@ export async function generateEpisode(params: {
     }
 
     // Extract JSON from response (handle potential markdown wrapping)
-    const jsonText = textContent.text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    let rawText = textContent.text.trim();
+    // Strip markdown code fences (```json ... ``` or ``` ... ```)
+    rawText = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '');
+
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error('[Poddit] No JSON object found. Raw text:', rawText.slice(0, 1000));
       throw new Error('Could not extract JSON from response');
     }
 
+    let jsonStr = jsonMatch[0];
+
     let episodeData: EpisodeData;
     try {
-      episodeData = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('[Poddit] JSON parse failed. Raw text:', textContent.text.slice(0, 500));
-      throw new Error('Failed to parse Claude response as JSON');
+      episodeData = JSON.parse(jsonStr);
+    } catch (firstError) {
+      // Attempt repair: fix common issues (unescaped control chars in string values)
+      console.warn('[Poddit] First JSON parse failed, attempting repair...');
+      try {
+        // Replace unescaped control characters inside strings (newlines, tabs)
+        jsonStr = jsonStr.replace(/[\x00-\x1f]/g, (ch) => {
+          if (ch === '\n') return '\\n';
+          if (ch === '\r') return '\\r';
+          if (ch === '\t') return '\\t';
+          return '';
+        });
+        episodeData = JSON.parse(jsonStr);
+        console.log('[Poddit] JSON repair succeeded');
+      } catch (repairError) {
+        console.error('[Poddit] JSON parse failed after repair. Raw text (first 1500 chars):', rawText.slice(0, 1500));
+        console.error('[Poddit] JSON parse failed around:', jsonStr.slice(0, 500));
+        throw new Error('Failed to parse Claude response as JSON');
+      }
     }
 
     // Basic schema validation
