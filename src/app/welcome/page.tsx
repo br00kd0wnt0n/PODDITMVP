@@ -122,7 +122,7 @@ export default function WelcomePage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-400">Email Forward <span className="text-xs text-stone-600 font-normal ml-1">Coming soon</span></p>
+                <p className="text-sm font-medium text-stone-400">Email Forward</p>
                 <p className="text-xs text-stone-600 mt-0.5">
                   Forward newsletters to capture@poddit.com
                 </p>
