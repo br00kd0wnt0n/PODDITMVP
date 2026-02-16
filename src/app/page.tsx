@@ -1361,25 +1361,27 @@ function Dashboard() {
         </div>
       </section>
 
-      {/* Share confirmation toast */}
-      {shared === 'success' && (
-        <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
-          Captured! It&apos;ll show up in your next episode.
-        </div>
-      )}
-
-      {/* Generate error toast */}
-      {generateError && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
-          <span>Generation failed: {generateError}</span>
-          <button onClick={() => setGenerateError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-        </div>
-      )}
-
       {/* ══════════════════════════════════════════════════════════════ */}
-      {/* ── YOUR QUEUE ───────────────────────────────────────────── */}
+      {/* ── TWO-COLUMN LAYOUT: Queue + Episodes (side-by-side on lg) */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-6">
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+
+      {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
+      <section className="mb-6 lg:mb-0">
+        {/* Share confirmation toast */}
+        {shared === 'success' && (
+          <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
+            Captured! It&apos;ll show up in your next episode.
+          </div>
+        )}
+
+        {/* Generate error toast */}
+        {generateError && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+            <span>Generation failed: {generateError}</span>
+            <button onClick={() => setGenerateError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+          </div>
+        )}
         <div className="flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">Your Queue</h2>
@@ -1585,10 +1587,8 @@ function Dashboard() {
           </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════ */}
-      {/* ── YOUR EPISODES ────────────────────────────────────────── */}
-      {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-6">
+      {/* ── YOUR EPISODES (right column on desktop) ─────────────── */}
+      <section className="mb-6 lg:mb-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Your Episodes</h2>
           {episodes.length > 0 && (
@@ -1690,8 +1690,10 @@ function Dashboard() {
         )}
       </section>
 
+      </div>{/* end two-column grid */}
+
       {/* ══════════════════════════════════════════════════════════════ */}
-      {/* ── YOUR INSIGHTS ────────────────────────────────────────── */}
+      {/* ── YOUR HIGHLIGHTS ────────────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
       <section className="mb-6 relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
         {/* Inner bokeh for Insights panel */}
