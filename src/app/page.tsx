@@ -285,11 +285,12 @@ function Dashboard() {
   });
 
   // ── Empty state derived values (used by effects below) ──
+  const readyEpisodes = episodes.filter(ep => ep.status === 'READY');
   const isEmptyState = signals.length === 0 && !loading;
-  const hasSignalsNoEpisode = signals.length > 0 && episodes.length === 0;
-  const hasEpisodeReady = episodes.length > 0;
+  const hasSignalsNoEpisode = signals.length > 0 && readyEpisodes.length === 0;
+  const hasEpisodeReady = readyEpisodes.length > 0;
   const activeStep = hasEpisodeReady ? 3 : hasSignalsNoEpisode ? 2 : 1;
-  const atEpisodeLimit = episodeLimit > 0 && episodes.length >= episodeLimit;
+  const atEpisodeLimit = episodeLimit > 0 && readyEpisodes.length >= episodeLimit;
 
   // ── Branded hero computed values ──
   const getGreeting = () => {
@@ -301,9 +302,13 @@ function Dashboard() {
 
   const getHeroSubtitle = (): React.ReactNode => {
     if (atEpisodeLimit) {
-      return `You've generated ${episodes.length} episode${episodes.length !== 1 ? 's' : ''} so far. Complete the questionnaire to unlock more.`;
+      return `You've generated ${readyEpisodes.length} episode${readyEpisodes.length !== 1 ? 's' : ''} so far. Complete the questionnaire to unlock more.`;
     }
-    const latestEpisode = episodes.length > 0 ? episodes[0] : null;
+    const isGenerating = episodes.some(ep => ep.status === 'GENERATING' || ep.status === 'SYNTHESIZING');
+    if (isGenerating) {
+      return 'Your episode is being created — hang tight.';
+    }
+    const latestEpisode = readyEpisodes.length > 0 ? readyEpisodes[0] : null;
     if (latestEpisode && signals.length > 0) {
       return <>Your latest episode <strong className="italic">&ldquo;{latestEpisode.title}&rdquo;</strong> is ready. {signals.length} new signal{signals.length !== 1 ? 's' : ''} waiting.</>;
     }
@@ -1845,11 +1850,6 @@ function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      {/* Mini progress bar */}
-                      <div className="mt-3 h-1 rounded-full bg-white/[0.05] overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-teal-500/30 via-teal-400/50 to-teal-500/30 animate-pulse transition-all duration-1000"
-                          style={{ width: ep.status === 'SYNTHESIZING' ? '75%' : '40%' }} />
-                      </div>
                     </div>
                   </div>
                 );
@@ -1986,10 +1986,10 @@ function Dashboard() {
 
                   {/* Activity snapshot */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {episodes.length > 0 && (
+                    {readyEpisodes.length > 0 && (
                       <div className="p-3 bg-white/[0.03] border border-white/[0.05] rounded-xl text-center">
-                        <p className="text-2xl font-bold text-white">{episodes.length}</p>
-                        <p className="text-xs text-stone-500 mt-0.5">episode{episodes.length !== 1 ? 's' : ''} created</p>
+                        <p className="text-2xl font-bold text-white">{readyEpisodes.length}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">episode{readyEpisodes.length !== 1 ? 's' : ''} created</p>
                       </div>
                     )}
                     {signals.length > 0 && (
