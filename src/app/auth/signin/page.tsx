@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import Image from 'next/image';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -57,16 +58,7 @@ export default function SignInPage() {
 
       {/* Hero lockup: animated logo + title + subtitle */}
       <div className="relative z-10 flex flex-col items-center mb-10">
-        <div className="w-28 h-28 rounded-3xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.12] mb-6">
-          <video
-            src="/logo_loop.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <Image src="/logo.png" alt="Poddit" width={112} height={112} className="rounded-3xl ring-1 ring-white/10 shadow-2xl shadow-amber-500/[0.12] mb-6" />
         <h1 className="text-4xl font-extrabold text-white tracking-tight font-display mb-1">PODDIT</h1>
         <p className="text-stone-400 text-sm tracking-widest uppercase">Your world, explained</p>
       </div>
