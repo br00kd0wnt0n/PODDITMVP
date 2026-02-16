@@ -62,6 +62,28 @@ export async function GET(request: NextRequest) {
   try {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const stuckThreshold = new Date(now.getTime() - 15 * 60 * 1000); // 15 min
+
+    // Auto-cleanup: mark episodes stuck in GENERATING/SYNTHESIZING for 15+ min as FAILED
+    // and release their signals back to QUEUED so users can retry
+    const zombieEpisodes = await prisma.episode.findMany({
+      where: { status: { in: ['GENERATING', 'SYNTHESIZING'] }, createdAt: { lt: stuckThreshold } },
+      select: { id: true },
+    });
+    if (zombieEpisodes.length > 0) {
+      const zombieIds = zombieEpisodes.map(e => e.id);
+      await prisma.$transaction([
+        prisma.episode.updateMany({
+          where: { id: { in: zombieIds } },
+          data: { status: 'FAILED', error: 'Timed out — stuck in generation for 15+ minutes' },
+        }),
+        prisma.signal.updateMany({
+          where: { episodeId: { in: zombieIds } },
+          data: { status: 'QUEUED', episodeId: null },
+        }),
+      ]);
+      console.log(`[Admin] Auto-cleaned ${zombieIds.length} stuck episode(s): ${zombieIds.join(', ')}`);
+    }
 
     const [
       totalSignals,
@@ -77,6 +99,11 @@ export async function GET(request: NextRequest) {
       recentSignals,
       failedSignals,
       failedEpisodes,
+      stuckEpisodes,
+      activeEpisodes,
+      lastSuccessfulEpisode,
+      totalReadyEpisodes,
+      totalFailedEpisodes,
       totalFeedback,
       newFeedbackCount,
       recentFeedback,
@@ -123,18 +150,48 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
       }),
+      // Failed signals (last 7 days only)
       prisma.signal.findMany({
-        where: { status: 'FAILED' },
+        where: { status: 'FAILED', createdAt: { gte: weekAgo } },
         orderBy: { createdAt: 'desc' },
         take: 10,
         select: { id: true, rawContent: true, channel: true, createdAt: true },
       }),
+      // Failed episodes (last 7 days only)
       prisma.episode.findMany({
-        where: { status: 'FAILED' },
+        where: { status: 'FAILED', createdAt: { gte: weekAgo } },
         orderBy: { createdAt: 'desc' },
         take: 10,
         select: { id: true, title: true, error: true, createdAt: true },
       }),
+      // Stuck episodes (GENERATING/SYNTHESIZING for more than 10 min — zombies)
+      prisma.episode.findMany({
+        where: {
+          status: { in: ['GENERATING', 'SYNTHESIZING'] },
+          createdAt: { lt: new Date(now.getTime() - 10 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, title: true, status: true, createdAt: true, user: { select: { name: true, email: true } } },
+      }),
+      // Currently generating (active, not stuck)
+      prisma.episode.findMany({
+        where: {
+          status: { in: ['GENERATING', 'SYNTHESIZING'] },
+          createdAt: { gte: new Date(now.getTime() - 10 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, title: true, status: true, createdAt: true, user: { select: { name: true, email: true } } },
+      }),
+      // Last successful episode
+      prisma.episode.findFirst({
+        where: { status: 'READY' },
+        orderBy: { generatedAt: 'desc' },
+        select: { id: true, title: true, generatedAt: true, user: { select: { name: true, email: true } } },
+      }),
+      // Total ready episodes (all time)
+      prisma.episode.count({ where: { status: 'READY' } }),
+      // Total failed episodes (all time, for context)
+      prisma.episode.count({ where: { status: 'FAILED' } }),
       // Feedback queries
       prisma.feedback.count(),
       prisma.feedback.count({ where: { status: 'NEW' } }),
@@ -249,6 +306,12 @@ export async function GET(request: NextRequest) {
         recent: recentFeedback,
       },
       health: {
+        status: stuckEpisodes.length > 0 ? 'stuck' : activeEpisodes.length > 0 ? 'generating' : failedEpisodes.length > 0 || failedSignals.length > 0 ? 'issues' : 'healthy',
+        activeEpisodes,
+        stuckEpisodes,
+        lastSuccessfulEpisode,
+        totalReadyEpisodes,
+        totalFailedEpisodes,
         failedSignals,
         failedEpisodes,
       },

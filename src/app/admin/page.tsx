@@ -57,6 +57,29 @@ interface AdminStats {
     }>;
   };
   health: {
+    status: 'healthy' | 'generating' | 'issues' | 'stuck';
+    activeEpisodes: Array<{
+      id: string;
+      title: string | null;
+      status: string;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+    stuckEpisodes: Array<{
+      id: string;
+      title: string | null;
+      status: string;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+    lastSuccessfulEpisode: {
+      id: string;
+      title: string | null;
+      generatedAt: string | null;
+      user: { name: string | null; email: string | null };
+    } | null;
+    totalReadyEpisodes: number;
+    totalFailedEpisodes: number;
     failedSignals: Array<{
       id: string;
       rawContent: string;
@@ -418,8 +441,6 @@ function AdminDashboard() {
 
   if (!stats) return null;
 
-  const totalFailed = stats.health.failedSignals.length + stats.health.failedEpisodes.length;
-
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
@@ -666,38 +687,97 @@ function AdminDashboard() {
         <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
           <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">System Health</h2>
 
-          {totalFailed === 0 ? (
-            <div className="flex items-center gap-2 p-4 bg-teal-500/5 border border-teal-500/10 rounded-xl">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                   className="text-teal-400">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              <p className="text-sm text-teal-300">All systems healthy</p>
+          {/* Current status banner */}
+          {stats.health.status === 'stuck' ? (
+            <div className="flex items-center gap-2 p-4 bg-red-500/5 border border-red-500/10 rounded-xl mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              <div>
+                <p className="text-sm text-red-300 font-medium">Stuck episodes detected</p>
+                <p className="text-xs text-red-400/70">{stats.health.stuckEpisodes.length} episode{stats.health.stuckEpisodes.length !== 1 ? 's' : ''} stuck in generation for 10+ minutes</p>
+              </div>
+            </div>
+          ) : stats.health.status === 'generating' ? (
+            <div className="flex items-center gap-2 p-4 bg-violet-500/5 border border-violet-500/10 rounded-xl mb-4">
+              <svg className="animate-spin h-4 w-4 text-violet-400 flex-shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              <div>
+                <p className="text-sm text-violet-300 font-medium">Generation in progress</p>
+                <p className="text-xs text-violet-400/70">{stats.health.activeEpisodes.map(ep => ep.user?.name || ep.user?.email || 'Unknown').join(', ')}</p>
+              </div>
+            </div>
+          ) : stats.health.status === 'issues' ? (
+            <div className="flex items-center gap-2 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+              <div>
+                <p className="text-sm text-amber-300 font-medium">Recent failures</p>
+                <p className="text-xs text-amber-400/70">{stats.health.failedEpisodes.length} episode{stats.health.failedEpisodes.length !== 1 ? 's' : ''}, {stats.health.failedSignals.length} signal{stats.health.failedSignals.length !== 1 ? 's' : ''} failed this week</p>
+              </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {stats.health.failedSignals.map((s) => (
-                <div key={s.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
+            <div className="flex items-center gap-2 p-4 bg-teal-500/5 border border-teal-500/10 rounded-xl mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              <p className="text-sm text-teal-300">All systems healthy</p>
+            </div>
+          )}
+
+          {/* Quick stats row */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
+              <p className="text-lg font-bold text-white">{stats.health.totalReadyEpisodes}</p>
+              <p className="text-[10px] text-stone-500 mt-0.5">episodes delivered</p>
+            </div>
+            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
+              <p className="text-lg font-bold text-white">{stats.health.totalFailedEpisodes}</p>
+              <p className="text-[10px] text-stone-500 mt-0.5">total failures</p>
+            </div>
+            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
+              <p className="text-lg font-bold text-white">{stats.health.lastSuccessfulEpisode ? timeAgo(stats.health.lastSuccessfulEpisode.generatedAt || '') : '—'}</p>
+              <p className="text-[10px] text-stone-500 mt-0.5">last success</p>
+            </div>
+          </div>
+
+          {/* Stuck episodes (critical) */}
+          {stats.health.stuckEpisodes.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Stuck (10+ min)</p>
+              {stats.health.stuckEpisodes.map((ep) => (
+                <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg mb-2">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">SIGNAL</span>
-                    <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">{s.channel}</span>
-                    <span className="text-xs text-stone-600">{timeAgo(s.createdAt)}</span>
-                  </div>
-                  <p className="text-sm text-red-300 truncate">{s.rawContent.slice(0, 100)}</p>
-                </div>
-              ))}
-              {stats.health.failedEpisodes.map((ep) => (
-                <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">EPISODE</span>
+                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">{ep.status}</span>
                     <span className="text-xs text-stone-600">{timeAgo(ep.createdAt)}</span>
+                    <span className="text-xs text-stone-600">{ep.user?.name || ep.user?.email}</span>
                   </div>
                   <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
-                  {ep.error && <p className="text-xs text-red-400 truncate mt-0.5">{ep.error}</p>}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Recent failures (last 7 days) */}
+          {(stats.health.failedEpisodes.length > 0 || stats.health.failedSignals.length > 0) && (
+            <div>
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Failures (last 7 days)</p>
+              <div className="space-y-2">
+                {stats.health.failedEpisodes.map((ep) => (
+                  <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">EPISODE</span>
+                      <span className="text-xs text-stone-600">{timeAgo(ep.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
+                    {ep.error && <p className="text-xs text-red-400 truncate mt-0.5">{ep.error}</p>}
+                  </div>
+                ))}
+                {stats.health.failedSignals.map((s) => (
+                  <div key={s.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">SIGNAL</span>
+                      <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">{s.channel}</span>
+                      <span className="text-xs text-stone-600">{timeAgo(s.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-red-300 truncate">{s.rawContent.slice(0, 100)}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
