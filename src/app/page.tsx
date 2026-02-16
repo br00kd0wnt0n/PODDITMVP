@@ -105,10 +105,12 @@ function Dashboard() {
   // Welcome banner state
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
 
-  // Empty state
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  // Empty state — typewriter placeholder
+  const [typedText, setTypedText] = useState('');
+  const [twFading, setTwFading] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
-  const placeholderTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const typewriterRef = useRef<NodeJS.Timeout | null>(null);
+  const twStateRef = useRef({ phraseIdx: 0, charIdx: 0, phase: 'typing' as 'typing' | 'holding' | 'fading' | 'pause' });
 
   // Welcome overlay (first-load only, persisted in localStorage)
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
@@ -267,17 +269,53 @@ function Dashboard() {
   };
 
   // Placeholder text cycling timer
+  // Typewriter effect for placeholder text
   useEffect(() => {
     if (!isEmptyState) {
-      setPlaceholderIndex(0);
-      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
+      setTypedText('');
+      twStateRef.current = { phraseIdx: 0, charIdx: 0, phase: 'typing' };
+      if (typewriterRef.current) clearInterval(typewriterRef.current);
       return;
     }
-    placeholderTimerRef.current = setInterval(() => {
-      setPlaceholderIndex(prev => (prev + 1) % HERO_PLACEHOLDERS.length);
-    }, 3500);
+    const tick = () => {
+      const s = twStateRef.current;
+      const phrase = HERO_PLACEHOLDERS[s.phraseIdx];
+      if (s.phase === 'typing') {
+        s.charIdx++;
+        setTypedText(phrase.slice(0, s.charIdx));
+        if (s.charIdx >= phrase.length) {
+          s.phase = 'holding';
+        }
+      } else if (s.phase === 'holding') {
+        // Hold for ~2s (40 ticks at 50ms)
+        s.charIdx++;
+        if (s.charIdx >= phrase.length + 40) {
+          s.phase = 'fading';
+          setTwFading(true);
+          s.charIdx = 0;
+        }
+      } else if (s.phase === 'fading') {
+        // Wait for fade-out animation (~500ms = 10 ticks)
+        s.charIdx++;
+        if (s.charIdx >= 10) {
+          setTwFading(false);
+          setTypedText('');
+          s.phase = 'pause';
+          s.charIdx = 0;
+        }
+      } else {
+        // Brief pause before next phrase (~10 ticks = 500ms)
+        s.charIdx++;
+        if (s.charIdx >= 10) {
+          s.phraseIdx = (s.phraseIdx + 1) % HERO_PLACEHOLDERS.length;
+          s.charIdx = 0;
+          s.phase = 'typing';
+        }
+      }
+    };
+    typewriterRef.current = setInterval(tick, 50);
     return () => {
-      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
+      if (typewriterRef.current) clearInterval(typewriterRef.current);
     };
   }, [isEmptyState]);
 
@@ -288,7 +326,7 @@ function Dashboard() {
       if (fbTimerRef.current) clearInterval(fbTimerRef.current);
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (placeholderTimerRef.current) clearInterval(placeholderTimerRef.current);
+      if (typewriterRef.current) clearInterval(typewriterRef.current);
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
@@ -1273,10 +1311,9 @@ function Dashboard() {
               />
               {isEmptyState && !textInput && !inputFocused && (
                 <span
-                  key={placeholderIndex}
-                  className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none animate-placeholder-cycle overflow-hidden whitespace-nowrap text-ellipsis"
+                  className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}
                 >
-                  {HERO_PLACEHOLDERS[placeholderIndex]}
+                  {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
                 </span>
               )}
               {/* Lens flare edges — right, bottom, left (top uses ::before) */}
@@ -1337,9 +1374,9 @@ function Dashboard() {
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
-            {/* Share */}
+            {/* Email */}
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+              <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
             </svg>
             {/* Mic */}
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1435,17 +1472,23 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* App Share */}
-            <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
+            {/* Email */}
+            <button
+              onClick={() => {
+                window.location.href = 'mailto:capture@poddit.com';
+              }}
+              className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30
+                         hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+                   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                   className="text-stone-600 group-hover:text-teal-400 transition-colors">
+                <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
               </svg>
               <div>
-                <p className="text-xs font-medium text-stone-300">Share</p>
-                <p className="text-[10px] text-stone-600 mt-0.5">From any app</p>
+                <p className="text-xs font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Email</p>
+                <p className="text-[10px] text-stone-600 mt-0.5 font-mono">capture@poddit.com</p>
               </div>
-            </div>
+            </button>
 
             {/* Direct Input */}
             <div className="flex flex-col items-center gap-2 p-3 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">

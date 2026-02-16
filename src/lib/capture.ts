@@ -18,17 +18,19 @@ export function extractUrls(text: string): string[] {
 }
 
 export function classifyInput(rawContent: string): { type: InputType; urls: string[] } {
-  const urls = extractUrls(rawContent);
-
-  if (urls.length > 0) {
-    return { type: 'LINK', urls };
-  }
-
-  // Check if it looks like a forwarded email (has common forward indicators)
+  // Check for forwarded email FIRST — before URL extraction
+  // Forwarded emails contain many embedded URLs (signatures, trackers, article links)
+  // that shouldn't each become separate signals
   if (rawContent.includes('---------- Forwarded message') ||
       rawContent.includes('Begin forwarded message') ||
       (rawContent.includes('From:') && rawContent.includes('Subject:'))) {
     return { type: 'FORWARDED_EMAIL', urls: [] };
+  }
+
+  const urls = extractUrls(rawContent);
+
+  if (urls.length > 0) {
+    return { type: 'LINK', urls };
   }
 
   // Otherwise it's a topic/thought
@@ -126,6 +128,22 @@ export async function createSignal(params: {
   }
 
   const { type, urls } = classifyInput(rawContent);
+
+  // Email channel → always one signal per email (never split on embedded URLs)
+  if (channel === 'EMAIL') {
+    const signal = await prisma.signal.create({
+      data: {
+        userId,
+        inputType: type === 'LINK' ? 'FORWARDED_EMAIL' : type,
+        channel,
+        rawContent: rawContent.trim(),
+        url: urls.length === 1 ? urls[0] : null,
+        status: 'QUEUED',
+      },
+    });
+    enrichSignal(signal.id).catch(console.error);
+    return [signal];
+  }
 
   // If it's a link, create one signal per URL
   if (type === 'LINK' && urls.length > 0) {

@@ -340,30 +340,7 @@ input[type="checkbox"] {
   animation: modal-exit 0.25s ease-in forwards;
 }
 
-/* ── Empty State Visual Overhaul ── */
-
-/* Ghost signal breathing — subtle idle animation */
-@keyframes ghost-signal-breathe {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(1.005); }
-}
-
-@keyframes ghost-signal-breathe-active {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.01); }
-}
-
-/* Ghost container exit — all ghosts fade out together */
-@keyframes ghost-container-exit {
-  0% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-16px); }
-}
-
-/* Ghost waveform bars — staggered scaleY oscillation */
-@keyframes ghost-waveform-bar {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.5); }
-}
+/* ── Empty State ── */
 
 /* Mic button pulse in empty state */
 @keyframes mic-pulse {
@@ -371,38 +348,26 @@ input[type="checkbox"] {
   50% { box-shadow: 0 0 12px 2px rgba(167, 139, 250, 0.12); }
 }
 
-/* Placeholder text cycling — fade in, hold, fade out (no translateY to avoid centering conflict) */
-@keyframes placeholder-cycle {
-  0% { opacity: 0; }
-  12% { opacity: 1; }
-  88% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-.ghost-signal-breathe {
-  animation: ghost-signal-breathe 3s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
-.ghost-signal-breathe-active {
-  animation: ghost-signal-breathe-active 3s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
-.ghost-container-exit {
-  animation: ghost-container-exit 0.6s ease-in forwards;
-  pointer-events: none;
-}
-
-.ghost-waveform-bar {
-  animation: ghost-waveform-bar 1.2s ease-in-out infinite;
-  will-change: transform;
-}
-
 .animate-mic-pulse {
   animation: mic-pulse 2.5s ease-in-out infinite;
 }
 
-.animate-placeholder-cycle {
-  animation: placeholder-cycle 3.5s ease-in-out forwards;
+/* Blinking cursor for typewriter placeholder */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink-cursor {
+  animation: blink-cursor 0.8s step-end infinite;
+}
+
+/* Typewriter text fade out */
+@keyframes tw-fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-tw-fade-out {
+  animation: tw-fade-out 0.5s ease-out forwards;
 }

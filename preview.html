@@ -128,6 +128,13 @@
       background: linear-gradient(180deg, transparent, rgba(20,184,166,0.25), transparent);
       animation: input-flare-left 10s ease-in-out infinite; will-change: bottom, opacity; pointer-events: none; z-index: 2;
     }
+
+    /* Typewriter cursor blink */
+    @keyframes blink-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    .blink-cursor { animation: blink-cursor 0.8s step-end infinite; }
+    /* Typewriter fade out */
+    @keyframes tw-fade-out { 0% { opacity: 1; } 100% { opacity: 0; } }
+    .tw-fade-out { animation: tw-fade-out 0.5s ease-out forwards; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -173,7 +180,8 @@
     <section class="mb-4 relative z-10">
       <div class="flex flex-col sm:flex-row gap-2">
         <div class="relative flex-1 input-lens-flare">
-          <input type="text" placeholder="Save a link, topic, or thought..." class="w-full px-4 py-3 bg-stone-900/80 border border-teal-500/20 rounded-xl text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40 shadow-[0_0_16px_rgba(20,184,166,0.08)] transition-all" />
+          <input id="capture-input" type="text" placeholder=" " class="w-full px-4 py-3 bg-stone-900/80 border border-teal-500/20 rounded-xl text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500/40 shadow-[0_0_16px_rgba(20,184,166,0.08)] transition-all" />
+          <span id="typewriter-overlay" class="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap"><span id="tw-text"></span><span class="blink-cursor text-teal-400/60 font-light">|</span></span>
           <span class="flare-right"></span>
           <span class="flare-bottom"></span>
           <span class="flare-left"></span>
@@ -403,5 +411,40 @@
     </div>
   </div>
 
+<script>
+  // Typewriter effect for capture input placeholder
+  (function() {
+    const phrases = [
+      'Paste a link you\'ve been meaning to read...',
+      'What topic are you curious about?',
+      'Forward a newsletter to capture@poddit.com...',
+      'Drop a podcast episode URL...',
+      '"Why is everyone talking about X?"',
+    ];
+    const el = document.getElementById('tw-text');
+    const overlay = document.getElementById('typewriter-overlay');
+    const input = document.getElementById('capture-input');
+    let pi = 0, ci = 0, phase = 'typing';
+    input.addEventListener('focus', () => overlay.style.display = 'none');
+    input.addEventListener('blur', () => { if (!input.value) overlay.style.display = 'flex'; });
+    setInterval(() => {
+      const phrase = phrases[pi];
+      if (phase === 'typing') {
+        ci++;
+        el.textContent = phrase.slice(0, ci);
+        if (ci >= phrase.length) phase = 'holding';
+      } else if (phase === 'holding') {
+        ci++;
+        if (ci >= phrase.length + 40) { phase = 'fading'; overlay.classList.add('tw-fade-out'); ci = 0; }
+      } else if (phase === 'fading') {
+        ci++;
+        if (ci >= 10) { overlay.classList.remove('tw-fade-out'); el.textContent = ''; phase = 'pause'; ci = 0; }
+      } else {
+        ci++;
+        if (ci >= 10) { pi = (pi + 1) % phrases.length; ci = 0; phase = 'typing'; }
+      }
+    }, 50);
+  })();
+</script>
 </body>
 </html>
