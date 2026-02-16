@@ -47,7 +47,7 @@ Poddit is an AI-powered personal podcast app that captures curiosity signals (li
 │       ├── email.ts          # SendGrid outbound email (invite + revoke)
 │       ├── auth.ts           # Auth helpers (requireSession, requireAuth, requireAdminAuth, requireCronAuth)
 │       ├── auth-config.ts    # NextAuth config (Credentials provider, per-user invite codes + global fallback)
-│       ├── rate-limit.ts     # In-memory sliding-window rate limiter
+│       ├── rate-limit.ts     # In-memory sliding-window rate limiter (+ clearRateLimit helper)
 │       ├── transcribe.ts     # OpenAI Whisper transcription
 │       └── db.ts             # Prisma client singleton
 ├── extension/                # Chrome extension (capture from browser)
@@ -142,8 +142,9 @@ Episodes contain Segments (per-topic sections), each with source attribution. Th
 ### Cross-Service Architecture
 - **PODDIT** (app.poddit.com): Main app, Railway, PostgreSQL
 - **PODDIT-CONCEPT** (www.poddit.com): Landing/concept page, separate Express server + PostgreSQL
-- Admin dashboard fetches access requests from PODDIT-CONCEPT via `NEXT_PUBLIC_CONCEPT_API_URL`
+- Admin stats route fetches access requests from PODDIT-CONCEPT **server-side** via `CONCEPT_API_URL` (runtime env var, no CORS issues)
 - Both share the same `ADMIN_SECRET` for bearer token auth
+- Concept page (www.poddit.com) is publicly accessible (no password gate)
 
 ## Development Commands
 
@@ -211,7 +212,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] Atomic signal locking in $transaction (prevent duplicate episodes)
 - [x] Rollback signals to QUEUED on generation failure
 - [x] Retry with exponential backoff (Claude API, ElevenLabs, S3)
-- [x] maxDuration on generate (300s) and cron (600s) routes
+- [x] maxDuration on generate-now (300s), generate (300s) and cron (600s) routes
 - [x] Claude response truncation detection (stop_reason check)
 - [x] JSON schema validation on Claude synthesis response
 - [x] Bumped max_tokens 8000→12000
@@ -319,9 +320,19 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Grant Access button** — on Access Requests (from PODDIT-CONCEPT), sends branded invite email
 - [x] **Revoke/Restore/Resend** — buttons in Users table with status column (Active/Invited/Revoked/Pending)
 - [x] **Action toast** — success/error messages for invite and revoke operations
-- [x] **Cross-service access requests** — admin sees PODDIT-CONCEPT signups with NDA status
+- [x] **Cross-service access requests** — admin sees PODDIT-CONCEPT signups with NDA status (server-side fetch, no CORS)
 - [x] **BETA badge** — amber pill next to "PODDIT" in page header and welcome overlay
 - [x] **Domain migration** — fallback URLs updated to app.poddit.com
+
+### Sprint: Live Ops Fixes ✅
+- [x] **Server-side concept fetch** — moved access request fetching from client-side (NEXT_PUBLIC_CONCEPT_API_URL) to server-side in /api/admin/stats (CONCEPT_API_URL, runtime env var, no CORS/rebuild issues)
+- [x] **Twilio signature validation** — fixed for custom domain: uses TWILIO_WEBHOOK_URL (runtime) to construct validation URL instead of request.url (internal Railway URL)
+- [x] **Phone number prompt** — users without a phone number see an inline prompt when tapping Text/Voice, with flexible input (auto-prepends +1 for 10-digit numbers), saves via preferences API then opens SMS
+- [x] **Welcome overlay centering** — min-h-full flex wrapper with items-center + justify-center, outer container handles scroll overflow
+- [x] **Dashboard polling** — refreshData runs every 10 seconds so SMS/extension signals appear without page refresh
+- [x] **Generation timeout** — bumped generate-now maxDuration from 120s to 300s to prevent timeouts on slow connections
+- [x] **Rate limit reset on failure** — added clearRateLimit() helper; generation failures now reset the 5-min cooldown so users can retry immediately
+- [x] **Concept page password gate removed** — visitors can view landing page and submit access request form without entering a password
 
 ### Upcoming — P1 (Early Access → Pre-Launch)
 - [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
@@ -383,8 +394,9 @@ See `.env.example` for all required variables. Critical ones:
 - `CRON_SECRET` — Secret for automated weekly generation
 - `SENDGRID_API_KEY` — For outbound invite/revoke emails
 - `SENDGRID_FROM_EMAIL` — Verified sender (default: noreply@poddit.com)
-- `NEXT_PUBLIC_APP_URL` — App URL (default: https://app.poddit.com)
-- `NEXT_PUBLIC_CONCEPT_API_URL` — PODDIT-CONCEPT server URL (for cross-service admin)
+- `NEXT_PUBLIC_APP_URL` — App URL (build-time, default: https://app.poddit.com)
+- `CONCEPT_API_URL` — PODDIT-CONCEPT server URL (server-side, runtime, for cross-service admin)
+- `TWILIO_WEBHOOK_URL` — Public app URL for Twilio signature validation (server-side, runtime, e.g. https://app.poddit.com)
 
 ## Code Style
 
