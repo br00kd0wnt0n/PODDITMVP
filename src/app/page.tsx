@@ -451,7 +451,25 @@ function Dashboard() {
         const sigs = results[1].value;
         const signalList = sigs.signals || [];
         setSignals(signalList);
-        setSelectedIds(new Set(signalList.map((s: Signal) => s.id)));
+        // Only reset selections on initial load — subsequent polls just add new signals
+        setSelectedIds(prev => {
+          if (prev.size === 0 && signalList.length > 0) {
+            // Initial load: select all
+            return new Set(signalList.map((s: Signal) => s.id));
+          }
+          // Subsequent polls: keep existing selections, auto-select new signals
+          const updated = new Set<string>(prev);
+          const currentIds = new Set<string>(signalList.map((s: Signal) => s.id));
+          // Add newly arrived signals
+          for (const id of currentIds) {
+            if (!prev.has(id)) updated.add(id);
+          }
+          // Remove signals that no longer exist (used/deleted)
+          for (const id of updated) {
+            if (!currentIds.has(id)) updated.delete(id);
+          }
+          return updated;
+        });
         const counts: Record<string, number> = {};
         (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
         setSignalCounts(counts);
