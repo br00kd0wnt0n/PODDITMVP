@@ -235,13 +235,20 @@ function Dashboard() {
     if (atEpisodeLimit) {
       return `You've generated ${episodes.length} episode${episodes.length !== 1 ? 's' : ''} so far. Complete the questionnaire to unlock more.`;
     }
-    if (episodes.length > 0) {
-      return 'Your latest episode is ready to play.';
+    const latestEpisode = episodes.length > 0 ? episodes[0] : null;
+    if (latestEpisode && signals.length > 0) {
+      return `Your latest episode "${latestEpisode.title}" is ready. ${signals.length} new signal${signals.length !== 1 ? 's' : ''} waiting.`;
+    }
+    if (latestEpisode) {
+      return `Your latest episode "${latestEpisode.title}" is ready to play.`;
+    }
+    if (signals.length >= 5) {
+      return `${signals.length} signals queued up \u2014 you've got a great episode brewing.`;
     }
     if (signals.length > 0) {
       return `You have ${signals.length} signal${signals.length !== 1 ? 's' : ''} in your queue \u2014 perfect for your next episode.`;
     }
-    return 'Ready to build your first personalized podcast?';
+    return 'Capture a link, topic, or voice note to get started.';
   };
 
   // ── Insights: topic frequency + channel breakdown ──
@@ -1299,8 +1306,8 @@ function Dashboard() {
           {/* Inner bokeh orbs */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-[-20%] left-[-10%] w-48 h-48 rounded-full bg-teal-500/20 blur-3xl bokeh-orb bokeh-1" />
-            <div className="absolute bottom-[-15%] right-[-5%] w-40 h-40 rounded-full bg-violet-400/18 blur-3xl bokeh-orb bokeh-2" />
-            <div className="absolute top-[30%] right-[20%] w-32 h-32 rounded-full bg-amber-400/12 blur-2xl bokeh-orb bokeh-3" />
+            <div className="absolute bottom-[-15%] right-[-5%] w-40 h-40 rounded-full bg-violet-400/[0.18] blur-3xl bokeh-orb bokeh-2" />
+            <div className="absolute top-[30%] right-[20%] w-32 h-32 rounded-full bg-amber-400/[0.12] blur-2xl bokeh-orb bokeh-3" />
           </div>
           <div className="relative z-10">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2">
@@ -1627,7 +1634,7 @@ function Dashboard() {
         {/* Inner bokeh for Insights panel */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute bottom-[-10%] left-[-5%] w-36 h-36 rounded-full bg-violet-400/10 blur-3xl bokeh-orb bokeh-2" />
-          <div className="absolute top-[-15%] right-[-5%] w-28 h-28 rounded-full bg-amber-400/8 blur-2xl bokeh-orb bokeh-4" />
+          <div className="absolute top-[-15%] right-[-5%] w-28 h-28 rounded-full bg-amber-400/[0.08] blur-2xl bokeh-orb bokeh-4" />
         </div>
         <div className="relative z-10 p-5">
           <button onClick={() => setInsightsExpanded(prev => !prev)} className="w-full flex items-center justify-between group">
@@ -1741,7 +1748,7 @@ function Dashboard() {
                 const isFuture = step > activeStep;
                 const badgeClass = isActive
                   ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
-                  : color === 'teal' ? 'bg-teal-500/8 text-teal-500/70' : color === 'violet' ? 'bg-violet-400/8 text-violet-400/70' : 'bg-amber-500/8 text-amber-400/70';
+                  : color === 'teal' ? 'bg-teal-500/[0.08] text-teal-500/70' : color === 'violet' ? 'bg-violet-400/[0.08] text-violet-400/70' : 'bg-amber-500/[0.08] text-amber-400/70';
                 return (
                   <div key={label} className={`flex items-start gap-3 p-3 rounded-xl bg-poddit-950/40 border border-stone-800/20 ${isFuture ? 'opacity-40' : ''}`}>
                     <span className={`flex-shrink-0 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${badgeClass}`}>{step}</span>
