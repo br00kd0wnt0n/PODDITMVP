@@ -27,6 +27,6 @@ export default auth((req) => {
 export const config = {
   matcher: [
     // Match all routes except static files
-    '/((?!_next/static|_next/image|favicon\\.ico|logo\\.png|logo2\\.png|logo_loop\\.mp4|apple-touch-icon\\.png|icons/|manifest\\.json|audio/|globals\\.css).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|logo\\.png|apple-touch-icon\\.png|icons/|manifest\\.json|audio/|globals\\.css).*)',
   ],
 };
