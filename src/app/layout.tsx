@@ -7,6 +7,14 @@ export const metadata: Metadata = {
   title: 'Poddit — Your World, Explained',
   description: 'Save what catches your eye. Poddit explains what it all means — connecting the dots, weighing the evidence, cutting through the noise.',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export const viewport: Viewport = {
