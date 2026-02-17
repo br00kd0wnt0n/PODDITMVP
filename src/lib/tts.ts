@@ -104,8 +104,14 @@ export async function generateAudio(
   // Concatenate audio chunks (simple concatenation works for MP3)
   const rawAudio = Buffer.concat(audioBuffers);
 
-  // Mix intro/outro music if available
-  const { buffer: mixedAudio, duration: actualDuration } = await mixWithMusic(rawAudio);
+  // Mix intro/outro music if available (retry once on transient ffprobe/ffmpeg failures)
+  const { buffer: mixedAudio, duration: actualDuration } = await withRetry(
+    () => mixWithMusic(rawAudio),
+    { label: 'Music mixing', attempts: 2, delayMs: 3000 }
+  ).catch((error) => {
+    console.error('[TTS] Music mixing failed after retries, using narration only:', error);
+    return { buffer: rawAudio, duration: 0 };
+  });
   const fullAudio = mixedAudio;
 
   // Use actual duration if we got it from ffmpeg, otherwise estimate
@@ -255,9 +261,8 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
 
     return { buffer: mixedBuffer, duration: Math.round(mixedDuration) };
   } catch (error) {
-    console.error('[TTS] Music mixing failed, using narration only:', error);
-    // Fallback: return original narration if mixing fails
-    return { buffer: narrationBuffer, duration: 0 };
+    console.error('[TTS] Music mixing attempt failed:', error);
+    throw error; // Let caller handle retry + fallback
   } finally {
     // Cleanup temp files
     await unlink(narrationPath).catch(() => {});
@@ -285,7 +290,7 @@ async function getAudioDuration(filePath: string): Promise<number> {
       '-print_format', 'json',
       '-show_format',
       filePath,
-    ], { timeout: 10000 }, (error, stdout, stderr) => {
+    ], { timeout: 30000 }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(`ffprobe failed: ${error.message}`));
         return;
