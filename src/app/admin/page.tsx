@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -104,6 +104,9 @@ interface AdminStats {
     revokedAt: string | null;
     episodeCount: number;
     signalCount: number;
+    feedbackCount: number;
+    ratingCount: number;
+    questionnaireCount: number;
   }>;
   episodeRatings: {
     total: number;
@@ -127,6 +130,7 @@ interface AdminStats {
     total: number;
     responses: Array<{
       id: string;
+      userId: string;
       responses: Record<string, string | string[]>;
       milestone: number;
       createdAt: string;
@@ -208,6 +212,156 @@ const STATUS_DOT_COLORS: Record<string, string> = {
 };
 
 // ──────────────────────────────────────────────
+// TRASH ICON (reusable)
+// ──────────────────────────────────────────────
+
+function TrashButton({ onClick, size = 14 }: { onClick: () => void; size?: number }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-1.5 rounded-lg text-stone-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+      title="Delete"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+      </svg>
+    </button>
+  );
+}
+
+// ──────────────────────────────────────────────
+// CONFIRM DELETE MODAL
+// ──────────────────────────────────────────────
+
+function ConfirmDeleteModal({
+  isOpen,
+  onConfirm,
+  onCancel,
+  title,
+  description,
+  loading,
+  requireTypedConfirmation,
+}: {
+  isOpen: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  title: string;
+  description: ReactNode;
+  loading: boolean;
+  requireTypedConfirmation?: boolean;
+}) {
+  const [typed, setTyped] = useState('');
+
+  // Reset typed value when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) setTyped('');
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const canConfirm = requireTypedConfirmation ? typed === 'DELETE' : true;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-md p-6 bg-poddit-900 border border-red-500/20 rounded-2xl shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                 className="text-red-400">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+        </div>
+
+        <div className="text-sm text-stone-400 mb-5 leading-relaxed">{description}</div>
+
+        {requireTypedConfirmation && (
+          <div className="mb-5">
+            <label className="block text-xs text-stone-500 mb-1.5">
+              Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="DELETE"
+              autoFocus
+              className="w-full px-3 py-2 bg-poddit-950 border border-stone-800 rounded-lg text-sm text-white
+                         placeholder:text-stone-700 focus:outline-none focus:ring-1 focus:ring-red-500/30
+                         focus:border-red-500/30 font-mono"
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 border border-stone-800 text-stone-400 text-sm rounded-xl
+                       hover:bg-poddit-800 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading || !canConfirm}
+            className="flex-1 py-2.5 bg-red-500 text-white text-sm font-bold rounded-xl
+                       hover:bg-red-600 disabled:bg-red-500/30 disabled:text-red-300/50
+                       disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Deleting...
+              </span>
+            ) : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+// TAB BUTTON
+// ──────────────────────────────────────────────
+
+function TabButton({ label, count, active, onClick }: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+        active
+          ? 'bg-white/10 text-white'
+          : 'text-stone-500 hover:text-stone-300 hover:bg-white/[0.03]'
+      }`}
+    >
+      {label}{count !== undefined ? ` (${count})` : ''}
+    </button>
+  );
+}
+
+// ──────────────────────────────────────────────
 // ADMIN LOGIN
 // ──────────────────────────────────────────────
 
@@ -286,6 +440,20 @@ function AdminDashboard() {
   const [revokingUser, setRevokingUser] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Tab state
+  const [peopleTab, setPeopleTab] = useState<'users' | 'requests'>('users');
+  const [insightsTab, setInsightsTab] = useState<'feedback' | 'ratings' | 'questionnaire'>('feedback');
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    type: 'user' | 'feedback' | 'questionnaire' | 'access-request' | 'episode';
+    id: string;
+    title: string;
+    description: ReactNode;
+    requireTyped?: boolean;
+  } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Check sessionStorage on mount
   useEffect(() => {
     const saved = sessionStorage.getItem('poddit-admin-key');
@@ -333,7 +501,6 @@ function AdminDashboard() {
         body: JSON.stringify({ userId, userType: newType }),
       });
       if (res.ok) {
-        // Refresh stats to reflect the change
         await fetchStats(adminKey);
       }
     } catch {
@@ -400,6 +567,56 @@ function AdminDashboard() {
       setActionMessage({ type: 'error', text: 'Failed to revoke access' });
     } finally {
       setRevokingUser(null);
+    }
+  };
+
+  // Generic delete handler
+  const handleDelete = async () => {
+    if (!deleteModal || !adminKey) return;
+    setDeleteLoading(true);
+    try {
+      let body: Record<string, string>;
+      switch (deleteModal.type) {
+        case 'user':
+          body = { action: 'delete-user', userId: deleteModal.id };
+          break;
+        case 'feedback':
+          body = { action: 'delete-feedback', feedbackId: deleteModal.id };
+          break;
+        case 'questionnaire':
+          body = { action: 'delete-questionnaire', userId: deleteModal.id };
+          break;
+        case 'access-request':
+          body = { action: 'delete-access-request', accessRequestId: deleteModal.id };
+          break;
+        case 'episode':
+          body = { action: 'delete-episode', episodeId: deleteModal.id };
+          break;
+        default:
+          return;
+      }
+
+      const res = await fetch('/api/admin/cleanup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ type: 'success', text: data.message || 'Deleted successfully' });
+        await fetchStats(adminKey);
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Delete failed' });
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Delete request failed' });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteModal(null);
     }
   };
 
@@ -590,7 +807,7 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Episode Overview */}
+        {/* Episode Overview — scrollable */}
         <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
           <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Episode Overview</h2>
 
@@ -610,8 +827,8 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* Recent episodes list */}
-          <div className="space-y-1">
+          {/* Recent episodes list — scrollable */}
+          <div className="max-h-96 overflow-y-auto space-y-1 pr-1">
             {stats.episodes.recent.map((ep) => (
               <div
                 key={ep.id}
@@ -648,10 +865,10 @@ function AdminDashboard() {
       {/* ── Two-Column: Activity + Health ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-        {/* Activity Timeline */}
+        {/* Activity Timeline — scrollable */}
         <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
           <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Activity Timeline</h2>
-          <div className="space-y-0">
+          <div className="max-h-96 overflow-y-auto space-y-0 pr-1">
             {stats.recentSignals.map((signal) => (
               <div key={signal.id} className="flex items-start gap-3 py-2.5 border-b border-stone-800/30 last:border-0">
                 <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">
@@ -730,7 +947,7 @@ function AdminDashboard() {
               <p className="text-[10px] text-stone-500 mt-0.5">total failures</p>
             </div>
             <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
-              <p className="text-lg font-bold text-white">{stats.health.lastSuccessfulEpisode ? timeAgo(stats.health.lastSuccessfulEpisode.generatedAt || '') : '—'}</p>
+              <p className="text-lg font-bold text-white">{stats.health.lastSuccessfulEpisode ? timeAgo(stats.health.lastSuccessfulEpisode.generatedAt || '') : '\u2014'}</p>
               <p className="text-[10px] text-stone-500 mt-0.5">last success</p>
             </div>
           </div>
@@ -756,7 +973,7 @@ function AdminDashboard() {
           {(stats.health.failedEpisodes.length > 0 || stats.health.failedSignals.length > 0) && (
             <div>
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Failures (last 7 days)</p>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {stats.health.failedEpisodes.map((ep) => (
                   <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
@@ -783,411 +1000,549 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── User Feedback ── */}
-      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-400/60" />
-            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">User Feedback</h2>
-            {stats.feedback.new > 0 && (
-              <span className="text-xs bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full">
-                {stats.feedback.new} new
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-stone-600">{stats.feedback.total} total</span>
-        </div>
-
-        {stats.feedback.recent.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="text-stone-600 mb-3">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <p className="text-stone-500 text-sm">No feedback yet</p>
-            <p className="text-stone-600 text-xs mt-1">User feedback will appear here once submitted</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {stats.feedback.recent.map((fb) => (
-              <div key={fb.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {/* Type badge */}
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                    fb.type === 'REQUEST' ? 'bg-amber-500/15 text-amber-300'
-                    : fb.type === 'VOICE' ? 'bg-violet-500/15 text-violet-300'
-                    : 'bg-teal-500/15 text-teal-300'
-                  }`}>
-                    {fb.type}
-                  </span>
-                  {/* Status badge */}
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    fb.status === 'NEW' ? 'bg-amber-500/15 text-amber-300'
-                    : fb.status === 'REVIEWED' ? 'bg-stone-800 text-stone-400'
-                    : 'bg-teal-500/10 text-teal-400'
-                  }`}>
-                    {fb.status}
-                  </span>
-                  <span className="text-xs text-stone-600 ml-auto">{timeAgo(fb.createdAt)}</span>
-                </div>
-                <p className="text-sm text-poddit-100 line-clamp-2">{fb.content}</p>
-                <p className="text-xs text-stone-600 mt-1.5">
-                  {fb.user.name || fb.user.email || 'Unknown user'}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Episode Ratings ── */}
-      {(stats.episodeRatings?.total || 0) > 0 && (
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-violet-400/60" />
-              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Episode Ratings</h2>
-            </div>
-            <span className="text-xs text-stone-600">{stats.episodeRatings.total} total</span>
-          </div>
-
-          {/* Average scores */}
-          {stats.episodeRatings.averages.enjoyment !== null && (
-            <div className="flex flex-wrap gap-3 mb-5">
-              {[
-                { label: 'Enjoyment', value: stats.episodeRatings.averages.enjoyment, color: 'teal' },
-                { label: 'Resonance', value: stats.episodeRatings.averages.resonance, color: 'violet' },
-                { label: 'Connections', value: stats.episodeRatings.averages.connections, color: 'amber' },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="flex-1 min-w-[100px] p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
-                  <p className="text-xs text-stone-500 mb-1">{label}</p>
-                  <p className={`text-xl font-extrabold ${
-                    color === 'teal' ? 'text-teal-300' : color === 'violet' ? 'text-violet-300' : 'text-amber-300'
-                  }`}>
-                    {value !== null ? value.toFixed(1) : '--'}
-                  </p>
-                  <p className="text-xs text-stone-600">/ 5</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Recent ratings */}
-          <div className="space-y-2">
-            {stats.episodeRatings.recent.map((rating) => {
-              const avg = ((rating.enjoyment + rating.resonance + rating.connections) / 3);
-              const hasLow = rating.enjoyment <= 2 || rating.resonance <= 2 || rating.connections <= 2;
-              return (
-                <div key={rating.id} className={`p-3 bg-poddit-950/40 border rounded-lg ${
-                  hasLow ? 'border-amber-500/20' : 'border-stone-800/30'
-                }`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm text-white truncate">{rating.episode.title || 'Untitled'}</span>
-                      {hasLow && (
-                        <span className="text-xs bg-amber-500/15 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">Low</span>
-                      )}
-                    </div>
-                    <span className="text-xs text-stone-600 flex-shrink-0 ml-2">{timeAgo(rating.createdAt)}</span>
-                  </div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-xs text-stone-500">Enjoy: <span className="text-teal-300 font-mono">{rating.enjoyment}</span></span>
-                    <span className="text-xs text-stone-500">Reson: <span className="text-violet-300 font-mono">{rating.resonance}</span></span>
-                    <span className="text-xs text-stone-500">Conn: <span className="text-amber-300 font-mono">{rating.connections}</span></span>
-                    <span className="text-xs text-stone-600 font-mono ml-auto">avg {avg.toFixed(1)}</span>
-                  </div>
-                  {rating.feedback && (
-                    <p className="text-xs text-stone-300 mt-1.5 line-clamp-2 border-t border-stone-800/30 pt-1.5">&ldquo;{rating.feedback}&rdquo;</p>
-                  )}
-                  <p className="text-xs text-stone-600 mt-1">
-                    {rating.user.name || rating.user.email || 'Unknown user'}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Questionnaire Responses ── */}
-      {(stats.questionnaire?.responses || []).length > 0 && (
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-teal-400/60" />
-              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Questionnaire Responses</h2>
-            </div>
-            <span className="text-xs text-stone-600">{stats.questionnaire.total} total</span>
-          </div>
-
-          <div className="space-y-4">
-            {stats.questionnaire.responses.map((qr) => {
-              const r = qr.responses as Record<string, string | string[]>;
-              return (
-                <div key={qr.id} className="p-4 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white font-medium">{qr.user.name || qr.user.email || 'Unknown'}</span>
-                      <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">
-                        Milestone {qr.milestone}
-                      </span>
-                    </div>
-                    <span className="text-xs text-stone-600">{timeAgo(qr.createdAt)}</span>
-                  </div>
-
-                  <div className="space-y-2.5 text-xs">
-                    {r.describe && (
-                      <div>
-                        <span className="text-stone-500">Describe to a friend:</span>
-                        <p className="text-stone-300 mt-0.5">&ldquo;{r.describe}&rdquo;</p>
-                      </div>
-                    )}
-                    {r.useful && (
-                      <div>
-                        <span className="text-stone-500">Usefulness:</span>
-                        <span className="text-stone-300 ml-1.5">{r.useful}</span>
-                      </div>
-                    )}
-                    {r.changed && (
-                      <div>
-                        <span className="text-stone-500">Changed thinking:</span>
-                        <span className="text-stone-300 ml-1.5">{r.changed}</span>
-                      </div>
-                    )}
-                    {r.likelihood && (
-                      <div>
-                        <span className="text-stone-500">Open tomorrow:</span>
-                        <span className="text-stone-300 ml-1.5">{r.likelihood}</span>
-                      </div>
-                    )}
-                    {r.friction && (
-                      <div>
-                        <span className="text-stone-500">Friction:</span>
-                        <span className="text-stone-300 ml-1.5">{r.friction}</span>
-                      </div>
-                    )}
-                    {r.essential && (
-                      <div>
-                        <span className="text-stone-500">Can&apos;t live without:</span>
-                        <p className="text-stone-300 mt-0.5">&ldquo;{r.essential}&rdquo;</p>
-                      </div>
-                    )}
-                    {Array.isArray(r.listenWhen) && r.listenWhen.length > 0 && (
-                      <div>
-                        <span className="text-stone-500">Listens:</span>
-                        <span className="text-stone-300 ml-1.5">{(r.listenWhen as string[]).join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Users Management ── */}
-      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
+      {/* ── People (Users + Access Requests) ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-teal-400/60" />
-            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Users</h2>
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">People</h2>
           </div>
-          <span className="text-xs text-stone-600">{(stats.users || []).length} total</span>
+          <div className="flex items-center gap-1">
+            <TabButton
+              label="Users"
+              count={(stats.users || []).length}
+              active={peopleTab === 'users'}
+              onClick={() => setPeopleTab('users')}
+            />
+            <TabButton
+              label="Access Requests"
+              count={(stats.accessRequests || []).length}
+              active={peopleTab === 'requests'}
+              onClick={() => setPeopleTab('requests')}
+            />
+          </div>
         </div>
 
-        {(stats.users || []).length === 0 ? (
-          <p className="text-sm text-stone-600 text-center py-4">No users yet</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-stone-800/40">
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">User</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Type</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Episodes</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Signals</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Status</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Joined</th>
-                  <th className="text-xs text-stone-500 font-medium pb-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(stats.users || []).map((u) => {
-                  const isRevoked = !!u.revokedAt;
-                  const isInvited = !!u.invitedAt;
-                  const hasSignedIn = !!u.consentedAt;
-                  return (
-                  <tr key={u.id} className={`border-b border-stone-800/20 last:border-0 hover:bg-poddit-900/60 transition-colors ${isRevoked ? 'opacity-50' : ''}`}>
-                    <td className="py-2.5 pr-4">
-                      <p className="text-sm text-white truncate max-w-[200px]">{u.name || '--'}</p>
-                      <p className="text-xs text-stone-500 truncate max-w-[200px]">{u.email}</p>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <select
-                        value={u.userType}
-                        onChange={(e) => updateUserType(u.id, e.target.value)}
-                        disabled={updatingUser === u.id || isRevoked}
-                        className={`text-xs px-2 py-1 rounded-lg border-0 cursor-pointer transition-all
-                          ${USER_TYPE_COLORS[u.userType] || 'bg-stone-800 text-stone-400'}
-                          ${updatingUser === u.id || isRevoked ? 'opacity-50' : 'hover:ring-1 hover:ring-stone-600'}
-                          focus:outline-none focus:ring-1 focus:ring-teal-400/30`}
-                        style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
-                      >
-                        {Object.entries(USER_TYPE_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2.5 pr-4 text-center">
-                      <span className="text-sm font-mono text-stone-300">{u.episodeCount}</span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-center">
-                      <span className="text-sm font-mono text-stone-300">{u.signalCount}</span>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      {isRevoked ? (
-                        <span className="text-xs bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">Revoked</span>
-                      ) : hasSignedIn ? (
-                        <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">Active</span>
-                      ) : isInvited ? (
-                        <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded">Invited</span>
-                      ) : (
-                        <span className="text-xs bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <span className="text-xs text-stone-500">{timeAgo(u.createdAt)}</span>
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {isRevoked ? (
-                          <button
-                            onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
-                            disabled={invitingEmail === u.email}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-400
-                                       hover:bg-teal-500/20 disabled:opacity-50 transition-all"
-                          >
-                            {invitingEmail === u.email ? 'Restoring...' : 'Restore'}
-                          </button>
-                        ) : (
-                          <>
-                            {!hasSignedIn && isInvited && (
-                              <button
-                                onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
-                                disabled={invitingEmail === u.email}
-                                className="text-xs px-2.5 py-1 rounded-lg bg-stone-800 text-stone-400
-                                           hover:bg-stone-700 hover:text-stone-300 disabled:opacity-50 transition-all"
-                                title="Resend invite email"
-                              >
-                                {invitingEmail === u.email ? 'Sending...' : 'Resend'}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => revokeUser(u.id)}
-                              disabled={revokingUser === u.id}
-                              className="text-xs px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400
-                                         hover:bg-red-500/20 disabled:opacity-50 transition-all"
+        {/* Users Tab */}
+        {peopleTab === 'users' && (
+          <>
+            {(stats.users || []).length === 0 ? (
+              <p className="text-sm text-stone-600 text-center py-4">No users yet</p>
+            ) : (
+              <div className="max-h-[32rem] overflow-y-auto pr-1">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="sticky top-0 bg-poddit-900/95 backdrop-blur-sm z-10">
+                      <tr className="border-b border-stone-800/40">
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4">User</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Type</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Ep</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">Sig</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4 text-center">FB</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Status</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 pr-4">Joined</th>
+                        <th className="text-xs text-stone-500 font-medium pb-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(stats.users || []).map((u) => {
+                        const isRevoked = !!u.revokedAt;
+                        const isInvited = !!u.invitedAt;
+                        const hasSignedIn = !!u.consentedAt;
+                        return (
+                        <tr key={u.id} className={`border-b border-stone-800/20 last:border-0 hover:bg-poddit-900/60 transition-colors ${isRevoked ? 'opacity-50' : ''}`}>
+                          <td className="py-2.5 pr-4">
+                            <p className="text-sm text-white truncate max-w-[200px]">{u.name || '--'}</p>
+                            <p className="text-xs text-stone-500 truncate max-w-[200px]">{u.email}</p>
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <select
+                              value={u.userType}
+                              onChange={(e) => updateUserType(u.id, e.target.value)}
+                              disabled={updatingUser === u.id || isRevoked}
+                              className={`text-xs px-2 py-1 rounded-lg border-0 cursor-pointer transition-all
+                                ${USER_TYPE_COLORS[u.userType] || 'bg-stone-800 text-stone-400'}
+                                ${updatingUser === u.id || isRevoked ? 'opacity-50' : 'hover:ring-1 hover:ring-stone-600'}
+                                focus:outline-none focus:ring-1 focus:ring-teal-400/30`}
+                              style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                             >
-                              {revokingUser === u.id ? 'Revoking...' : 'Revoke'}
+                              {Object.entries(USER_TYPE_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-2.5 pr-4 text-center">
+                            <span className="text-sm font-mono text-stone-300">{u.episodeCount}</span>
+                          </td>
+                          <td className="py-2.5 pr-4 text-center">
+                            <span className="text-sm font-mono text-stone-300">{u.signalCount}</span>
+                          </td>
+                          <td className="py-2.5 pr-4 text-center">
+                            <span className="text-xs font-mono text-stone-500">
+                              {u.feedbackCount + u.ratingCount + u.questionnaireCount}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            {isRevoked ? (
+                              <span className="text-xs bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">Revoked</span>
+                            ) : hasSignedIn ? (
+                              <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">Active</span>
+                            ) : isInvited ? (
+                              <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded">Invited</span>
+                            ) : (
+                              <span className="text-xs bg-stone-800 text-stone-500 px-1.5 py-0.5 rounded">Pending</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <span className="text-xs text-stone-500">{timeAgo(u.createdAt)}</span>
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {isRevoked ? (
+                                <button
+                                  onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
+                                  disabled={invitingEmail === u.email}
+                                  className="text-xs px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-400
+                                             hover:bg-teal-500/20 disabled:opacity-50 transition-all"
+                                >
+                                  {invitingEmail === u.email ? 'Restoring...' : 'Restore'}
+                                </button>
+                              ) : (
+                                <>
+                                  {!hasSignedIn && isInvited && (
+                                    <button
+                                      onClick={() => u.email && inviteUser(u.email, u.name || undefined)}
+                                      disabled={invitingEmail === u.email}
+                                      className="text-xs px-2.5 py-1 rounded-lg bg-stone-800 text-stone-400
+                                                 hover:bg-stone-700 hover:text-stone-300 disabled:opacity-50 transition-all"
+                                      title="Resend invite email"
+                                    >
+                                      {invitingEmail === u.email ? 'Sending...' : 'Resend'}
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => revokeUser(u.id)}
+                                    disabled={revokingUser === u.id}
+                                    className="text-xs px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400
+                                               hover:bg-red-500/20 disabled:opacity-50 transition-all"
+                                  >
+                                    {revokingUser === u.id ? 'Revoking...' : 'Revoke'}
+                                  </button>
+                                </>
+                              )}
+                              <TrashButton onClick={() => setDeleteModal({
+                                type: 'user',
+                                id: u.id,
+                                title: 'Delete User',
+                                description: (
+                                  <div>
+                                    <p className="mb-2">
+                                      Permanently delete <strong className="text-white">{u.name || u.email}</strong> and all their data:
+                                    </p>
+                                    <ul className="list-disc list-inside text-xs text-stone-500 space-y-0.5">
+                                      <li>{u.episodeCount} episode{u.episodeCount !== 1 ? 's' : ''}</li>
+                                      <li>{u.signalCount} signal{u.signalCount !== 1 ? 's' : ''}</li>
+                                      <li>{u.feedbackCount} feedback item{u.feedbackCount !== 1 ? 's' : ''}</li>
+                                      <li>{u.ratingCount} rating{u.ratingCount !== 1 ? 's' : ''}</li>
+                                      <li>{u.questionnaireCount} questionnaire response{u.questionnaireCount !== 1 ? 's' : ''}</li>
+                                    </ul>
+                                    <p className="mt-3 text-red-400 text-xs font-medium">This action cannot be undone.</p>
+                                  </div>
+                                ),
+                                requireTyped: true,
+                              })} />
+                            </div>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Access Requests Tab */}
+        {peopleTab === 'requests' && (
+          <>
+            {(stats.accessRequests || []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                     className="text-stone-600 mb-3">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" />
+                  <line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+                </svg>
+                <p className="text-stone-500 text-sm">No access requests</p>
+                <p className="text-stone-600 text-xs mt-1">Requests from www.poddit.com will appear here</p>
+              </div>
+            ) : (
+              <div className="max-h-[32rem] overflow-y-auto space-y-2 pr-1">
+                {stats.accessRequests.map((ar) => {
+                  const matchedUser = (stats.users || []).find(u => u.email === ar.email);
+                  const isActive = matchedUser && !matchedUser.revokedAt;
+                  const isRevoked = matchedUser?.revokedAt;
+                  const isInvited = matchedUser?.invitedAt && !matchedUser.consentedAt && !matchedUser.revokedAt;
+                  return (
+                    <div key={ar.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm text-white font-medium truncate">{ar.full_name}</p>
+                            {ar.nda_accepted ? (
+                              <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded flex-shrink-0">NDA Signed</span>
+                            ) : (
+                              <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">No NDA</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-stone-400 truncate">{ar.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {ar.company_role && (
+                              <span className="text-xs text-stone-500">{ar.company_role}</span>
+                            )}
+                            {ar.company_role && ar.referral_source && (
+                              <span className="text-xs text-stone-700">&bull;</span>
+                            )}
+                            {ar.referral_source && (
+                              <span className="text-xs text-stone-600">via {ar.referral_source}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-stone-600 mt-1">{timeAgo(ar.created_at)}</p>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          {isActive && matchedUser.consentedAt ? (
+                            <span className="text-xs bg-teal-500/15 text-teal-300 px-2.5 py-1 rounded-lg">Active User</span>
+                          ) : isRevoked ? (
+                            <button
+                              onClick={() => inviteUser(ar.email, ar.full_name)}
+                              disabled={invitingEmail === ar.email}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400
+                                         hover:bg-teal-500/20 disabled:opacity-50 transition-all font-medium"
+                            >
+                              {invitingEmail === ar.email ? 'Restoring...' : 'Restore Access'}
                             </button>
-                          </>
-                        )}
+                          ) : isInvited ? (
+                            <span className="text-xs bg-amber-500/10 text-amber-300 px-2.5 py-1 rounded-lg">Invited</span>
+                          ) : (
+                            <button
+                              onClick={() => inviteUser(ar.email, ar.full_name)}
+                              disabled={invitingEmail === ar.email}
+                              className="text-xs px-3 py-1.5 rounded-lg bg-teal-500 text-poddit-950
+                                         hover:bg-teal-400 disabled:opacity-50 transition-all font-bold"
+                            >
+                              {invitingEmail === ar.email ? (
+                                <span className="flex items-center gap-1.5">
+                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                  Sending...
+                                </span>
+                              ) : 'Grant Access'}
+                            </button>
+                          )}
+                          <TrashButton onClick={() => setDeleteModal({
+                            type: 'access-request',
+                            id: String(ar.id),
+                            title: 'Delete Access Request',
+                            description: (
+                              <p>
+                                Remove the access request from <strong className="text-white">{ar.full_name}</strong> ({ar.email})?
+                                This removes it from the concept server.
+                              </p>
+                            ),
+                          })} />
+                        </div>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* ── Access Requests (from PODDIT-CONCEPT) ── */}
-      {(stats.accessRequests || []).length > 0 && (
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-violet-400/60" />
-              <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Access Requests</h2>
-            </div>
-            <span className="text-xs text-stone-600">{stats.accessRequests.length} requests</span>
+      {/* ── Feedback & Insights (Feedback + Ratings + Questionnaire) ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400/60" />
+            <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Feedback & Insights</h2>
           </div>
-
-          <div className="space-y-2">
-            {stats.accessRequests.map((ar) => {
-              const matchedUser = (stats.users || []).find(u => u.email === ar.email);
-              const isActive = matchedUser && !matchedUser.revokedAt;
-              const isRevoked = matchedUser?.revokedAt;
-              const isInvited = matchedUser?.invitedAt && !matchedUser.consentedAt && !matchedUser.revokedAt;
-              return (
-                <div key={ar.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm text-white font-medium truncate">{ar.full_name}</p>
-                        {ar.nda_accepted ? (
-                          <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded flex-shrink-0">NDA Signed</span>
-                        ) : (
-                          <span className="text-xs bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">No NDA</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-stone-400 truncate">{ar.email}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {ar.company_role && (
-                          <span className="text-xs text-stone-500">{ar.company_role}</span>
-                        )}
-                        {ar.company_role && ar.referral_source && (
-                          <span className="text-xs text-stone-700">&bull;</span>
-                        )}
-                        {ar.referral_source && (
-                          <span className="text-xs text-stone-600">via {ar.referral_source}</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-stone-600 mt-1">{timeAgo(ar.created_at)}</p>
-                    </div>
-                    <div className="flex-shrink-0 flex items-center gap-2">
-                      {isActive && matchedUser.consentedAt ? (
-                        <span className="text-xs bg-teal-500/15 text-teal-300 px-2.5 py-1 rounded-lg">Active User</span>
-                      ) : isRevoked ? (
-                        <button
-                          onClick={() => inviteUser(ar.email, ar.full_name)}
-                          disabled={invitingEmail === ar.email}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400
-                                     hover:bg-teal-500/20 disabled:opacity-50 transition-all font-medium"
-                        >
-                          {invitingEmail === ar.email ? 'Restoring...' : 'Restore Access'}
-                        </button>
-                      ) : isInvited ? (
-                        <span className="text-xs bg-amber-500/10 text-amber-300 px-2.5 py-1 rounded-lg">Invited</span>
-                      ) : (
-                        <button
-                          onClick={() => inviteUser(ar.email, ar.full_name)}
-                          disabled={invitingEmail === ar.email}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-teal-500 text-poddit-950
-                                     hover:bg-teal-400 disabled:opacity-50 transition-all font-bold"
-                        >
-                          {invitingEmail === ar.email ? (
-                            <span className="flex items-center gap-1.5">
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                              </svg>
-                              Sending...
-                            </span>
-                          ) : 'Grant Access'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-1">
+            <TabButton
+              label="Feedback"
+              count={stats.feedback.total}
+              active={insightsTab === 'feedback'}
+              onClick={() => setInsightsTab('feedback')}
+            />
+            <TabButton
+              label="Ratings"
+              count={stats.episodeRatings?.total || 0}
+              active={insightsTab === 'ratings'}
+              onClick={() => setInsightsTab('ratings')}
+            />
+            <TabButton
+              label="Questionnaire"
+              count={stats.questionnaire?.total || 0}
+              active={insightsTab === 'questionnaire'}
+              onClick={() => setInsightsTab('questionnaire')}
+            />
           </div>
         </div>
-      )}
+
+        {/* Feedback Tab */}
+        {insightsTab === 'feedback' && (
+          <>
+            {stats.feedback.recent.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                     className="text-stone-600 mb-3">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <p className="text-stone-500 text-sm">No feedback yet</p>
+                <p className="text-stone-600 text-xs mt-1">User feedback will appear here once submitted</p>
+              </div>
+            ) : (
+              <div className="max-h-[32rem] overflow-y-auto space-y-2 pr-1">
+                {stats.feedback.recent.map((fb) => (
+                  <div key={fb.id} className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          {/* Type badge */}
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                            fb.type === 'REQUEST' ? 'bg-amber-500/15 text-amber-300'
+                            : fb.type === 'VOICE' ? 'bg-violet-500/15 text-violet-300'
+                            : 'bg-teal-500/15 text-teal-300'
+                          }`}>
+                            {fb.type}
+                          </span>
+                          {/* Status badge */}
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            fb.status === 'NEW' ? 'bg-amber-500/15 text-amber-300'
+                            : fb.status === 'REVIEWED' ? 'bg-stone-800 text-stone-400'
+                            : 'bg-teal-500/10 text-teal-400'
+                          }`}>
+                            {fb.status}
+                          </span>
+                          <span className="text-xs text-stone-600 ml-auto">{timeAgo(fb.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-poddit-100 line-clamp-2">{fb.content}</p>
+                        <p className="text-xs text-stone-600 mt-1.5">
+                          {fb.user.name || fb.user.email || 'Unknown user'}
+                        </p>
+                      </div>
+                      <TrashButton onClick={() => setDeleteModal({
+                        type: 'feedback',
+                        id: fb.id,
+                        title: 'Delete Feedback',
+                        description: (
+                          <p>
+                            Delete this {fb.type.toLowerCase()} feedback from <strong className="text-white">{fb.user.name || fb.user.email || 'Unknown'}</strong>?
+                          </p>
+                        ),
+                      })} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Ratings Tab */}
+        {insightsTab === 'ratings' && (
+          <>
+            {(stats.episodeRatings?.total || 0) === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                     className="text-stone-600 mb-3">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                <p className="text-stone-500 text-sm">No ratings yet</p>
+                <p className="text-stone-600 text-xs mt-1">Episode ratings will appear here once submitted</p>
+              </div>
+            ) : (
+              <div className="max-h-[32rem] overflow-y-auto pr-1">
+                {/* Average scores */}
+                {stats.episodeRatings.averages.enjoyment !== null && (
+                  <div className="flex flex-wrap gap-3 mb-5">
+                    {[
+                      { label: 'Enjoyment', value: stats.episodeRatings.averages.enjoyment, color: 'teal' },
+                      { label: 'Resonance', value: stats.episodeRatings.averages.resonance, color: 'violet' },
+                      { label: 'Connections', value: stats.episodeRatings.averages.connections, color: 'amber' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex-1 min-w-[100px] p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+                        <p className="text-xs text-stone-500 mb-1">{label}</p>
+                        <p className={`text-xl font-extrabold ${
+                          color === 'teal' ? 'text-teal-300' : color === 'violet' ? 'text-violet-300' : 'text-amber-300'
+                        }`}>
+                          {value !== null ? value.toFixed(1) : '--'}
+                        </p>
+                        <p className="text-xs text-stone-600">/ 5</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recent ratings */}
+                <div className="space-y-2">
+                  {stats.episodeRatings.recent.map((rating) => {
+                    const avg = ((rating.enjoyment + rating.resonance + rating.connections) / 3);
+                    const hasLow = rating.enjoyment <= 2 || rating.resonance <= 2 || rating.connections <= 2;
+                    return (
+                      <div key={rating.id} className={`p-3 bg-poddit-950/40 border rounded-lg ${
+                        hasLow ? 'border-amber-500/20' : 'border-stone-800/30'
+                      }`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm text-white truncate">{rating.episode.title || 'Untitled'}</span>
+                            {hasLow && (
+                              <span className="text-xs bg-amber-500/15 text-amber-300 px-1.5 py-0.5 rounded flex-shrink-0">Low</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-stone-600 flex-shrink-0 ml-2">{timeAgo(rating.createdAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="text-xs text-stone-500">Enjoy: <span className="text-teal-300 font-mono">{rating.enjoyment}</span></span>
+                          <span className="text-xs text-stone-500">Reson: <span className="text-violet-300 font-mono">{rating.resonance}</span></span>
+                          <span className="text-xs text-stone-500">Conn: <span className="text-amber-300 font-mono">{rating.connections}</span></span>
+                          <span className="text-xs text-stone-600 font-mono ml-auto">avg {avg.toFixed(1)}</span>
+                        </div>
+                        {rating.feedback && (
+                          <p className="text-xs text-stone-300 mt-1.5 line-clamp-2 border-t border-stone-800/30 pt-1.5">&ldquo;{rating.feedback}&rdquo;</p>
+                        )}
+                        <p className="text-xs text-stone-600 mt-1">
+                          {rating.user.name || rating.user.email || 'Unknown user'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Questionnaire Tab */}
+        {insightsTab === 'questionnaire' && (
+          <>
+            {(stats.questionnaire?.responses || []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                     className="text-stone-600 mb-3">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                <p className="text-stone-500 text-sm">No questionnaire responses</p>
+                <p className="text-stone-600 text-xs mt-1">Responses will appear after users complete milestone questionnaires</p>
+              </div>
+            ) : (
+              <div className="max-h-[32rem] overflow-y-auto space-y-4 pr-1">
+                {stats.questionnaire.responses.map((qr) => {
+                  const r = qr.responses as Record<string, string | string[]>;
+                  return (
+                    <div key={qr.id} className="p-4 bg-poddit-950/40 border border-stone-800/30 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-white font-medium">{qr.user.name || qr.user.email || 'Unknown'}</span>
+                          <span className="text-xs bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded">
+                            Milestone {qr.milestone}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-stone-600">{timeAgo(qr.createdAt)}</span>
+                          <TrashButton onClick={() => setDeleteModal({
+                            type: 'questionnaire',
+                            id: qr.userId,
+                            title: 'Delete Questionnaire Responses',
+                            description: (
+                              <div>
+                                <p>
+                                  Delete all questionnaire responses for <strong className="text-white">{qr.user.name || qr.user.email || 'Unknown'}</strong>?
+                                </p>
+                                <p className="text-xs text-amber-400 mt-2">
+                                  This will also remove any bonus episodes granted (+3 per questionnaire).
+                                </p>
+                              </div>
+                            ),
+                          })} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 text-xs">
+                        {r.describe && (
+                          <div>
+                            <span className="text-stone-500">Describe to a friend:</span>
+                            <p className="text-stone-300 mt-0.5">&ldquo;{r.describe}&rdquo;</p>
+                          </div>
+                        )}
+                        {r.useful && (
+                          <div>
+                            <span className="text-stone-500">Usefulness:</span>
+                            <span className="text-stone-300 ml-1.5">{r.useful}</span>
+                          </div>
+                        )}
+                        {r.changed && (
+                          <div>
+                            <span className="text-stone-500">Changed thinking:</span>
+                            <span className="text-stone-300 ml-1.5">{r.changed}</span>
+                          </div>
+                        )}
+                        {r.likelihood && (
+                          <div>
+                            <span className="text-stone-500">Open tomorrow:</span>
+                            <span className="text-stone-300 ml-1.5">{r.likelihood}</span>
+                          </div>
+                        )}
+                        {r.friction && (
+                          <div>
+                            <span className="text-stone-500">Friction:</span>
+                            <span className="text-stone-300 ml-1.5">{r.friction}</span>
+                          </div>
+                        )}
+                        {r.essential && (
+                          <div>
+                            <span className="text-stone-500">Can&apos;t live without:</span>
+                            <p className="text-stone-300 mt-0.5">&ldquo;{r.essential}&rdquo;</p>
+                          </div>
+                        )}
+                        {Array.isArray(r.listenWhen) && r.listenWhen.length > 0 && (
+                          <div>
+                            <span className="text-stone-500">Listens:</span>
+                            <span className="text-stone-300 ml-1.5">{(r.listenWhen as string[]).join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Confirm Delete Modal ── */}
+      <ConfirmDeleteModal
+        isOpen={!!deleteModal}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteModal(null)}
+        title={deleteModal?.title || ''}
+        description={deleteModal?.description || ''}
+        loading={deleteLoading}
+        requireTypedConfirmation={deleteModal?.requireTyped}
+      />
     </main>
   );
 }

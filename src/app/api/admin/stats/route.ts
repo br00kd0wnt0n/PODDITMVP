@@ -234,6 +234,7 @@ export async function GET(request: NextRequest) {
         take: 50,
         select: {
           id: true,
+          userId: true,
           responses: true,
           milestone: true,
           createdAt: true,
@@ -255,7 +256,7 @@ export async function GET(request: NextRequest) {
           invitedAt: true,
           revokedAt: true,
           _count: {
-            select: { episodes: true, signals: true },
+            select: { episodes: true, signals: true, feedback: true, episodeRatings: true, questionnaireResponses: true },
           },
         },
       }),
@@ -326,6 +327,9 @@ export async function GET(request: NextRequest) {
         revokedAt: u.revokedAt,
         episodeCount: u._count.episodes,
         signalCount: u._count.signals,
+        feedbackCount: u._count.feedback,
+        ratingCount: u._count.episodeRatings,
+        questionnaireCount: u._count.questionnaireResponses,
       })),
       episodeRatings: {
         total: totalEpisodeRatings,

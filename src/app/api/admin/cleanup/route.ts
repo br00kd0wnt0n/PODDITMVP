@@ -86,6 +86,82 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: `Episode ${episodeId} deleted, signals released` });
       }
 
+      case 'delete-user': {
+        if (!targetUserId) {
+          return NextResponse.json({ error: 'email or userId required' }, { status: 400 });
+        }
+
+        const userToDelete = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: {
+            id: true, email: true, name: true,
+            _count: { select: { episodes: true, signals: true, feedback: true, episodeRatings: true, questionnaireResponses: true } },
+          },
+        });
+
+        if (!userToDelete) {
+          return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Cascade deletes everything (all relations have onDelete: Cascade)
+        await prisma.user.delete({ where: { id: targetUserId } });
+
+        console.log(`[Admin] Deleted user ${userToDelete.email}: ${userToDelete._count.episodes} episodes, ${userToDelete._count.signals} signals, ${userToDelete._count.feedback} feedback, ${userToDelete._count.episodeRatings} ratings, ${userToDelete._count.questionnaireResponses} questionnaire responses`);
+
+        return NextResponse.json({
+          message: `Deleted user ${userToDelete.email} and all associated data`,
+          deleted: true,
+          email: userToDelete.email,
+          episodesRemoved: userToDelete._count.episodes,
+          signalsRemoved: userToDelete._count.signals,
+          feedbackRemoved: userToDelete._count.feedback,
+          ratingsRemoved: userToDelete._count.episodeRatings,
+          questionnaireResponsesRemoved: userToDelete._count.questionnaireResponses,
+        });
+      }
+
+      case 'delete-feedback': {
+        const { feedbackId } = body;
+        if (!feedbackId) {
+          return NextResponse.json({ error: 'feedbackId required' }, { status: 400 });
+        }
+
+        await prisma.feedback.delete({ where: { id: feedbackId } });
+        console.log(`[Admin] Deleted feedback ${feedbackId}`);
+        return NextResponse.json({ message: 'Feedback deleted', deleted: true });
+      }
+
+      case 'delete-access-request': {
+        const { accessRequestId } = body;
+        if (!accessRequestId) {
+          return NextResponse.json({ error: 'accessRequestId required' }, { status: 400 });
+        }
+
+        const conceptUrl = process.env.CONCEPT_API_URL;
+        if (!conceptUrl) {
+          return NextResponse.json({ error: 'CONCEPT_API_URL not configured' }, { status: 500 });
+        }
+
+        const adminSecret = process.env.ADMIN_SECRET || process.env.API_SECRET;
+        const conceptRes = await fetch(`${conceptUrl}/api/admin/access-requests/${accessRequestId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${adminSecret}` },
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (!conceptRes.ok) {
+          const errData = await conceptRes.json().catch(() => ({}));
+          return NextResponse.json(
+            { error: errData.error || 'Failed to delete access request' },
+            { status: conceptRes.status }
+          );
+        }
+
+        const data = await conceptRes.json();
+        console.log(`[Admin] Deleted access request ${accessRequestId} from concept server`);
+        return NextResponse.json({ message: 'Access request deleted', deleted: true, email: data.deleted });
+      }
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
