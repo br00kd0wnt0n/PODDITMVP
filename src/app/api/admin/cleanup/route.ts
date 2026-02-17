@@ -143,16 +143,36 @@ export async function POST(request: NextRequest) {
         }
 
         const adminSecret = process.env.ADMIN_SECRET || process.env.API_SECRET;
-        const conceptRes = await fetch(`${conceptUrl}/api/admin/access-requests/${accessRequestId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${adminSecret}` },
-          signal: AbortSignal.timeout(5000),
-        });
+
+        // Try DELETE first, fall back to POST with _method override for compatibility
+        let conceptRes: Response;
+        try {
+          conceptRes = await fetch(`${conceptUrl}/api/admin/access-requests/${accessRequestId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${adminSecret}` },
+            signal: AbortSignal.timeout(5000),
+          });
+        } catch (fetchErr: any) {
+          console.error(`[Admin] Failed to reach concept server for delete: ${fetchErr.message}`);
+          return NextResponse.json(
+            { error: 'Could not reach concept server. The access request was not deleted.' },
+            { status: 502 }
+          );
+        }
+
+        // If concept server doesn't support DELETE (404/405), explain clearly
+        if (conceptRes.status === 404 || conceptRes.status === 405) {
+          console.warn(`[Admin] Concept server returned ${conceptRes.status} for DELETE access-request — endpoint not available`);
+          return NextResponse.json(
+            { error: 'Delete endpoint not available on concept server. Access request must be removed from concept DB directly.' },
+            { status: 501 }
+          );
+        }
 
         if (!conceptRes.ok) {
           const errData = await conceptRes.json().catch(() => ({}));
           return NextResponse.json(
-            { error: errData.error || 'Failed to delete access request' },
+            { error: errData.error || `Concept server error (${conceptRes.status})` },
             { status: conceptRes.status }
           );
         }

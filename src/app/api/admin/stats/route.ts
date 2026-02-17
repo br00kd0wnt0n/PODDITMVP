@@ -307,7 +307,24 @@ export async function GET(request: NextRequest) {
         recent: recentFeedback,
       },
       health: {
-        status: stuckEpisodes.length > 0 ? 'stuck' : activeEpisodes.length > 0 ? 'generating' : failedEpisodes.length > 0 || failedSignals.length > 0 ? 'issues' : 'healthy',
+        status: (() => {
+          if (stuckEpisodes.length > 0) return 'stuck';
+          if (activeEpisodes.length > 0) return 'generating';
+          // Only show "issues" if failures are more recent than last success
+          if (failedEpisodes.length > 0 || failedSignals.length > 0) {
+            const lastFailureTime = Math.max(
+              ...failedEpisodes.map(e => new Date(e.createdAt).getTime()),
+              ...failedSignals.map(s => new Date(s.createdAt).getTime()),
+            );
+            const lastSuccessTime = lastSuccessfulEpisode?.generatedAt
+              ? new Date(lastSuccessfulEpisode.generatedAt).getTime()
+              : 0;
+            // If last success is after last failure, system is healthy (recovered)
+            if (lastSuccessTime > lastFailureTime) return 'healthy';
+            return 'issues';
+          }
+          return 'healthy';
+        })(),
         activeEpisodes,
         stuckEpisodes,
         lastSuccessfulEpisode,
