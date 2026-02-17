@@ -89,7 +89,7 @@ export function buildSynthesisPrompt(signals: {
   const isManual = options?.manual ?? false;
   const userName = options?.userName;
   const episodeLength = options?.episodeLength || 'medium';
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   // Context-aware episode framing
   const episodeType = isManual

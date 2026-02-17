@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
   const episodes = await prisma.episode.findMany({
     where: { userId, status: { in: ['READY', 'GENERATING', 'SYNTHESIZING'] } },
     orderBy: { createdAt: 'desc' },
-    take: 20,
     select: {
       id: true,
       title: true,
@@ -64,13 +63,17 @@ export async function GET(request: NextRequest) {
         select: { id: true },
         take: 1,
       },
+      signals: {
+        select: { channel: true },
+      },
     },
   });
 
-  // Flatten: add `rated` boolean, remove nested ratings array
-  const result = episodes.map(({ ratings, ...ep }) => ({
+  // Flatten: add `rated` boolean + channels array, remove nested relations
+  const result = episodes.map(({ ratings, signals, ...ep }) => ({
     ...ep,
     rated: ratings.length > 0,
+    channels: signals.map(s => s.channel),
   }));
 
   return NextResponse.json(result);

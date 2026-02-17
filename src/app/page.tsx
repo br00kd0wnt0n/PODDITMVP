@@ -28,6 +28,7 @@ interface Episode {
   generatedAt: string;
   status?: string;
   rated?: boolean;
+  channels?: string[];
 }
 
 interface Signal {
@@ -343,8 +344,9 @@ function Dashboard() {
   const channelBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     signals.forEach(s => { counts[s.channel] = (counts[s.channel] || 0) + 1; });
+    episodes.forEach(e => e.channels?.forEach(ch => { counts[ch] = (counts[ch] || 0) + 1; }));
     return Object.entries(counts).sort(([, a], [, b]) => b - a);
-  }, [signals]);
+  }, [signals, episodes]);
 
   // ── Episode accent colors (violet/amber/rose — teal reserved for action buttons) ──
   const EPISODE_ACCENTS = [
