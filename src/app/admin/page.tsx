@@ -441,7 +441,7 @@ function AdminDashboard() {
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Tab state
-  const [peopleTab, setPeopleTab] = useState<'users' | 'requests'>('users');
+  const [peopleTab, setPeopleTab] = useState<'users' | 'requests'>('requests');
   const [insightsTab, setInsightsTab] = useState<'feedback' | 'ratings' | 'questionnaire'>('feedback');
 
   // Delete modal state
@@ -721,7 +721,7 @@ function AdminDashboard() {
       )}
 
       {/* ── Key Metrics ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <MetricCard label="Total Signals" value={stats.totals.signals} accent="teal" />
         <MetricCard label="Total Episodes" value={stats.totals.episodes} accent="violet" />
         <MetricCard label="Total Users" value={stats.totals.users} accent="stone" />
@@ -730,274 +730,96 @@ function AdminDashboard() {
         <MetricCard label="Feedback" value={stats.feedback.total} accent="amber" subtitle={`${stats.feedback.new} new`} />
       </div>
 
-      {/* ── Two-Column: Signals + Episodes ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-        {/* Signal Breakdown */}
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Signal Breakdown</h2>
-
-          {/* By Status */}
-          <h3 className="text-xs text-stone-500 mb-2">By Status</h3>
-          <div className="space-y-1.5 mb-5">
-            {stats.signals.byStatus.map(({ status, count }) => {
-              const max = Math.max(...stats.signals.byStatus.map(s => s.count));
-              return (
-                <div key={status} className="flex items-center gap-3">
-                  <span className="text-xs text-stone-400 w-20 truncate">{status}</span>
-                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
-                    <div
-                      className={`${STATUS_COLORS[status] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
-                      style={{ width: barWidth(count, max) }}
-                    />
-                  </div>
-                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
-                </div>
-              );
-            })}
-            {stats.signals.byStatus.length === 0 && (
-              <p className="text-xs text-stone-600">No signals yet</p>
-            )}
-          </div>
-
-          {/* By Channel */}
-          <h3 className="text-xs text-stone-500 mb-2">By Channel</h3>
-          <div className="space-y-1.5 mb-5">
-            {stats.signals.byChannel.map(({ channel, count }) => {
-              const max = Math.max(...stats.signals.byChannel.map(s => s.count));
-              return (
-                <div key={channel} className="flex items-center gap-3">
-                  <span className="text-xs text-stone-400 w-20 truncate">{channel}</span>
-                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
-                    <div
-                      className={`${CHANNEL_COLORS[channel] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
-                      style={{ width: barWidth(count, max) }}
-                    />
-                  </div>
-                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
-                </div>
-              );
-            })}
-            {stats.signals.byChannel.length === 0 && (
-              <p className="text-xs text-stone-600">No signals yet</p>
-            )}
-          </div>
-
-          {/* By Input Type */}
-          <h3 className="text-xs text-stone-500 mb-2">By Input Type</h3>
-          <div className="space-y-1.5">
-            {stats.signals.byInputType.map(({ inputType, count }) => {
-              const max = Math.max(...stats.signals.byInputType.map(s => s.count));
-              return (
-                <div key={inputType} className="flex items-center gap-3">
-                  <span className="text-xs text-stone-400 w-20 truncate">{inputType}</span>
-                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
-                    <div
-                      className={`${INPUT_TYPE_COLORS[inputType] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
-                      style={{ width: barWidth(count, max) }}
-                    />
-                  </div>
-                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
-                </div>
-              );
-            })}
-            {stats.signals.byInputType.length === 0 && (
-              <p className="text-xs text-stone-600">No signals yet</p>
-            )}
+      {/* ── System Health ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">System Health</h2>
+          <div className="flex items-center gap-3 text-xs text-stone-600">
+            <span>{stats.health.totalReadyEpisodes} delivered</span>
+            <span className="text-stone-700">&bull;</span>
+            <span>{stats.health.totalFailedEpisodes} failed</span>
+            <span className="text-stone-700">&bull;</span>
+            <span>Last success: {stats.health.lastSuccessfulEpisode ? timeAgo(stats.health.lastSuccessfulEpisode.generatedAt || '') : '\u2014'}</span>
           </div>
         </div>
 
-        {/* Episode Overview — scrollable */}
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Episode Overview</h2>
-
-          {/* Episode status summary */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {stats.episodes.byStatus.map(({ status, count }) => (
-              <span
-                key={status}
-                className={`text-xs px-2 py-0.5 rounded-full ${
-                  status === 'READY' ? 'bg-teal-500/15 text-teal-300'
-                  : status === 'FAILED' ? 'bg-red-500/15 text-red-400'
-                  : 'bg-stone-800 text-stone-400'
-                }`}
-              >
-                {status}: {count}
-              </span>
-            ))}
+        {/* Current status banner */}
+        {stats.health.status === 'stuck' ? (
+          <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            <div>
+              <p className="text-sm text-red-300 font-medium">Stuck episodes detected</p>
+              <p className="text-xs text-red-400/70">{stats.health.stuckEpisodes.length} episode{stats.health.stuckEpisodes.length !== 1 ? 's' : ''} stuck in generation for 10+ minutes</p>
+            </div>
           </div>
+        ) : stats.health.status === 'generating' ? (
+          <div className="flex items-center gap-2 p-3 bg-violet-500/5 border border-violet-500/10 rounded-xl">
+            <svg className="animate-spin h-4 w-4 text-violet-400 flex-shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+            <div>
+              <p className="text-sm text-violet-300 font-medium">Generation in progress</p>
+              <p className="text-xs text-violet-400/70">{stats.health.activeEpisodes.map(ep => ep.user?.name || ep.user?.email || 'Unknown').join(', ')}</p>
+            </div>
+          </div>
+        ) : stats.health.status === 'issues' ? (
+          <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <div>
+              <p className="text-sm text-amber-300 font-medium">Recent failures</p>
+              <p className="text-xs text-amber-400/70">{stats.health.failedEpisodes.length} episode{stats.health.failedEpisodes.length !== 1 ? 's' : ''}, {stats.health.failedSignals.length} signal{stats.health.failedSignals.length !== 1 ? 's' : ''} failed this week</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 bg-teal-500/5 border border-teal-500/10 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            <p className="text-sm text-teal-300">All systems healthy</p>
+          </div>
+        )}
 
-          {/* Recent episodes list — scrollable */}
-          <div className="max-h-96 overflow-y-auto space-y-1 pr-1">
-            {stats.episodes.recent.map((ep) => (
-              <div
-                key={ep.id}
-                className={`flex items-center gap-3 p-2.5 rounded-lg hover:bg-poddit-900/60 transition-colors ${
-                  ep.status === 'FAILED' ? 'border-l-2 border-l-red-500' : ''
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[ep.status] || 'bg-stone-500'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
-                  {ep.user && (
-                    <p className="text-xs text-stone-500 truncate">{ep.user.name || ep.user.email || 'Unknown user'}</p>
-                  )}
-                  {ep.error && (
-                    <p className="text-xs text-red-400 truncate">{ep.error}</p>
-                  )}
-                  <p className="text-xs text-stone-600">
-                    {ep.generatedAt ? timeAgo(ep.generatedAt) : '--'}
-                  </p>
+        {/* Stuck episodes (critical) */}
+        {stats.health.stuckEpisodes.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Stuck (10+ min)</p>
+            {stats.health.stuckEpisodes.map((ep) => (
+              <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg mb-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">{ep.status}</span>
+                  <span className="text-xs text-stone-600">{timeAgo(ep.createdAt)}</span>
+                  <span className="text-xs text-stone-600">{ep.user?.name || ep.user?.email}</span>
                 </div>
-                <span className="text-xs text-stone-500 flex-shrink-0">{formatDuration(ep.audioDuration)}</span>
-                <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
-                  {ep.signalCount} sig
-                </span>
+                <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
               </div>
             ))}
-            {stats.episodes.recent.length === 0 && (
-              <p className="text-sm text-stone-600 text-center py-4">No episodes yet</p>
-            )}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* ── Two-Column: Activity + Health ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-        {/* Activity Timeline — scrollable */}
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Activity Timeline</h2>
-          <div className="max-h-96 overflow-y-auto space-y-0 pr-1">
-            {stats.recentSignals.map((signal) => (
-              <div key={signal.id} className="flex items-start gap-3 py-2.5 border-b border-stone-800/30 last:border-0">
-                <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">
-                  {signal.channel}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-poddit-100 truncate">
-                    {signal.title || signal.rawContent.slice(0, 80)}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-stone-600">{signal.inputType}</span>
-                    <span className="text-xs text-stone-700">&bull;</span>
-                    <span className="text-xs text-stone-600">{timeAgo(signal.createdAt)}</span>
-                  </div>
-                </div>
-                <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
-                  signal.status === 'ENRICHED' ? 'bg-teal-500/15 text-teal-300'
-                  : signal.status === 'USED' ? 'bg-violet-500/15 text-violet-300'
-                  : signal.status === 'FAILED' ? 'bg-red-500/15 text-red-400'
-                  : 'bg-stone-800 text-stone-400'
-                }`}>
-                  {signal.status}
-                </span>
-              </div>
-            ))}
-            {stats.recentSignals.length === 0 && (
-              <p className="text-sm text-stone-600 text-center py-4">No signals yet</p>
-            )}
-          </div>
-        </div>
-
-        {/* System Health */}
-        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">System Health</h2>
-
-          {/* Current status banner */}
-          {stats.health.status === 'stuck' ? (
-            <div className="flex items-center gap-2 p-4 bg-red-500/5 border border-red-500/10 rounded-xl mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-              <div>
-                <p className="text-sm text-red-300 font-medium">Stuck episodes detected</p>
-                <p className="text-xs text-red-400/70">{stats.health.stuckEpisodes.length} episode{stats.health.stuckEpisodes.length !== 1 ? 's' : ''} stuck in generation for 10+ minutes</p>
-              </div>
-            </div>
-          ) : stats.health.status === 'generating' ? (
-            <div className="flex items-center gap-2 p-4 bg-violet-500/5 border border-violet-500/10 rounded-xl mb-4">
-              <svg className="animate-spin h-4 w-4 text-violet-400 flex-shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-              <div>
-                <p className="text-sm text-violet-300 font-medium">Generation in progress</p>
-                <p className="text-xs text-violet-400/70">{stats.health.activeEpisodes.map(ep => ep.user?.name || ep.user?.email || 'Unknown').join(', ')}</p>
-              </div>
-            </div>
-          ) : stats.health.status === 'issues' ? (
-            <div className="flex items-center gap-2 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-              <div>
-                <p className="text-sm text-amber-300 font-medium">Recent failures</p>
-                <p className="text-xs text-amber-400/70">{stats.health.failedEpisodes.length} episode{stats.health.failedEpisodes.length !== 1 ? 's' : ''}, {stats.health.failedSignals.length} signal{stats.health.failedSignals.length !== 1 ? 's' : ''} failed this week</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 p-4 bg-teal-500/5 border border-teal-500/10 rounded-xl mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-              <p className="text-sm text-teal-300">All systems healthy</p>
-            </div>
-          )}
-
-          {/* Quick stats row */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
-              <p className="text-lg font-bold text-white">{stats.health.totalReadyEpisodes}</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">episodes delivered</p>
-            </div>
-            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
-              <p className="text-lg font-bold text-white">{stats.health.totalFailedEpisodes}</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">total failures</p>
-            </div>
-            <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-center">
-              <p className="text-lg font-bold text-white">{stats.health.lastSuccessfulEpisode ? timeAgo(stats.health.lastSuccessfulEpisode.generatedAt || '') : '\u2014'}</p>
-              <p className="text-[10px] text-stone-500 mt-0.5">last success</p>
-            </div>
-          </div>
-
-          {/* Stuck episodes (critical) */}
-          {stats.health.stuckEpisodes.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">Stuck (10+ min)</p>
-              {stats.health.stuckEpisodes.map((ep) => (
-                <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg mb-2">
+        {/* Recent failures (last 7 days) */}
+        {(stats.health.failedEpisodes.length > 0 || stats.health.failedSignals.length > 0) && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Failures (last 7 days)</p>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {stats.health.failedEpisodes.map((ep) => (
+                <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">{ep.status}</span>
+                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">EPISODE</span>
                     <span className="text-xs text-stone-600">{timeAgo(ep.createdAt)}</span>
-                    <span className="text-xs text-stone-600">{ep.user?.name || ep.user?.email}</span>
                   </div>
                   <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
+                  {ep.error && <p className="text-xs text-red-400 truncate mt-0.5">{ep.error}</p>}
+                </div>
+              ))}
+              {stats.health.failedSignals.map((s) => (
+                <div key={s.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">SIGNAL</span>
+                    <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">{s.channel}</span>
+                    <span className="text-xs text-stone-600">{timeAgo(s.createdAt)}</span>
+                  </div>
+                  <p className="text-sm text-red-300 truncate">{s.rawContent.slice(0, 100)}</p>
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Recent failures (last 7 days) */}
-          {(stats.health.failedEpisodes.length > 0 || stats.health.failedSignals.length > 0) && (
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Failures (last 7 days)</p>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {stats.health.failedEpisodes.map((ep) => (
-                  <div key={ep.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">EPISODE</span>
-                      <span className="text-xs text-stone-600">{timeAgo(ep.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
-                    {ep.error && <p className="text-xs text-red-400 truncate mt-0.5">{ep.error}</p>}
-                  </div>
-                ))}
-                {stats.health.failedSignals.map((s) => (
-                  <div key={s.id} className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded">SIGNAL</span>
-                      <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded">{s.channel}</span>
-                      <span className="text-xs text-stone-600">{timeAgo(s.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-red-300 truncate">{s.rawContent.slice(0, 100)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── People (Users + Access Requests) ── */}
@@ -1263,6 +1085,173 @@ function AdminDashboard() {
             )}
           </>
         )}
+      </div>
+
+      {/* ── Two-Column: Signals + Episodes ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+        {/* Signal Breakdown */}
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Signal Breakdown</h2>
+
+          {/* By Status */}
+          <h3 className="text-xs text-stone-500 mb-2">By Status</h3>
+          <div className="space-y-1.5 mb-5">
+            {stats.signals.byStatus.map(({ status, count }) => {
+              const max = Math.max(...stats.signals.byStatus.map(s => s.count));
+              return (
+                <div key={status} className="flex items-center gap-3">
+                  <span className="text-xs text-stone-400 w-20 truncate">{status}</span>
+                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
+                    <div
+                      className={`${STATUS_COLORS[status] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
+                      style={{ width: barWidth(count, max) }}
+                    />
+                  </div>
+                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
+                </div>
+              );
+            })}
+            {stats.signals.byStatus.length === 0 && (
+              <p className="text-xs text-stone-600">No signals yet</p>
+            )}
+          </div>
+
+          {/* By Channel */}
+          <h3 className="text-xs text-stone-500 mb-2">By Channel</h3>
+          <div className="space-y-1.5 mb-5">
+            {stats.signals.byChannel.map(({ channel, count }) => {
+              const max = Math.max(...stats.signals.byChannel.map(s => s.count));
+              return (
+                <div key={channel} className="flex items-center gap-3">
+                  <span className="text-xs text-stone-400 w-20 truncate">{channel}</span>
+                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
+                    <div
+                      className={`${CHANNEL_COLORS[channel] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
+                      style={{ width: barWidth(count, max) }}
+                    />
+                  </div>
+                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
+                </div>
+              );
+            })}
+            {stats.signals.byChannel.length === 0 && (
+              <p className="text-xs text-stone-600">No signals yet</p>
+            )}
+          </div>
+
+          {/* By Input Type */}
+          <h3 className="text-xs text-stone-500 mb-2">By Input Type</h3>
+          <div className="space-y-1.5">
+            {stats.signals.byInputType.map(({ inputType, count }) => {
+              const max = Math.max(...stats.signals.byInputType.map(s => s.count));
+              return (
+                <div key={inputType} className="flex items-center gap-3">
+                  <span className="text-xs text-stone-400 w-20 truncate">{inputType}</span>
+                  <div className="flex-1 bg-poddit-800 rounded-full h-2">
+                    <div
+                      className={`${INPUT_TYPE_COLORS[inputType] || 'bg-stone-500'} h-2 rounded-full transition-all duration-500`}
+                      style={{ width: barWidth(count, max) }}
+                    />
+                  </div>
+                  <span className="text-xs text-stone-500 w-8 text-right font-mono">{count}</span>
+                </div>
+              );
+            })}
+            {stats.signals.byInputType.length === 0 && (
+              <p className="text-xs text-stone-600">No signals yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Episode Overview — scrollable */}
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Episode Overview</h2>
+
+          {/* Episode status summary */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {stats.episodes.byStatus.map(({ status, count }) => (
+              <span
+                key={status}
+                className={`text-xs px-2 py-0.5 rounded-full ${
+                  status === 'READY' ? 'bg-teal-500/15 text-teal-300'
+                  : status === 'FAILED' ? 'bg-red-500/15 text-red-400'
+                  : 'bg-stone-800 text-stone-400'
+                }`}
+              >
+                {status}: {count}
+              </span>
+            ))}
+          </div>
+
+          {/* Recent episodes list — scrollable */}
+          <div className="max-h-96 overflow-y-auto space-y-1 pr-1">
+            {stats.episodes.recent.map((ep) => (
+              <div
+                key={ep.id}
+                className={`flex items-center gap-3 p-2.5 rounded-lg hover:bg-poddit-900/60 transition-colors ${
+                  ep.status === 'FAILED' ? 'border-l-2 border-l-red-500' : ''
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[ep.status] || 'bg-stone-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
+                  {ep.user && (
+                    <p className="text-xs text-stone-500 truncate">{ep.user.name || ep.user.email || 'Unknown user'}</p>
+                  )}
+                  {ep.error && (
+                    <p className="text-xs text-red-400 truncate">{ep.error}</p>
+                  )}
+                  <p className="text-xs text-stone-600">
+                    {ep.generatedAt ? timeAgo(ep.generatedAt) : '--'}
+                  </p>
+                </div>
+                <span className="text-xs text-stone-500 flex-shrink-0">{formatDuration(ep.audioDuration)}</span>
+                <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
+                  {ep.signalCount} sig
+                </span>
+              </div>
+            ))}
+            {stats.episodes.recent.length === 0 && (
+              <p className="text-sm text-stone-600 text-center py-4">No episodes yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Activity Timeline — full width, scrollable ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
+        <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Activity Timeline</h2>
+        <div className="max-h-96 overflow-y-auto space-y-0 pr-1">
+          {stats.recentSignals.map((signal) => (
+            <div key={signal.id} className="flex items-start gap-3 py-2.5 border-b border-stone-800/30 last:border-0">
+              <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">
+                {signal.channel}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-poddit-100 truncate">
+                  {signal.title || signal.rawContent.slice(0, 80)}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-stone-600">{signal.inputType}</span>
+                  <span className="text-xs text-stone-700">&bull;</span>
+                  <span className="text-xs text-stone-600">{timeAgo(signal.createdAt)}</span>
+                </div>
+              </div>
+              <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                signal.status === 'ENRICHED' ? 'bg-teal-500/15 text-teal-300'
+                : signal.status === 'USED' ? 'bg-violet-500/15 text-violet-300'
+                : signal.status === 'FAILED' ? 'bg-red-500/15 text-red-400'
+                : 'bg-stone-800 text-stone-400'
+              }`}>
+                {signal.status}
+              </span>
+            </div>
+          ))}
+          {stats.recentSignals.length === 0 && (
+            <p className="text-sm text-stone-600 text-center py-4">No signals yet</p>
+          )}
+        </div>
       </div>
 
       {/* ── Feedback & Insights (Feedback + Ratings + Questionnaire) ── */}
