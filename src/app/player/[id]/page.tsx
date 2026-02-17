@@ -267,9 +267,18 @@ export default function PlayerPage() {
   const needsFollowUp = ratings.enjoyment <= 2 || ratings.resonance <= 2 || ratings.connections <= 2;
   const allRated = ratings.enjoyment > 0 && ratings.resonance > 0 && ratings.connections > 0;
 
+  // Channel badge accent colors
+  const channelColors: Record<string, string> = {
+    SMS: 'bg-teal-400/15 text-teal-300',
+    EMAIL: 'bg-violet-400/15 text-violet-300',
+    EXTENSION: 'bg-amber-400/15 text-amber-300',
+    SHARE_SHEET: 'bg-rose-400/15 text-rose-300',
+    API: 'bg-stone-700/50 text-stone-400',
+  };
+
   if (loading) {
     return (
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-8 relative z-10">
         <div className="animate-pulse">
           <div className="h-8 bg-poddit-800 rounded w-2/3 mb-4" />
           <div className="h-4 bg-poddit-800 rounded w-full mb-2" />
@@ -281,7 +290,7 @@ export default function PlayerPage() {
 
   if (!episode) {
     return (
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-8 relative z-10">
         <p className="text-poddit-400">Episode not found.</p>
         <Link href="/" className="text-white hover:underline mt-2 inline-block">&larr; Back</Link>
       </main>
@@ -295,43 +304,58 @@ export default function PlayerPage() {
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-8">
+    <>
+    {/* Player bokeh — ambient depth */}
+    <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      <div className="bokeh-orb bokeh-3 absolute top-[8%] right-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/[0.07] blur-3xl" />
+      <div className="bokeh-orb bokeh-1 absolute bottom-[12%] left-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-400/[0.06] blur-3xl" />
+      <div className="bokeh-orb bokeh-5 absolute top-[45%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.05] blur-2xl" />
+      <div className="bokeh-orb bokeh-2 absolute top-[20%] left-[25%] w-[20vw] h-[20vw] rounded-full bg-amber-300/[0.04] blur-2xl" />
+    </div>
+
+    <main className="max-w-2xl mx-auto px-4 py-8 relative z-10">
       {/* Back link */}
       <Link href="/" className="text-sm text-poddit-500 hover:text-white mb-6 inline-flex items-center gap-2 transition-colors">
         <Image src="/logo.png" alt="Poddit" width={20} height={20} className="rounded" />
         &larr; All episodes
       </Link>
 
-      {/* Episode header */}
-      <header className="mb-8">
-        <h1 className="text-2xl font-extrabold text-white">{episode.title}</h1>
-        <div className="flex items-center gap-3 mt-2 text-sm text-poddit-400">
-          <span>
-            {formatDate(episode.periodStart) === formatDate(episode.periodEnd)
-              ? formatDate(episode.periodStart)
-              : <>{formatDate(episode.periodStart)} &mdash; {formatDate(episode.periodEnd)}</>
-            }
-          </span>
-          <span>&bull;</span>
-          <span>{episode.signalCount} signal{episode.signalCount !== 1 ? 's' : ''}</span>
-          {episode.audioDuration && (
-            <>
-              <span>&bull;</span>
-              <span>{Math.round(episode.audioDuration / 60)} min</span>
-            </>
-          )}
-          {episode.voiceKey && VOICE_NAMES[episode.voiceKey] && (
-            <>
-              <span>&bull;</span>
-              <span>Read by {VOICE_NAMES[episode.voiceKey]}</span>
-            </>
-          )}
+      {/* Episode header — frosted glass with inner bokeh */}
+      <header className="mb-8 relative p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-[-20%] left-[-10%] w-40 h-40 rounded-full bg-teal-500/15 blur-3xl bokeh-orb bokeh-1" />
+          <div className="absolute bottom-[-15%] right-[-5%] w-32 h-32 rounded-full bg-violet-400/[0.12] blur-3xl bokeh-orb bokeh-2" />
+        </div>
+        <div className="relative z-10">
+          <h1 className="text-2xl font-extrabold text-white">{episode.title}</h1>
+          <div className="flex items-center gap-3 mt-2 text-sm text-poddit-400 flex-wrap">
+            <span>
+              {formatDate(episode.periodStart) === formatDate(episode.periodEnd)
+                ? formatDate(episode.periodStart)
+                : <>{formatDate(episode.periodStart)} &mdash; {formatDate(episode.periodEnd)}</>
+              }
+            </span>
+            <span>&bull;</span>
+            <span>{episode.signalCount} signal{episode.signalCount !== 1 ? 's' : ''}</span>
+            {episode.audioDuration && (
+              <>
+                <span>&bull;</span>
+                <span>{Math.round(episode.audioDuration / 60)} min</span>
+              </>
+            )}
+            {episode.voiceKey && VOICE_NAMES[episode.voiceKey] && (
+              <>
+                <span>&bull;</span>
+                <span>Read by {VOICE_NAMES[episode.voiceKey]}</span>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Custom audio player */}
       {episode.audioUrl && (
-        <div className="mb-8 p-4 bg-poddit-900 border border-stone-800/60 rounded-xl">
+        <div className="mb-8 p-4 bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] rounded-2xl lens-flare-edge">
           {/* Hidden audio element */}
           <audio
             ref={audioRef}
@@ -380,7 +404,7 @@ export default function PlayerPage() {
             <button
               onClick={togglePlay}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-teal-500 text-poddit-950
-                         hover:bg-teal-400 transition-colors flex-shrink-0"
+                         hover:bg-teal-400 transition-colors flex-shrink-0 shadow-[0_0_12px_rgba(20,184,166,0.2)]"
             >
               {isPlaying ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -419,7 +443,7 @@ export default function PlayerPage() {
               onTouchStart={handleProgressPointerDown}
               className="flex-1 h-8 flex items-center cursor-pointer group touch-none"
             >
-              <div className="w-full h-1.5 bg-stone-800 rounded-full relative overflow-hidden">
+              <div className="w-full h-1.5 bg-white/[0.08] rounded-full relative overflow-hidden">
                 {/* Played portion */}
                 <div
                   className="absolute inset-y-0 left-0 bg-teal-500 rounded-full transition-[width] duration-75 ease-linear"
@@ -467,7 +491,7 @@ export default function PlayerPage() {
                 onTouchStart={handleVolumePointerDown}
                 className="w-16 h-6 flex items-center cursor-pointer group touch-none"
               >
-                <div className="w-full h-1 bg-stone-800 rounded-full relative overflow-hidden">
+                <div className="w-full h-1 bg-white/[0.08] rounded-full relative overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 bg-stone-400 group-hover:bg-teal-500 rounded-full transition-colors"
                     style={{ width: `${volume * 100}%` }}
@@ -481,14 +505,14 @@ export default function PlayerPage() {
 
       {/* Summary */}
       {episode.summary && (
-        <div className="mb-8 p-5 bg-poddit-900/50 border border-poddit-800 rounded-xl">
+        <div className="mb-8 p-5 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <h2 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider mb-3">Summary</h2>
           <p className="text-poddit-200 leading-relaxed">{episode.summary}</p>
         </div>
       )}
 
       {/* Segments */}
-      <section className="mb-8">
+      <section className="mb-8 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
         <h2 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider mb-4">Segments</h2>
 
         {/* Segment tabs */}
@@ -500,7 +524,7 @@ export default function PlayerPage() {
               className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap transition-all ${
                 activeSegment === i
                   ? 'bg-teal-500 text-poddit-950 font-semibold shadow-[0_0_12px_rgba(20,184,166,0.25),0_0_4px_rgba(217,149,56,0.15)]'
-                  : 'bg-poddit-800 text-poddit-400 hover:bg-poddit-700 hover:text-poddit-200'
+                  : 'bg-white/[0.06] text-poddit-400 hover:bg-white/[0.10] hover:text-poddit-200'
               }`}
             >
               {seg.topic}
@@ -510,7 +534,7 @@ export default function PlayerPage() {
 
         {/* Active segment content */}
         {episode.segments[activeSegment] && (
-          <div>
+          <div className="p-5 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent border border-white/[0.06] rounded-2xl">
             <div className="prose prose-invert prose-sm max-w-none prose-p:text-poddit-200 prose-headings:text-white">
               {episode.segments[activeSegment].content.split('\n\n').map((para, i) => (
                 <p key={i}>{para}</p>
@@ -527,8 +551,8 @@ export default function PlayerPage() {
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-2 p-3 bg-poddit-900 border border-poddit-800 rounded-lg
-                               hover:border-violet-400/30 transition-all text-sm group"
+                    className="flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl
+                               hover:border-violet-400/30 hover:bg-white/[0.05] transition-all text-sm group"
                   >
                     <span className="text-white font-medium group-hover:underline">{source.name}</span>
                     <span className="text-poddit-600">&mdash;</span>
@@ -544,10 +568,10 @@ export default function PlayerPage() {
       {/* Original signals */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider mb-3">Captured Signals</h2>
-        <div className="space-y-1">
+        <div className="p-4 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent border border-white/[0.06] rounded-2xl space-y-1">
           {episode.signals.map((signal) => (
             <div key={signal.id} className="flex items-center gap-2 text-sm py-1.5">
-              <span className="text-xs font-mono bg-poddit-800 text-poddit-500 px-1.5 py-0.5 rounded">
+              <span className={`text-xs font-mono px-1.5 py-0.5 rounded-full flex-shrink-0 ${channelColors[signal.channel] || 'bg-stone-700/50 text-stone-400'}`}>
                 {signal.channel}
               </span>
               {signal.url ? (
@@ -569,7 +593,7 @@ export default function PlayerPage() {
         {!showRating && !ratingSubmitted && (
           <button
             onClick={() => { setShowRating(true); setTimeout(() => ratingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100); }}
-            className="w-full py-3 px-4 rounded-xl border border-stone-800/60 bg-poddit-900/50 text-stone-400 hover:text-white hover:border-teal-500/30 transition-all text-sm flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent text-stone-400 hover:text-white hover:border-teal-500/30 transition-all text-sm flex items-center justify-center gap-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -579,12 +603,12 @@ export default function PlayerPage() {
         )}
 
         {(showRating || ratingSubmitted) && (
-          <div className={`rounded-xl border overflow-hidden transition-all duration-500 ${
+          <div className={`rounded-2xl border overflow-hidden transition-all duration-500 ${
             ratingSubmitted
               ? 'border-teal-500/20 bg-teal-500/[0.03]'
               : audioEnded
-                ? 'border-teal-500/30 bg-poddit-900 shadow-[0_0_20px_rgba(20,184,166,0.08)]'
-                : 'border-stone-800/60 bg-poddit-900'
+                ? 'border-teal-500/30 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent shadow-[0_0_20px_rgba(20,184,166,0.08)]'
+                : 'border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent'
           }`}>
             <div className="p-5">
               {/* Header */}
@@ -628,10 +652,10 @@ export default function PlayerPage() {
                       {[1, 2, 3, 4, 5].map(n => {
                         const isSelected = ratings[key] >= n;
                         const color = n <= 2
-                          ? (isSelected ? 'bg-amber-400' : 'bg-stone-800 hover:bg-stone-700')
+                          ? (isSelected ? 'bg-amber-400' : 'bg-white/[0.06] hover:bg-white/[0.10]')
                           : n === 3
-                            ? (isSelected ? 'bg-stone-400' : 'bg-stone-800 hover:bg-stone-700')
-                            : (isSelected ? 'bg-teal-400' : 'bg-stone-800 hover:bg-stone-700');
+                            ? (isSelected ? 'bg-stone-400' : 'bg-white/[0.06] hover:bg-white/[0.10]')
+                            : (isSelected ? 'bg-teal-400' : 'bg-white/[0.06] hover:bg-white/[0.10]');
                         return (
                           <button
                             key={n}
@@ -660,7 +684,7 @@ export default function PlayerPage() {
                     placeholder="What would make this episode better..."
                     rows={3}
                     maxLength={5000}
-                    className="w-full bg-poddit-950/50 border border-stone-800 rounded-lg px-3 py-2 text-sm text-white placeholder-stone-600 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500/40 focus:border-teal-500/40"
+                    className="w-full bg-white/[0.05] border border-white/[0.10] rounded-xl px-3 py-2 text-sm text-white placeholder-stone-600 resize-none focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all"
                   />
                 </div>
               )}
@@ -670,7 +694,7 @@ export default function PlayerPage() {
                 <button
                   onClick={submitRating}
                   disabled={ratingSubmitting}
-                  className="mt-4 w-full py-2.5 rounded-lg bg-teal-500 text-poddit-950 text-sm font-semibold hover:bg-teal-400 disabled:opacity-50 transition-all"
+                  className="mt-4 w-full py-2.5 rounded-xl bg-teal-500 text-poddit-950 text-sm font-semibold hover:bg-teal-400 disabled:opacity-50 transition-all shadow-[0_0_12px_rgba(20,184,166,0.2)]"
                 >
                   {ratingSubmitting ? 'Submitting...' : 'Submit'}
                 </button>
@@ -687,5 +711,6 @@ export default function PlayerPage() {
         )}
       </section>
     </main>
+    </>
   );
 }

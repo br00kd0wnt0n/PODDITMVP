@@ -193,7 +193,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <main className="max-w-lg mx-auto px-4 py-8">
+      <main className="max-w-lg mx-auto px-4 py-8 relative z-10">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-poddit-800 rounded w-1/3" />
           <div className="h-40 bg-poddit-800 rounded" />
@@ -204,9 +204,17 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-8">
+    <>
+      {/* ── Bokeh orbs ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[15%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-500/[0.06] blur-[100px] animate-drift-1" />
+        <div className="absolute bottom-[20%] right-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-500/[0.05] blur-[100px] animate-drift-3" />
+        <div className="absolute top-[60%] left-[50%] w-[25vw] h-[25vw] rounded-full bg-amber-400/[0.04] blur-[80px] animate-drift-5" />
+      </div>
+
+    <main className="max-w-lg mx-auto px-4 py-8 relative z-10">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-8 animate-fade-in-up">
         <Link href="/" className="text-stone-500 hover:text-white transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -220,14 +228,14 @@ export default function SettingsPage() {
 
       {/* Success toast */}
       {success && (
-        <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
+        <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-2xl backdrop-blur-sm text-teal-300 text-sm">
           Settings saved!
         </div>
       )}
 
       {/* Error toast */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-2xl backdrop-blur-sm text-red-400 text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
         </div>
@@ -236,7 +244,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
 
         {/* ── Section 1: Display Name ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Display Name
           </label>
@@ -248,20 +256,25 @@ export default function SettingsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800 rounded-xl text-sm text-white
-                       placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30 focus:border-stone-600"
+            className="w-full px-4 py-2.5 bg-white/[0.07] border border-white/15 rounded-xl text-sm text-white
+                       placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.10]
+                       transition-colors"
           />
         </section>
 
         {/* ── Section 2: Voice Selection ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
-          <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
+        <section className="relative p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl overflow-hidden">
+          {/* Inner bokeh */}
+          <div className="absolute top-[10%] right-[5%] w-[30%] h-[30%] rounded-full bg-violet-500/[0.08] blur-[60px] pointer-events-none" />
+          <div className="absolute bottom-[10%] left-[10%] w-[25%] h-[25%] rounded-full bg-amber-400/[0.06] blur-[50px] pointer-events-none" />
+
+          <label className="relative block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Voice
           </label>
-          <p className="text-xs text-stone-500 mb-3">
+          <p className="relative text-xs text-stone-500 mb-3">
             Tap to preview, tap again to stop
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2">
             {voices.map((v) => {
               const isSelected = voice === v.key;
               const isPlaying = playingVoice === v.key;
@@ -274,8 +287,8 @@ export default function SettingsPage() {
                   disabled={isLoading}
                   className={`relative p-3 rounded-xl border text-left transition-all overflow-hidden ${
                     isSelected
-                      ? 'border-teal-500/50 bg-teal-500/5'
-                      : 'border-stone-800/60 bg-poddit-950/50 hover:border-stone-700'
+                      ? 'border-teal-500/50 bg-teal-500/5 shadow-[0_0_12px_rgba(20,184,166,0.15)] lens-flare-edge'
+                      : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
                   } ${isLoading ? 'cursor-wait' : ''}`}
                 >
                   {/* Progress fill — sweeps left to right like Poddit Now button */}
@@ -325,7 +338,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── Section 3: Episode Length ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Episode Length
           </label>
@@ -339,8 +352,8 @@ export default function SettingsPage() {
                 onClick={() => setEpisodeLength(len.key)}
                 className={`p-3 rounded-xl border text-center transition-all ${
                   episodeLength === len.key
-                    ? 'border-teal-500/50 bg-teal-500/5'
-                    : 'border-stone-800/60 bg-poddit-950/50 hover:border-stone-700'
+                    ? 'border-teal-500/50 bg-teal-500/5 shadow-[0_0_12px_rgba(20,184,166,0.15)] lens-flare-edge'
+                    : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
                 }`}
               >
                 <p className={`text-sm font-semibold ${episodeLength === len.key ? 'text-teal-300' : 'text-white'}`}>
@@ -353,7 +366,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── Section 4: Phone Number ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Phone Number
           </label>
@@ -366,9 +379,9 @@ export default function SettingsPage() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+15551234567"
             autoComplete="tel"
-            className={`w-full px-4 py-2.5 bg-poddit-950 border rounded-xl text-sm text-white
-                       placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30 focus:border-stone-600
-                       font-mono ${phone && !/^\+[1-9]\d{6,14}$/.test(phone) ? 'border-red-500/40' : 'border-stone-800'}`}
+            className={`w-full px-4 py-2.5 bg-white/[0.07] border rounded-xl text-sm text-white
+                       placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.10]
+                       transition-colors font-mono ${phone && !/^\+[1-9]\d{6,14}$/.test(phone) ? 'border-red-500/40' : 'border-white/15'}`}
           />
           {phone && !/^\+[1-9]\d{6,14}$/.test(phone) && (
             <p className="text-xs text-red-400/80 mt-1.5">Must start with + followed by country code and number (e.g., +15551234567)</p>
@@ -376,7 +389,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── Section 5: Notifications ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Notifications
           </label>
@@ -406,7 +419,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── Email (read-only) ── */}
-        <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Email
           </label>
@@ -417,7 +430,7 @@ export default function SettingsPage() {
             type="email"
             value={session?.user?.email || ''}
             disabled
-            className="w-full px-4 py-2.5 bg-poddit-950 border border-stone-800/40 rounded-xl text-sm text-stone-500
+            className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-xl text-sm text-stone-500
                        cursor-not-allowed"
           />
         </section>
@@ -428,7 +441,8 @@ export default function SettingsPage() {
           disabled={saving}
           className="w-full py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
                      hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
-                     transition-colors flex items-center justify-center gap-2"
+                     transition-colors flex items-center justify-center gap-2
+                     shadow-[0_0_12px_rgba(20,184,166,0.2)]"
         >
           {saving ? (
             <>
@@ -445,5 +459,6 @@ export default function SettingsPage() {
 
       </div>
     </main>
+    </>
   );
 }
