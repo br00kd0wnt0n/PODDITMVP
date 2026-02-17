@@ -41,9 +41,8 @@ const MUSIC_VOLUME = 0.14;
 // Seconds of intro music that plays solo before voiceover begins
 const INTRO_LEAD_IN = 4;
 
-// Seconds of overlap: outro music starts UNDER the final narration
-// then lingers after speech ends for a natural fade-out
-const OUTRO_OVERLAP = 8;
+// The midpoint of the outro music should align with the end of narration.
+// This means half the outro plays under the final dialogue, half lingers after.
 
 // ──────────────────────────────────────────────
 // AUDIO GENERATION VIA ELEVENLABS
@@ -205,9 +204,9 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     if (hasOutro) {
       // Outro: delay to start near the end (account for narration offset)
       const outroDuration = await getAudioDuration(OUTRO_MUSIC);
-      // Start outro earlier so it plays UNDER the closing narration,
-      // then the music tail lingers after speech ends
-      const outroDelay = Math.max(0, totalDuration - outroDuration - OUTRO_OVERLAP);
+      // Position outro so its midpoint aligns with end of narration:
+      // half plays under closing dialogue, half lingers after speech ends
+      const outroDelay = Math.max(0, totalDuration - (outroDuration / 2));
       const outroDelayMs = Math.round(outroDelay * 1000);
 
       filterParts.push(
