@@ -23,7 +23,7 @@ export const VOICES: Record<string, { id: string; name: string; description: str
   gandalf:  { id: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB', name: 'Gandalf', description: 'Deep, low, strong' },
   jon:      { id: 'PIGsltMj3gFMR34aFDI3', name: 'Jon',     description: 'Trustworthy, calm, confident' },
   ivy:      { id: 'yM93hbw8Qtvdma2wCnJG', name: 'Ivy',     description: 'Young, confident, dynamic' },
-  marcus:   { id: 'Fxnja7VG3W3xXd40zllt', name: 'Marcus',  description: 'Confident, articulate, British' },
+  harper:   { id: 'Fihx1nL7DQV0DEuFJSG1', name: 'Harper',  description: 'Clear, factual, strong' },
 };
 
 export const DEFAULT_VOICE = 'gandalf';

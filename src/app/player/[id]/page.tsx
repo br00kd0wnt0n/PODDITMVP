@@ -33,7 +33,8 @@ const VOICE_NAMES: Record<string, string> = {
   gandalf: 'Gandalf',
   jon: 'Jon',
   ivy: 'Ivy',
-  marcus: 'Marcus',
+  marcus: 'Marcus',  // legacy, kept for existing episodes
+  harper: 'Harper',
 };
 
 interface Episode {
