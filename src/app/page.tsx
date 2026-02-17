@@ -153,21 +153,27 @@ function Dashboard() {
 
   useEffect(() => {
     if (status === 'authenticated' && !loading) {
-      const seen = localStorage.getItem('poddit-welcome-seen');
-      if (!seen) setShowWelcomeBanner(true);
-      const setupDone = localStorage.getItem('poddit-setup-dismissed');
-      if (!setupDone) setShowSetupCard(true);
+      try {
+        const seen = localStorage.getItem('poddit-welcome-seen');
+        if (!seen) setShowWelcomeBanner(true);
+        const setupDone = localStorage.getItem('poddit-setup-dismissed');
+        if (!setupDone) setShowSetupCard(true);
+      } catch {
+        // localStorage unavailable (private browsing) — show defaults
+        setShowWelcomeBanner(true);
+        setShowSetupCard(true);
+      }
     }
   }, [status, loading]);
 
   const dismissWelcomeBanner = () => {
     setShowWelcomeBanner(false);
-    localStorage.setItem('poddit-welcome-seen', '1');
+    try { localStorage.setItem('poddit-welcome-seen', '1'); } catch {}
   };
 
   const dismissSetupCard = () => {
     setShowSetupCard(false);
-    localStorage.setItem('poddit-setup-dismissed', '1');
+    try { localStorage.setItem('poddit-setup-dismissed', '1'); } catch {}
   };
 
   // Save phone from setup card (no SMS redirect)
@@ -1708,7 +1714,10 @@ function Dashboard() {
               atEpisodeLimit ? (
                 <div className="mb-4 p-3 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl text-center">
                   <p className="text-sm text-amber-300/90 font-medium mb-1">You&apos;ve hit your {episodeLimit}-episode limit</p>
-                  <p className="text-xs text-stone-500">Your feedback helps us unlock more &mdash; tap Feedback in the account menu.</p>
+                  <p className="text-xs text-stone-500 mb-2">Want to keep going? Request more episodes.</p>
+                  <Link href="/usage" className="inline-block px-4 py-2 bg-amber-500/15 border border-amber-500/25 text-amber-300 text-xs font-semibold rounded-lg hover:bg-amber-500/25 transition-all">
+                    Request More Episodes
+                  </Link>
                 </div>
               ) : (
                 <button onClick={generateNow} disabled={generating || selectedIds.size === 0}

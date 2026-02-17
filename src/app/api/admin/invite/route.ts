@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 import { sendInviteEmail, sendRevokeEmail, generateInviteCode } from '@/lib/email';
 import prisma from '@/lib/db';
 
@@ -11,6 +12,12 @@ import prisma from '@/lib/db';
 export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request);
   if (authError) return authError;
+
+  // Rate limit: 50 invites per hour
+  const { allowed } = rateLimit('admin:invite', 50, 3600_000);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many invites. Please wait.' }, { status: 429 });
+  }
 
   try {
     const body = await request.json();

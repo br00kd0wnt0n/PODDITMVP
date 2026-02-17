@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
+import { rateLimit } from '@/lib/rate-limit';
 import prisma from '@/lib/db';
 
 // ──────────────────────────────────────────────
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'ignored', reason: 'unknown sender' }, { status: 200 });
     }
     const userId = user.id;
+
+    // Rate limit: 30 emails per hour per user
+    const { allowed } = rateLimit(`email:${userId}`, 30, 3600_000);
+    if (!allowed) {
+      console.log(`[Email] Rate limited user ${userId}`);
+      return NextResponse.json({ status: 'rate_limited' }, { status: 200 });
+    }
 
     // Combine subject and body for signal content
     const rawContent = [

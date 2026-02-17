@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
 
-    // Optional: specify how far back to look (default: 7 days)
-    const daysBack = body.daysBack || 7;
+    // Optional: specify how far back to look (default: 7 days, max: 30)
+    const daysBack = Math.min(Math.max(parseInt(body.daysBack) || 7, 1), 30);
     const since = new Date();
     since.setDate(since.getDate() - daysBack);
 
