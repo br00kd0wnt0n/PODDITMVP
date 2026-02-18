@@ -55,11 +55,12 @@ const HERO_TAGLINES = [
 const PODDIT_SMS_US = { e164: '+18555065970', display: '(855) 506-5970' };
 const PODDIT_SMS_UK = { e164: '+447426985763', display: '+44 7426 985763' };
 
-const HERO_PLACEHOLDERS = [
+const DEFAULT_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
-  'What topic are you curious about?',
+  'Type in a topic you\'re curious about...',
   'Forward a newsletter to capture@poddit.com...',
   'Drop a podcast episode URL...',
+  'Record a voice note with something on your mind...',
   '"Why is everyone talking about X?"',
 ];
 
@@ -101,6 +102,12 @@ function Dashboard() {
     }
     return PODDIT_SMS_US;
   }, [userPhone]);
+
+  // Placeholder phrases — includes region-specific SMS number
+  const HERO_PLACEHOLDERS = useMemo(() => [
+    ...DEFAULT_PLACEHOLDERS,
+    `Text a link or topic to ${podditSms.display}...`,
+  ], [podditSms]);
 
   const [insightsExpanded, setInsightsExpanded] = useState(true);
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
@@ -405,15 +412,8 @@ function Dashboard() {
     finally { setQuestionnaireSubmitting(false); }
   };
 
-  // Placeholder text cycling timer
-  // Typewriter effect for placeholder text
+  // Typewriter effect for placeholder text — always runs
   useEffect(() => {
-    if (!isEmptyState) {
-      setTypedText('');
-      twStateRef.current = { phraseIdx: 0, charIdx: 0, phase: 'typing' };
-      if (typewriterRef.current) clearInterval(typewriterRef.current);
-      return;
-    }
     const tick = () => {
       const s = twStateRef.current;
       const phrase = HERO_PLACEHOLDERS[s.phraseIdx];
@@ -454,7 +454,7 @@ function Dashboard() {
     return () => {
       if (typewriterRef.current) clearInterval(typewriterRef.current);
     };
-  }, [isEmptyState]);
+  }, [HERO_PLACEHOLDERS]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1548,7 +1548,7 @@ function Dashboard() {
                 <input
                   type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
                   onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                  placeholder={inputSuccess ? ' ' : !isEmptyState ? 'Save a link, topic, or thought...' : ' '} disabled={submitting}
+                  placeholder=" " disabled={submitting}
                   className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
                              placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
                              focus:bg-white/[0.10] disabled:opacity-40 transition-all
@@ -1558,7 +1558,7 @@ function Dashboard() {
                   <span className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap">
                     ✓ {inputSuccess}
                   </span>
-                ) : isEmptyState && !textInput && !inputFocused && !inputSuccess ? (
+                ) : !textInput && !inputFocused && !inputSuccess ? (
                   <span className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}>
                     {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
                   </span>
