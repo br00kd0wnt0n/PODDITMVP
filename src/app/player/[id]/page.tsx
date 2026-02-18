@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 interface Source {
   name: string;
-  url: string;
+  url?: string;  // optional for backwards compat with old episodes
   attribution: string;
 }
 
@@ -554,40 +554,39 @@ export default function PlayerPage() {
               ))}
             </div>
 
-            {/* Source cards */}
-            {episode.segments[activeSegment].sources?.length > 0 && (
-              <div className="mt-6 space-y-2">
-                <h3 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider">Sources</h3>
-                {(episode.segments[activeSegment].sources as Source[]).map((source, i) => {
-                  const hasUrl = source.url && source.url.trim();
-                  const cardClasses = "flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm group"
-                    + (hasUrl ? " hover:border-violet-400/30 hover:bg-white/[0.05] transition-all cursor-pointer" : "");
-
-                  if (hasUrl) {
-                    return (
-                      <a
-                        key={i}
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cardClasses}
-                      >
+            {/* Source cards — only clickable sources shown */}
+            {(() => {
+              const clickableSources = (episode.segments[activeSegment].sources as Source[])?.filter(s => s.url && s.url.trim()) || [];
+              if (clickableSources.length === 0) return null;
+              return (
+                <div className="mt-6 space-y-2">
+                  <h3 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider">Sources</h3>
+                  {clickableSources.map((source, i) => (
+                    <a
+                      key={i}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-2.5 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm group
+                                 hover:border-violet-400/30 hover:bg-white/[0.05] transition-all cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                           className="text-violet-400/60 mt-0.5 flex-shrink-0 group-hover:text-violet-400 transition-colors">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      <div className="min-w-0">
                         <span className="text-white font-medium group-hover:underline">{source.name}</span>
-                        <span className="text-poddit-600">&mdash;</span>
+                        <span className="text-poddit-600 mx-1.5">&mdash;</span>
                         <span className="text-poddit-400">{source.attribution}</span>
-                      </a>
-                    );
-                  }
-                  return (
-                    <div key={i} className={cardClasses}>
-                      <span className="text-white/70 font-medium">{source.name}</span>
-                      <span className="text-poddit-600">&mdash;</span>
-                      <span className="text-poddit-400">{source.attribution}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
       </section>

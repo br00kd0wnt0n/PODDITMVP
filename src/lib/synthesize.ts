@@ -206,13 +206,18 @@ export async function generateEpisode(params: {
       }
     }
 
-    let strippedCount = 0;
+    let strippedNoUrl = 0;
+    let strippedUnreachable = 0;
     for (const segment of episodeData.segments) {
       if (Array.isArray(segment.sources)) {
         const validated: typeof segment.sources = [];
         for (const src of segment.sources) {
-          // Sources without URLs are name-only citations — keep them
-          if (!src.url) { validated.push(src); continue; }
+          // Drop sources without URLs — every source must be clickable
+          if (!src.url || !src.url.trim()) {
+            console.log(`[Poddit] Dropped source without URL: ${src.name}`);
+            strippedNoUrl++;
+            continue;
+          }
           // Signal URLs are known-good — skip validation
           if (signalUrls.has(src.url.toLowerCase())) { validated.push(src); continue; }
           // Validate Claude-researched URLs
@@ -221,14 +226,17 @@ export async function generateEpisode(params: {
             validated.push(src);
           } else {
             console.log(`[Poddit] Stripped unreachable source: ${src.url}`);
-            strippedCount++;
+            strippedUnreachable++;
           }
         }
         segment.sources = validated;
       }
     }
-    if (strippedCount > 0) {
-      console.log(`[Poddit] Stripped ${strippedCount} unreachable source URL(s) from synthesis response`);
+    if (strippedNoUrl > 0) {
+      console.log(`[Poddit] Dropped ${strippedNoUrl} source(s) without URLs`);
+    }
+    if (strippedUnreachable > 0) {
+      console.log(`[Poddit] Stripped ${strippedUnreachable} unreachable source URL(s)`);
     }
 
     // 6. Build the full script for TTS
