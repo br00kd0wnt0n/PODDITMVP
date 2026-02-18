@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth } from '@/lib/auth';
+import { requireAdminAuth, clearRevocationCache } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendInviteEmail, sendRevokeEmail, generateInviteCode } from '@/lib/email';
 import prisma from '@/lib/db';
@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
           },
           select: { id: true, email: true, name: true, inviteCode: true },
         });
+
+        // Clear revocation cache so restored user gets immediate access
+        clearRevocationCache(existing.id);
 
         // Send invite email
         const emailResult = await sendInviteEmail({
@@ -165,6 +168,9 @@ export async function DELETE(request: NextRequest) {
         inviteCode: null,
       },
     });
+
+    // Clear revocation cache so revoked user is blocked immediately
+    clearRevocationCache(userId);
 
     console.log(`[Admin] Revoked access for ${user.email}`);
 

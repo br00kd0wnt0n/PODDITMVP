@@ -382,12 +382,31 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Color convention** — teal reserved for action/navigation buttons only (play, generate). Content accents use violet/amber/rose. Input controls use white/glass
 - [x] **Preview.html updated** — all design changes reflected in standalone preview file
 
+### Sprint: Security & Stability Hardening (from Feb 2026 audit)
+- [x] **Revoked user JWT bypass fix (CRITICAL)** — added `revokedAt` DB check to `requireSession()` with 60s in-memory cache. Returns 403 if revoked. Cache invalidated on admin revoke/restore via `clearRevocationCache()`.
+- [x] **SSRF protection on URL fetching** — added `isSafeUrl()` with DNS resolution + private IP range blocklist, manual redirect following (up to 5 hops with SSRF check on each), protocol validation. Blocks 127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, ::1, fe80:, fc00:, fd00:, .internal/.local/.localhost hostnames.
+- [x] **Response size + content-type limits on URL fetching** — `fetchAndExtract()` now validates Content-Type (only text/html, text/plain, application/xhtml), checks Content-Length header, and uses streaming reader with 5MB byte limit and early termination.
+- [ ] **Episodes API pagination** — `take: 20` was removed so Highlights can aggregate all episodes. No upper bound on response size now. Each episode also joins signals for channels. Risk: MASTER users with 100+ episodes → slow queries, large JSON, compounded by 30s polling. Fix: re-add default limit (30) with cursor-based pagination, or create separate lightweight `/api/episodes/highlights` aggregation endpoint that returns only topic/channel counts without full episode data.
+- [x] **TTS chunk overflow protection** — `chunkScript()` now splits oversized paragraphs on sentence boundaries (`/[^.!?]+[.!?]+\s*/g`), with hard-split fallback for individual sentences exceeding maxChars. No chunk can exceed the ElevenLabs limit.
+- [x] **Episodes API try/catch** — GET handler wrapped in try/catch, returns structured `{ error: 'Failed to fetch episodes' }` with 500 status. Real errors logged server-side with `[Episodes]` prefix.
+- [x] **Generate-now error message sanitization** — replaced raw `error.message` with generic "Generation failed. Please try again." Real error already logged server-side.
+- [x] **Signals route enum validation** — status filter validated against `VALID_STATUSES` whitelist before querying Prisma. Invalid values return 400 with helpful message. Queries wrapped in try/catch.
+- [ ] **Forwarded email false positive** — capture.ts line 26 checks `rawContent.includes('From:') && rawContent.includes('Subject:')` which matches any text containing both strings anywhere. A user typing "From: my perspective, the Subject: was clear" gets classified as `FORWARDED_EMAIL`. Fix: require these strings at start of lines or in structured proximity.
+- [ ] **Clipboard writeText error handling** — dashboard page.tsx line 251 calls `navigator.clipboard.writeText()` with no `.catch()`. Fails silently on non-HTTPS or denied permission. Fix: add `.catch()` with fallback message.
+
+### Needs Assessment — Prioritize Before Action
+- [ ] **Image signal uploads** — new signal type: user uploads an image (screenshot, photo, chart, infographic) which gets assessed by GPT-4 Vision as a signal. Needs: new `IMAGE` InputType enum value, capture API accepting image uploads (multipart/form), GPT-4V analysis to extract topics/context/description, storage (R2 or inline base64), dashboard UI for image capture, synthesis prompt integration for image-derived signals. Consider: file size limits, supported formats, cost per image analysis, privacy implications of image content.
+- [ ] **Episode source narration** — at the end of each episode, narrator reads a source attribution segment: "This episode was created for you by Poddit, based on your unique signals. Poddit used your topics and researched across X, Y, Z." Needs: prompt update to generate a `sourceAttribution` field listing key sources naturally, TTS reads it as final segment before outro music. Consider: how to name sources concisely for audio (domain names vs publication names), placement relative to outro music overlay.
+- [ ] **URL parser hardening (immediate)** — harden the URL parser in capture.ts to handle a wider range of platform share/URL link formats correctly. Current parser may fail on: shortened URLs (t.co, bit.ly, ow.ly), app deep links (reddit://, twitter://), AMP URLs, tracking-parameter-heavy URLs, URLs with fragments/anchors, platform-specific share formats (Reddit share, YouTube share, LinkedIn share, Substack share). Needs: shortener resolution (follow redirects), URL normalization (strip tracking params like utm_*), platform-specific extractors, test suite for common share formats. See `documents/Poddit Pre-Launch Roadmap.docx` §2.4
+- [ ] **Intent drift detection** — monitor how a user's captured signals change direction over time and detect topic evolution. Needs: topic embedding/clustering over rolling windows (e.g., 4-week periods), drift score comparing current vs historical topic distributions, surfacing in Highlights panel ("Your focus is shifting toward X" or "New interest: Y"), optional narrator mention in episode intro. Consider: what constitutes meaningful drift vs noise, minimum signal volume for reliable detection, privacy of behavioral analysis, user control over this feature.
+- [ ] **Native app conversion planning** — assess what's needed to convert Poddit from PWA to native iOS (and later Android). Key considerations: audio playback (background audio, lock screen controls, AirPlay), push notifications (APNs vs current SMS/email), share sheet integration (native share extension vs PWA share target), offline support (downloaded episodes, queue caching), capture methods (Siri Shortcuts, widget, share extension), auth (biometric, keychain), app store requirements (review guidelines, privacy labels), build tooling (React Native vs Swift vs Expo), migration path for existing PWA users, timeline and cost implications. See `documents/Poddit Pre-Launch Roadmap.docx` §3 for Apple Shortcuts spec.
+
 ### Upcoming — P1 (Early Access → Pre-Launch)
 - [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
 - [ ] **Cost & revenue tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode, projected revenue vs actual by tier. This is the operational heartbeat. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
-- [ ] **Player page design pass** — bring same brand polish (bokeh, transitions, glow) to episode player
-- [ ] **Settings page design pass** — visual refresh for settings/preferences page
+- [x] **Player page design pass** — frosted glass panels, bokeh orbs, lens flares, glow effects across all player sections
+- [x] **Settings page design pass** — frosted glass sections, inner bokeh on voice selector, glass inputs, glow save button
 
 ### Upcoming — P2 (Post-Validation)
 - [ ] **Contextual inline ad slots** — build infrastructure for inserting contextual ad segments into episodes and companion emails for free/Informed tiers. Needs: ad slot markers in the synthesis pipeline, topic-matching logic, audio or text ad injection. See `documents/Poddit Monetization Model.docx` §4 for ad formats and tier strategy
@@ -409,10 +428,9 @@ curl -X POST http://localhost:3000/api/generate \
 - [ ] Service worker for PWA offline support
 - [ ] Audio player ARIA attributes for accessibility
 - [ ] Monolithic page.tsx refactor (~2000 lines → extract Header, CaptureInput, OnboardingPanels, SignalQueue, EpisodeList, FeedbackModal, WelcomeOverlay, EmptyState components)
-- [ ] Native iOS app (React Native or Swift)
+- [ ] Native iOS app (React Native or Swift) — see "Needs Assessment: Native app conversion planning" above
 - [ ] Apple Shortcuts integration (Poddit, Poddit This, Poddit Now) — see `documents/Poddit Pre-Launch Roadmap.docx` §3
 - [ ] Platform API sync integrations (Reddit saved, Pocket/Instapaper, YouTube Watch Later) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.2
-- [ ] URL parser hardening (shortener resolution, platform-specific metadata) — see `documents/Poddit Pre-Launch Roadmap.docx` §2.4
 - [ ] Enterprise / Team tier (shared signal pools, team synthesis) — see `documents/Poddit Monetization Model.docx` §6.2
 
 ### Known Issues
@@ -422,6 +440,20 @@ curl -X POST http://localhost:3000/api/generate \
 - Monolithic page.tsx (~1800 lines) — extraction candidates: Header, CaptureInput, SignalQueue, EpisodeList, HighlightsPanel, FeedbackModal, WelcomeOverlay, EmptyState
 - `Episode.signalCount` denormalization has no sync mechanism
 - `logo_loop.mp4` still exists in `/public/` but is no longer referenced anywhere — can be removed
+- No composite DB index on `Episode(userId, createdAt)` — episodes list sorts by `createdAt` but only `generatedAt` and `status` are indexed
+- `refreshData` in page.tsx not in useEffect dependency array — works in practice but violates exhaustive-deps rule
+- Duplicate phone normalization logic in page.tsx (`savePhoneSetup` and `savePhone` — ~15 identical lines each)
+- Settings page has no unsaved changes warning — user can navigate away and lose edits silently
+- Settings page sections lack entrance animations (only header has `animate-fade-in-up`)
+- Player episode fetch swallows 401 errors — expired session shows "Episode not found" instead of redirect
+- Admin page HTML/JS bundle served without auth (API endpoints are protected, but page structure/endpoint paths are visible)
+- In-memory rate limiter is single-instance only — bypassed during zero-downtime deploys or autoscaling
+- No per-segment schema validation in synthesize.ts — malformed Claude response segment (missing `content`) causes Prisma error
+- No upper bound on segment count from Claude — theoretically could return 50+ segments with high TTS cost
+- MP3 chunk concatenation via `Buffer.concat` can produce frame-boundary glitches — ffmpeg concat would be more robust
+- Timing-unsafe secret comparison in auth.ts — uses `===` instead of `crypto.timingSafeEqual()` (low practical risk due to network latency)
+- Signals route find-then-delete is non-atomic — race condition on concurrent deletes returns 500 instead of 404
+- Generate-now has TOCTOU on episode cap — two simultaneous requests could both pass count check (mitigated by 5-min rate limit)
 
 ### Reference Documents
 Detailed strategy documents are in `/documents/` (git-ignored, not committed):

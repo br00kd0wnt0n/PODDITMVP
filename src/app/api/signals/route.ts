@@ -7,6 +7,8 @@ import prisma from '@/lib/db';
 // View captured signals for the current user
 // ──────────────────────────────────────────────
 
+const VALID_STATUSES = ['PENDING', 'QUEUED', 'ENRICHED', 'USED', 'SKIPPED', 'FAILED'];
+
 export async function GET(request: NextRequest) {
   const sessionResult = await requireSession();
   if (sessionResult instanceof NextResponse) return sessionResult;
@@ -18,35 +20,52 @@ export async function GET(request: NextRequest) {
 
   const where: any = { userId };
   if (status) {
-    const statuses = status.split(',').map(s => s.trim().toUpperCase());
+    const statuses = status.split(',').map(s => s.trim().toUpperCase())
+      .filter(s => VALID_STATUSES.includes(s));
+
+    if (statuses.length === 0) {
+      return NextResponse.json(
+        { error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
   }
 
-  const signals = await prisma.signal.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    select: {
-      id: true,
-      inputType: true,
-      channel: true,
-      rawContent: true,
-      url: true,
-      title: true,
-      source: true,
-      topics: true,
-      status: true,
-      createdAt: true,
-    },
-  });
+  try {
+    const signals = await prisma.signal.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        inputType: true,
+        channel: true,
+        rawContent: true,
+        url: true,
+        title: true,
+        source: true,
+        topics: true,
+        status: true,
+        createdAt: true,
+      },
+    });
 
-  const counts = await prisma.signal.groupBy({
-    by: ['status'],
-    where: { userId },
-    _count: true,
-  });
+    const counts = await prisma.signal.groupBy({
+      by: ['status'],
+      where: { userId },
+      _count: true,
+    });
 
-  return NextResponse.json({ signals, counts });
+    return NextResponse.json({ signals, counts });
+  } catch (error) {
+    console.error('[Signals] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch signals' },
+      { status: 500 }
+    );
+  }
 }
 
 // ──────────────────────────────────────────────

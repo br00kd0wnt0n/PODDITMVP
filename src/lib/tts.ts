@@ -311,6 +311,40 @@ function chunkScript(script: string, maxChars: number): string[] {
   let current = '';
 
   for (const para of paragraphs) {
+    // Handle oversized paragraphs by splitting on sentence boundaries
+    if (para.length > maxChars) {
+      // Flush current buffer first
+      if (current.trim()) {
+        chunks.push(current.trim());
+        current = '';
+      }
+
+      // Split the oversized paragraph on sentence endings
+      const sentences = para.match(/[^.!?]+[.!?]+\s*/g) || [para];
+      for (const sentence of sentences) {
+        // If even a single sentence exceeds maxChars, hard-split it
+        if (sentence.length > maxChars) {
+          if (current.trim()) {
+            chunks.push(current.trim());
+            current = '';
+          }
+          // Hard-split at maxChars boundary as last resort
+          for (let i = 0; i < sentence.length; i += maxChars) {
+            chunks.push(sentence.slice(i, i + maxChars).trim());
+          }
+          continue;
+        }
+
+        if ((current + ' ' + sentence).length > maxChars && current.length > 0) {
+          chunks.push(current.trim());
+          current = sentence;
+        } else {
+          current = current ? current + ' ' + sentence : sentence;
+        }
+      }
+      continue;
+    }
+
     if ((current + '\n\n' + para).length > maxChars && current.length > 0) {
       chunks.push(current.trim());
       current = para;

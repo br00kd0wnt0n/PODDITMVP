@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Clear rate limit on failure so user can retry immediately
     clearRateLimit(rateLimitKey);
     return NextResponse.json(
-      { error: error.message || 'Generation failed' },
+      { error: 'Generation failed. Please try again.' },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@ import { InputType, Channel } from '@prisma/client';
 import * as cheerio from 'cheerio';
 import Anthropic from '@anthropic-ai/sdk';
 import { ENRICHMENT_PROMPT } from './prompts';
+import { lookup } from 'dns/promises';
 
 // Singleton Anthropic client for signal classification
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -41,6 +42,56 @@ export function classifyInput(rawContent: string): { type: InputType; urls: stri
 // CONTENT FETCHING (for links)
 // ──────────────────────────────────────────────
 
+// Private/internal IP ranges that should never be fetched
+const BLOCKED_IP_PATTERNS = [
+  /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./,
+  /^169\.254\./, /^0\./, /^100\.(6[4-9]|[7-9]\d|1[0-2]\d)\./,
+  /^::1$/, /^fe80:/i, /^fc00:/i, /^fd00:/i,
+];
+const BLOCKED_HOSTNAMES = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
+const BLOCKED_SUFFIXES = ['.internal', '.local', '.localhost'];
+const MAX_RESPONSE_BYTES = 5_000_000; // 5MB
+const ALLOWED_CONTENT_TYPES = ['text/html', 'text/plain', 'application/xhtml'];
+const MAX_REDIRECTS = 5;
+
+/**
+ * Check if a URL is safe to fetch (not targeting private/internal networks).
+ * Resolves DNS to verify the IP address is not in a blocked range.
+ */
+async function isSafeUrl(url: string): Promise<boolean> {
+  try {
+    const parsed = new URL(url);
+
+    // Protocol check
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Direct hostname blocklist
+    if (BLOCKED_HOSTNAMES.includes(hostname)) return false;
+
+    // Suffix blocklist
+    if (BLOCKED_SUFFIXES.some(s => hostname.endsWith(s))) return false;
+
+    // DNS resolution — check resolved IP against blocked ranges
+    try {
+      const { address } = await lookup(hostname);
+      if (BLOCKED_IP_PATTERNS.some(re => re.test(address))) {
+        return false;
+      }
+    } catch {
+      // DNS resolution failed — could be invalid hostname, allow fetch to fail naturally
+      return true;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function titleFromPath(url: string): string | null {
   try {
     const pathname = new URL(url).pathname;
@@ -57,28 +108,115 @@ function titleFromPath(url: string): string | null {
   }
 }
 
+/**
+ * Read response body with size limit via streaming.
+ * Returns null if response exceeds MAX_RESPONSE_BYTES.
+ */
+async function readResponseWithLimit(response: Response, maxBytes: number): Promise<string | null> {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.length;
+      if (totalBytes > maxBytes) {
+        reader.cancel();
+        console.warn(`[Capture] Response exceeded ${maxBytes} bytes, truncating`);
+        break;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks).toString('utf-8');
+}
+
 export async function fetchAndExtract(url: string): Promise<{
   title: string | null;
   source: string | null;
   content: string | null;
 }> {
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Poddit/1.0; +https://poddit.com)',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
+    // SSRF protection — verify URL doesn't target private/internal networks
+    if (!(await isSafeUrl(url))) {
+      console.warn(`[Capture] Blocked unsafe URL: ${url}`);
+      const source = safeHostname(url);
+      return { title: titleFromPath(url), source, content: null };
+    }
 
-    const source = new URL(url).hostname.replace('www.', '') || null;
+    // Manual redirect following with SSRF check on each hop
+    let currentUrl = url;
+    let response: Response | null = null;
+
+    for (let i = 0; i <= MAX_REDIRECTS; i++) {
+      response = await fetch(currentUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Poddit/1.0; +https://poddit.com)',
+        },
+        signal: AbortSignal.timeout(10000),
+        redirect: 'manual',
+      });
+
+      // Handle redirects manually — check each redirect target for SSRF
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) break;
+
+        // Resolve relative redirects
+        const redirectUrl = new URL(location, currentUrl).toString();
+
+        if (!(await isSafeUrl(redirectUrl))) {
+          console.warn(`[Capture] Blocked redirect to unsafe URL: ${redirectUrl}`);
+          const source = safeHostname(url);
+          return { title: titleFromPath(url), source, content: null };
+        }
+
+        currentUrl = redirectUrl;
+        continue;
+      }
+
+      break;
+    }
+
+    if (!response) {
+      const source = safeHostname(url);
+      return { title: titleFromPath(url), source, content: null };
+    }
+
+    const source = safeHostname(currentUrl) || safeHostname(url);
 
     if (!response.ok) {
-      // Even if blocked, extract title from URL path as fallback
       const titleFromUrl = titleFromPath(url);
       return { title: titleFromUrl, source, content: null };
     }
 
-    const html = await response.text();
+    // Content-Type validation — only process HTML/text
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!ALLOWED_CONTENT_TYPES.some(t => contentType.includes(t))) {
+      console.log(`[Capture] Skipping non-HTML content (${contentType}): ${url}`);
+      return { title: titleFromPath(url), source, content: null };
+    }
+
+    // Content-Length pre-check (header may not always be present)
+    const contentLength = parseInt(response.headers.get('content-length') || '0');
+    if (contentLength > MAX_RESPONSE_BYTES) {
+      console.warn(`[Capture] Response too large (${contentLength} bytes): ${url}`);
+      return { title: titleFromPath(url), source, content: null };
+    }
+
+    // Stream body with size limit
+    const html = await readResponseWithLimit(response, MAX_RESPONSE_BYTES);
+    if (!html) {
+      return { title: titleFromPath(url), source, content: null };
+    }
+
     const $ = cheerio.load(html);
 
     // Remove noise
@@ -101,14 +239,17 @@ export async function fetchAndExtract(url: string): Promise<{
     return { title, source: ogSource || source, content: truncated || null };
   } catch (error) {
     console.error(`[Capture] Failed to fetch ${url}:`, error);
-    // Safe URL parsing — catch malformed URLs in catch block
-    let source: string | null = null;
-    try {
-      source = new URL(url).hostname.replace('www.', '') || null;
-    } catch {
-      // URL is malformed — leave source as null
-    }
+    const source = safeHostname(url);
     return { title: titleFromPath(url), source, content: null };
+  }
+}
+
+/** Safely extract hostname from a URL, returning null on malformed input */
+function safeHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace('www.', '') || null;
+  } catch {
+    return null;
   }
 }
 
