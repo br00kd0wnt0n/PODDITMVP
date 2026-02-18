@@ -170,6 +170,24 @@ export async function generateEpisode(params: {
       throw new Error('Claude response missing required fields (title, segments)');
     }
 
+    // 5b. Strip any hallucinated source URLs — only keep URLs from actual signals
+    const validUrls = new Set(
+      signals.filter(s => s.url).map(s => s.url!.toLowerCase())
+    );
+    let strippedCount = 0;
+    for (const segment of episodeData.segments) {
+      if (Array.isArray(segment.sources)) {
+        const before = segment.sources.length;
+        segment.sources = segment.sources.filter(
+          (src: { url?: string }) => src.url && validUrls.has(src.url.toLowerCase())
+        );
+        strippedCount += before - segment.sources.length;
+      }
+    }
+    if (strippedCount > 0) {
+      console.log(`[Poddit] Stripped ${strippedCount} hallucinated source URL(s) from synthesis response`);
+    }
+
     // 6. Build the full script for TTS
     const fullScript = buildFullScript(episodeData);
 
