@@ -211,6 +211,31 @@ function titleFromPath(url: string): string | null {
 }
 
 /**
+ * Pick the best title from existing (e.g. extension tab.title) and fetched (from page <title>).
+ * Prefers whichever is more descriptive — longer title with more words wins.
+ * Filters out generic site-name-only titles like "Perplexity", "Medium", "Reddit".
+ */
+function pickBestTitle(existing: string | null | undefined, fetched: string | null | undefined): string | null {
+  const a = existing?.trim() || null;
+  const b = fetched?.trim() || null;
+
+  if (!a && !b) return null;
+  if (!a) return b;
+  if (!b) return a;
+
+  // A title with more words is likely more descriptive
+  const aWords = a.split(/\s+/).length;
+  const bWords = b.split(/\s+/).length;
+
+  // If one is a single word (just a site name) and the other has multiple words, pick the longer one
+  if (aWords === 1 && bWords > 1) return b;
+  if (bWords === 1 && aWords > 1) return a;
+
+  // Otherwise pick the longer one (more descriptive)
+  return a.length >= b.length ? a : b;
+}
+
+/**
  * Read response body with size limit via streaming.
  * Returns null if response exceeds MAX_RESPONSE_BYTES.
  */
@@ -442,8 +467,8 @@ export async function enrichSignal(signalId: string) {
       await prisma.signal.update({
         where: { id: signalId },
         data: {
-          // Preserve existing title (e.g. from extension's tab.title) unless we fetched a better one
-          title: (signal.title && signal.title.length > 0) ? signal.title : fetchedTitle,
+          // Pick the best available title: prefer whichever is longer/more descriptive
+          title: pickBestTitle(signal.title, fetchedTitle),
           source,
           fetchedContent: content,
           status: 'ENRICHED',
