@@ -437,12 +437,13 @@ export async function enrichSignal(signalId: string) {
 
   try {
     if (signal.inputType === 'LINK' && signal.url) {
-      const { title, source, content } = await fetchAndExtract(signal.url);
+      const { title: fetchedTitle, source, content } = await fetchAndExtract(signal.url);
 
       await prisma.signal.update({
         where: { id: signalId },
         data: {
-          title,
+          // Preserve existing title (e.g. from extension's tab.title) unless we fetched a better one
+          title: (signal.title && signal.title.length > 0) ? signal.title : fetchedTitle,
           source,
           fetchedContent: content,
           status: 'ENRICHED',
