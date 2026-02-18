@@ -91,18 +91,31 @@ export default function PlayerPage() {
 
   useEffect(() => {
     fetch(`/api/episodes?id=${params.id}`)
-      .then(r => r.json())
+      .then(r => {
+        if (r.status === 401 || r.status === 403) {
+          // Session expired or revoked — redirect to sign-in
+          window.location.href = '/auth/signin';
+          return null;
+        }
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then(data => {
-        setEpisode(data);
+        if (data && data.segments) {
+          setEpisode(data);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
 
     // Check for existing rating
     fetch(`/api/episodes/rate?episodeId=${params.id}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then(data => {
-        if (data.rated && data.rating) {
+        if (data?.rated && data.rating) {
           setExistingRating(data.rating);
           setRatings({ enjoyment: data.rating.enjoyment, resonance: data.rating.resonance, connections: data.rating.connections });
           setRatingSubmitted(true);
