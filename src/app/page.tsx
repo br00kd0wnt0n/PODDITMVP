@@ -1636,53 +1636,50 @@ function Dashboard() {
         {showCollectSignals && (
           <div className="mb-4 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
             <div className="p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl">
-              {/* How it works steps */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-                {([
-                  { label: 'Capture', desc: 'Save links, topics, or voice notes as they catch your eye.', color: 'teal', step: 1 },
-                  { label: 'Generate', desc: 'Hit Generate My Episode or wait for your weekly Friday roundup.', color: 'violet', step: 2 },
-                  { label: 'Listen', desc: 'Get a personalized audio episode explaining everything.', color: 'amber', step: 3 },
-                ] as const).map(({ label, desc, color, step }) => {
-                  const isActive = step === activeStep;
-                  const isFuture = step > activeStep;
-                  const badgeClass = isActive
-                    ? color === 'teal' ? 'bg-teal-500/15 text-teal-400' : color === 'violet' ? 'bg-violet-400/15 text-violet-400' : 'bg-amber-500/15 text-amber-400'
-                    : color === 'teal' ? 'bg-teal-500/[0.08] text-teal-500/70' : color === 'violet' ? 'bg-violet-400/[0.08] text-violet-400/70' : 'bg-amber-500/[0.08] text-amber-400/70';
-                  return (
-                    <div key={label} className={`flex items-start gap-2.5 p-2.5 rounded-lg bg-poddit-950/40 border border-stone-800/20 ${isFuture ? 'opacity-40' : ''}`}>
-                      <span className={`flex-shrink-0 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${badgeClass}`}>{step}</span>
-                      <div>
-                        <p className={`text-xs font-medium ${isActive ? 'text-stone-200' : 'text-stone-300'}`}>{label}</p>
-                        <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed">{desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Ways to capture signals */}
+              <div className="space-y-1">
+                {/* Type / paste */}
+                <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                  <p className="text-sm text-stone-300">Type or paste a link right here</p>
+                </div>
+                {/* Voice note */}
+                <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
+                  <p className="text-sm text-stone-300">Tap the mic to record a voice note</p>
+                </div>
+                {/* SMS */}
+                <button
+                  onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `sms:${podditSms.e164}`; } else { navigator.clipboard.writeText(podditSms.e164).then(() => { setInputSuccess('Number copied!'); setTimeout(() => setInputSuccess(null), 3000); }).catch(() => {}); } }}
+                  className="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.03] transition-all text-left group"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                  <p className="text-sm text-stone-300 group-hover:text-stone-200 transition-colors">Text a link or topic to <span className="font-mono text-teal-400/80">{podditSms.display}</span></p>
+                </button>
+                {/* Email */}
+                <button
+                  onClick={() => { window.location.href = 'mailto:capture@poddit.com'; }}
+                  className="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.03] transition-all text-left group"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+                  <p className="text-sm text-stone-300 group-hover:text-stone-200 transition-colors">Forward any email to <span className="font-mono text-teal-400/80">capture@poddit.com</span></p>
+                </button>
+                {/* Chrome — coming soon */}
+                <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg opacity-40">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-500 flex-shrink-0"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></svg>
+                  <p className="text-sm text-stone-500">Chrome extension &mdash; coming soon</p>
+                </div>
 
-              <div className="border-t border-stone-800/30 pt-3">
-                <p className="text-[11px] text-stone-500 mb-2"><span className="text-stone-400 font-medium">Capture channels</span></p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `sms:${podditSms.e164}`; } else { navigator.clipboard.writeText(podditSms.e164).then(() => { setInputSuccess('Phone number copied!'); setTimeout(() => setInputSuccess(null), 3000); }); } }}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/30 bg-poddit-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400 transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                    <div><p className="text-[11px] font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Text / Voice</p><p className="text-[9px] text-stone-600 mt-0.5 font-mono">{podditSms.display}</p></div>
-                  </button>
-                  <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/20 bg-poddit-950/20 opacity-50 text-center cursor-default">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-700"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></svg>
-                    <div><p className="text-[11px] font-medium text-stone-500">Chrome</p><p className="text-[9px] text-stone-700 mt-0.5">Coming soon</p></div>
+                <div className="border-t border-stone-800/20 mt-2 pt-2">
+                  {/* Generate */}
+                  <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400 flex-shrink-0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+                    <p className="text-sm text-stone-300">Hit <span className="text-violet-400 font-medium">Generate My Episode</span> when you&apos;re ready</p>
                   </div>
-                  <button onClick={() => { window.location.href = 'mailto:capture@poddit.com'; }}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/30 bg-poddit-950/30 hover:border-teal-500/25 hover:bg-teal-500/5 transition-all group text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400 transition-colors"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
-                    <div><p className="text-[11px] font-medium text-stone-300 group-hover:text-teal-300 transition-colors">Email</p><p className="text-[9px] text-stone-600 mt-0.5 font-mono">capture@poddit.com</p></div>
-                  </button>
-                  <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-stone-800/30 bg-poddit-950/30 text-center">
-                    <div className="flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
-                    </div>
-                    <div><p className="text-[11px] font-medium text-stone-300">Type or speak</p><p className="text-[9px] text-stone-600 mt-0.5">Links or topics</p></div>
+                  {/* Auto weekly */}
+                  <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    <p className="text-sm text-stone-300">Or sit back &mdash; Poddit auto-generates every <span className="text-amber-400 font-medium">Friday</span></p>
                   </div>
                 </div>
               </div>
