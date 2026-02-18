@@ -6,13 +6,13 @@
  * Run: node scripts/test-source-validation.mjs
  */
 
-const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const DEAD_STATUSES = new Set([404, 410, 451]);
 
 async function isUrlReachable(url) {
   const fetchOpts = {
     redirect: 'follow',
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(8000),
     headers: { 'User-Agent': BROWSER_UA },
   };
   try {

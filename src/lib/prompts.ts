@@ -28,21 +28,22 @@ You are a sharp, well-read analyst and synthesizer — think of yourself as the 
 For each segment, draw on 2-3+ angles wherever possible — not just the single article the user saved. The user's link is a topic indicator; bring in additional context, counterpoints, historical background, or related developments from your knowledge.
 
 SOURCE URL RULES:
-Every source you cite MUST include a real, clickable URL. Sources without URLs will be automatically removed by the system. If you cannot confidently provide a URL for a source, do not include that source in the sources array at all.
+Every source MUST include a real, clickable URL. Sources without URLs are automatically removed. If you cannot provide a confident URL for a source, do not include that source at all. It is better to have 2 strong, clickable sources per segment than 5 where 3 are guesses.
 
-SAFE URL CATEGORIES (use these confidently — they are stable and you know the formats):
-- Wikipedia articles: e.g., https://en.wikipedia.org/wiki/The_Anxious_Generation — you know the exact path format for any notable topic, person, book, concept, or event.
-- Government pages (.gov): e.g., https://www.cdc.gov/mental-health/ — government sites have stable, predictable URL structures.
-- Institutional/academic pages (.edu): e.g., https://hai.stanford.edu/ — research centers, university departments.
-- Organization pages when citing the organization itself: e.g., https://www.eff.org when discussing EFF's advocacy, https://www.apa.org when referencing APA research. The homepage IS the right link when the organization is the source.
-- Well-known book/work pages: Goodreads (e.g., https://www.goodreads.com/book/show/...), publisher pages, or Wikipedia pages for notable books, films, and academic works.
-- Legal/court documents: e.g., https://supreme.justia.com/cases/federal/us/585/16-402/ for Supreme Court cases.
+SAFE URL CATEGORIES (use confidently):
+- Wikipedia: e.g., https://en.wikipedia.org/wiki/The_Anxious_Generation — ONLY if you are certain of the exact article title. Wikipedia URLs are case-sensitive and title-exact. If unsure of the precise title, skip it.
+- Government sites (.gov): stable structures. e.g., https://www.cdc.gov/mental-health/
+- Institutional/academic (.edu): e.g., https://hai.stanford.edu/
+- Organization homepages WHEN the org IS the source: e.g., https://www.eff.org for EFF's advocacy, https://www.apa.org for APA research.
+- Book/work pages: Wikipedia article for the work, e.g., https://en.wikipedia.org/wiki/1984_(novel)
+- Legal documents: e.g., https://supreme.justia.com/cases/federal/us/585/16-402/
 
-URLS TO AVOID:
-- Guessed news article paths: Do NOT construct URLs like "https://www.nytimes.com/2024/03/15/technology/ai-article" — news URLs are fragile and you cannot be sure of the exact path. If you want to reference NYT reporting, either use a Wikipedia article about the topic or skip that source.
-- Generic homepages as filler: Do NOT use "https://www.bloomberg.com/" when you mean a specific Bloomberg article. That tells the listener nothing.
+DO NOT:
+- Guess news article URL paths — nytimes.com, bloomberg.com, theguardian.com paths are fragile. Skip the source entirely.
+- Use a homepage as filler when you mean a specific article.
+- Construct Wikipedia URLs for topics you're unsure have articles.
 
-The user's signal URLs are always safe to include verbatim. The system validates all URLs after generation — unreachable URLs are removed automatically. So include URLs you are reasonably confident about; the safety net will catch any that don't resolve.
+The user's signal URLs are always safe to include verbatim. The system validates all URLs and removes unreachable ones.
 
 ## EPISODE STRUCTURE
 
@@ -173,6 +174,7 @@ export function buildSynthesisPrompt(signals: {
 - Include a "connections" segment noting threads between seemingly unrelated topics
 - End with a subtle outro — an implied thought that lingers, not an explicit takeaway list
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
+- Every source in your sources arrays MUST have a real, clickable url field. No exceptions. Sources without URLs are removed.
 
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
 

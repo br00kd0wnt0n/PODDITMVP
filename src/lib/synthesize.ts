@@ -3,6 +3,7 @@ import prisma from './db';
 import { SYSTEM_PROMPT, buildSynthesisPrompt } from './prompts';
 import { generateAudio } from './tts';
 import { withRetry } from './retry';
+import { isSafeUrl } from './capture';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -170,74 +171,136 @@ export async function generateEpisode(params: {
       throw new Error('Claude response missing required fields (title, segments)');
     }
 
+    // 5a. Validate segment + source structure before processing
+    for (const seg of episodeData.segments) {
+      if (!Array.isArray(seg.sources)) {
+        seg.sources = [];
+      }
+      // Filter malformed sources (missing required fields)
+      seg.sources = seg.sources.filter((src: Record<string, unknown>) =>
+        typeof src.name === 'string' && (src.name as string).trim() &&
+        typeof src.attribution === 'string'
+      );
+    }
+
     // 5b. Validate source URLs — strip hallucinated URLs that don't exist
-    // Strategy: HEAD → GET fallback, real User-Agent, accept any non-404/410
-    // Many legit sites block HEAD or require cookies — so we're lenient.
-    // Goal: catch fabricated URLs (404/DNS fail), NOT block paywalled/auth-gated content.
+    // Strategy: SSRF check → HEAD → GET fallback, real User-Agent, only strip 404/410/451
+    // Concurrent batching (5 at a time) to stay within 300s route budget
+    const validationStart = Date.now();
     const signalUrls = new Set(
       signals.filter(s => s.url).map(s => s.url!.toLowerCase())
     );
 
-    const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
-    // Status codes that mean "page doesn't exist" — everything else is kept
+    const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
     const DEAD_STATUSES = new Set([404, 410, 451]);
 
     async function isUrlReachable(url: string): Promise<boolean> {
       const fetchOpts = {
         redirect: 'follow' as const,
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
         headers: { 'User-Agent': BROWSER_UA },
       };
       try {
-        // Try HEAD first (lightweight)
         const headRes = await fetch(url, { ...fetchOpts, method: 'HEAD' });
         if (!DEAD_STATUSES.has(headRes.status)) return true;
-        // HEAD returned 404/410 — confirm with GET (some servers lie on HEAD)
+        // HEAD returned dead status — confirm with GET (some servers lie on HEAD)
         const getRes = await fetch(url, { ...fetchOpts, method: 'GET' });
         return !DEAD_STATUSES.has(getRes.status);
       } catch {
-        // Network error, DNS failure, timeout — try GET as last resort
         try {
           const getRes = await fetch(url, { ...fetchOpts, method: 'GET' });
           return !DEAD_STATUSES.has(getRes.status);
         } catch {
-          return false; // Truly unreachable (DNS fail, connection refused)
+          return false;
         }
       }
     }
 
+    // Validation cache — dedup same URL across segments
+    const validationCache = new Map<string, boolean>();
+
+    // Collect all non-signal source URLs that need validation
+    interface SourceToValidate { segIdx: number; srcIdx: number; url: string; }
+    const toValidate: SourceToValidate[] = [];
     let strippedNoUrl = 0;
-    let strippedUnreachable = 0;
-    for (const segment of episodeData.segments) {
-      if (Array.isArray(segment.sources)) {
-        const validated: typeof segment.sources = [];
-        for (const src of segment.sources) {
-          // Drop sources without URLs — every source must be clickable
-          if (!src.url || !src.url.trim()) {
-            console.log(`[Poddit] Dropped source without URL: ${src.name}`);
-            strippedNoUrl++;
-            continue;
-          }
-          // Signal URLs are known-good — skip validation
-          if (signalUrls.has(src.url.toLowerCase())) { validated.push(src); continue; }
-          // Validate Claude-researched URLs
-          const reachable = await isUrlReachable(src.url);
-          if (reachable) {
-            validated.push(src);
-          } else {
-            console.log(`[Poddit] Stripped unreachable source: ${src.url}`);
-            strippedUnreachable++;
-          }
+    let strippedUnsafe = 0;
+
+    for (let segIdx = 0; segIdx < episodeData.segments.length; segIdx++) {
+      const seg = episodeData.segments[segIdx];
+      for (let srcIdx = 0; srcIdx < seg.sources.length; srcIdx++) {
+        const src = seg.sources[srcIdx];
+        if (!src.url || !src.url.trim()) {
+          console.log(`[Poddit] Dropped source without URL: ${src.name}`);
+          strippedNoUrl++;
+          continue;
         }
-        segment.sources = validated;
+        // Signal URLs are known-good — skip validation
+        if (signalUrls.has(src.url.toLowerCase())) continue;
+        toValidate.push({ segIdx, srcIdx, url: src.url });
       }
     }
-    if (strippedNoUrl > 0) {
-      console.log(`[Poddit] Dropped ${strippedNoUrl} source(s) without URLs`);
+
+    // SSRF check + validate in concurrent batches of 5
+    const BATCH_SIZE = 5;
+    let strippedUnreachable = 0;
+    const failedUrls = new Set<string>();
+
+    for (let i = 0; i < toValidate.length; i += BATCH_SIZE) {
+      const batch = toValidate.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (item) => {
+          const cacheKey = item.url.toLowerCase();
+          if (validationCache.has(cacheKey)) {
+            return { item, reachable: validationCache.get(cacheKey)! };
+          }
+          // SSRF check before fetching
+          const safe = await isSafeUrl(item.url);
+          if (!safe) {
+            console.log(`[Poddit] Blocked unsafe URL: ${item.url}`);
+            validationCache.set(cacheKey, false);
+            return { item, reachable: false, unsafe: true };
+          }
+          const reachable = await isUrlReachable(item.url);
+          validationCache.set(cacheKey, reachable);
+          return { item, reachable };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          if (!result.value.reachable) {
+            failedUrls.add(result.value.item.url.toLowerCase());
+            if ((result.value as { unsafe?: boolean }).unsafe) {
+              strippedUnsafe++;
+            } else {
+              strippedUnreachable++;
+              console.log(`[Poddit] Stripped unreachable source: ${result.value.item.url}`);
+            }
+          }
+        } else {
+          // Promise rejected (unexpected error) — drop the source defensively
+          const item = batch[results.indexOf(result)];
+          if (item) {
+            failedUrls.add(item.url.toLowerCase());
+            strippedUnreachable++;
+            console.warn(`[Poddit] Validation error for ${item.url}: ${result.reason}`);
+          }
+        }
+      }
     }
-    if (strippedUnreachable > 0) {
-      console.log(`[Poddit] Stripped ${strippedUnreachable} unreachable source URL(s)`);
+
+    // Apply validation results — rebuild sources arrays
+    for (const segment of episodeData.segments) {
+      segment.sources = segment.sources.filter((src: { url?: string }) => {
+        if (!src.url || !src.url.trim()) return false;
+        if (signalUrls.has(src.url.toLowerCase())) return true;
+        return !failedUrls.has(src.url.toLowerCase());
+      });
     }
+
+    const validationMs = Date.now() - validationStart;
+    const totalSources = episodeData.segments.reduce((sum, s) => sum + s.sources.length, 0);
+    console.log(`[Poddit] Source validation: ${validationMs}ms, ${totalSources} kept, ${strippedNoUrl} no-url, ${strippedUnreachable} unreachable, ${strippedUnsafe} unsafe`);
 
     // 6. Build the full script for TTS
     const fullScript = buildFullScript(episodeData);

@@ -160,7 +160,7 @@ const MAX_REDIRECTS = 5;
  * Check if a URL is safe to fetch (not targeting private/internal networks).
  * Resolves DNS to verify the IP address is not in a blocked range.
  */
-async function isSafeUrl(url: string): Promise<boolean> {
+export async function isSafeUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
 
