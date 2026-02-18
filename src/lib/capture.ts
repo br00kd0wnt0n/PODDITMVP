@@ -14,17 +14,119 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
 
+// Tracking query params to strip during normalization
+const TRACKING_PARAMS = new Set([
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'fbclid', 'gclid', 'gclsrc', 'dclid', 'msclkid',
+  'mc_cid', 'mc_eid', '_ga', '_gl',
+  'ref', 'ref_src', 'ref_url', 'source', 's',
+]);
+
+/**
+ * Strip trailing punctuation that's sentence-level, not part of the URL.
+ * Handles balanced brackets: only strips ) or ] if unbalanced.
+ */
+function cleanTrailingPunctuation(url: string): string {
+  const trailingChars = new Set(['.', ',', ';', ':', '!', '?', "'", '"']);
+  let cleaned = url;
+
+  while (cleaned.length > 0) {
+    const last = cleaned[cleaned.length - 1];
+
+    if (trailingChars.has(last)) {
+      cleaned = cleaned.slice(0, -1);
+      continue;
+    }
+
+    // Only strip ) if there are more closing than opening parens in the URL
+    if (last === ')') {
+      const opens = (cleaned.match(/\(/g) || []).length;
+      const closes = (cleaned.match(/\)/g) || []).length;
+      if (closes > opens) {
+        cleaned = cleaned.slice(0, -1);
+        continue;
+      }
+    }
+
+    // Only strip ] if there are more closing than opening brackets in the URL
+    if (last === ']') {
+      const opens = (cleaned.match(/\[/g) || []).length;
+      const closes = (cleaned.match(/\]/g) || []).length;
+      if (closes > opens) {
+        cleaned = cleaned.slice(0, -1);
+        continue;
+      }
+    }
+
+    break;
+  }
+
+  return cleaned;
+}
+
+/**
+ * Normalize a URL: strip tracking params, fragments, AMP paths, trailing slashes.
+ * Returns original URL if parsing fails.
+ */
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    // Strip tracking params
+    for (const param of [...parsed.searchParams.keys()]) {
+      if (TRACKING_PARAMS.has(param)) {
+        parsed.searchParams.delete(param);
+      }
+    }
+
+    // Remove fragment
+    parsed.hash = '';
+
+    // AMP canonicalization: strip /amp/ or /amp from path
+    parsed.pathname = parsed.pathname
+      .replace(/\/amp\//, '/')
+      .replace(/\/amp$/, '');
+
+    // Remove trailing slash (except root)
+    if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
+      parsed.pathname = parsed.pathname.slice(0, -1);
+    }
+
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Detect forwarded emails using line-boundary header matching.
+ * Requires From: and Subject: at line starts (with optional > quoting).
+ */
+function isForwardedEmail(text: string): boolean {
+  if (text.includes('---------- Forwarded message')) return true;
+  if (text.includes('Begin forwarded message')) return true;
+
+  // Require both From: and Subject: at start of lines (with optional > quoting)
+  const hasFrom = /^[>\s]*From:\s+\S/m.test(text);
+  const hasSubject = /^[>\s]*Subject:\s+\S/m.test(text);
+  return hasFrom && hasSubject;
+}
+
 export function extractUrls(text: string): string[] {
-  return text.match(URL_REGEX) || [];
+  const rawMatches = text.match(URL_REGEX) || [];
+  const cleaned = rawMatches
+    .map(cleanTrailingPunctuation)
+    .filter(url => url.length > 10)  // filter out degenerate matches
+    .map(normalizeUrl);
+  // Deduplicate (same URL after normalization)
+  return [...new Set(cleaned)];
 }
 
 export function classifyInput(rawContent: string): { type: InputType; urls: string[] } {
   // Check for forwarded email FIRST — before URL extraction
   // Forwarded emails contain many embedded URLs (signatures, trackers, article links)
   // that shouldn't each become separate signals
-  if (rawContent.includes('---------- Forwarded message') ||
-      rawContent.includes('Begin forwarded message') ||
-      (rawContent.includes('From:') && rawContent.includes('Subject:'))) {
+  if (isForwardedEmail(rawContent)) {
     return { type: 'FORWARDED_EMAIL', urls: [] };
   }
 
