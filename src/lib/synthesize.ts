@@ -26,6 +26,217 @@ export interface EpisodeData {
   outro: string;
 }
 
+// ──────────────────────────────────────────────
+// WEB SEARCH INTEGRATION
+// ──────────────────────────────────────────────
+
+interface WebSearchCitation {
+  url: string;
+  title: string;
+  cited_text: string;
+}
+
+interface SynthesisResult {
+  content: Anthropic.ContentBlock[];
+  usage: Anthropic.Messages.Usage;
+  stop_reason: string | null;
+}
+
+interface ParsedSynthesisResponse {
+  episodeData: EpisodeData;
+  citations: WebSearchCitation[];
+  searchCount: number;
+}
+
+const MAX_CONTINUATIONS = 3;
+
+/**
+ * Call Claude with web search tool enabled.
+ * Handles pause_turn continuations and graceful fallback
+ * if web search is unavailable.
+ */
+async function callClaudeWithWebSearch(
+  synthesisPrompt: string
+): Promise<SynthesisResult> {
+  try {
+    let response = await withRetry(
+      () => anthropic.messages.create({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 12000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: synthesisPrompt }],
+        tools: [{
+          type: 'web_search_20250305' as const,
+          name: 'web_search' as const,
+          max_uses: 10,
+        }],
+      }),
+      { label: 'Claude synthesis', attempts: 2, delayMs: 3000 }
+    );
+
+    let allContent: Anthropic.ContentBlock[] = [...response.content];
+    let totalInputTokens = response.usage.input_tokens;
+    let totalOutputTokens = response.usage.output_tokens;
+    let totalSearches = response.usage.server_tool_use?.web_search_requests || 0;
+
+    // Handle pause_turn: Claude may pause during extensive web searching
+    let continuations = 0;
+    while (response.stop_reason === 'pause_turn' && continuations < MAX_CONTINUATIONS) {
+      continuations++;
+      console.log(`[Poddit] Claude paused (continuation ${continuations}/${MAX_CONTINUATIONS}), resuming...`);
+
+      response = await withRetry(
+        () => anthropic.messages.create({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 12000,
+          system: SYSTEM_PROMPT,
+          messages: [
+            { role: 'user', content: synthesisPrompt },
+            { role: 'assistant', content: allContent as Anthropic.Messages.ContentBlockParam[] },
+          ],
+          tools: [{
+            type: 'web_search_20250305' as const,
+            name: 'web_search' as const,
+            max_uses: 10,
+          }],
+        }),
+        { label: `Claude synthesis (continuation ${continuations})`, attempts: 2, delayMs: 3000 }
+      );
+
+      allContent = [...allContent, ...response.content];
+      totalInputTokens += response.usage.input_tokens;
+      totalOutputTokens += response.usage.output_tokens;
+      totalSearches += response.usage.server_tool_use?.web_search_requests || 0;
+    }
+
+    if (response.stop_reason === 'pause_turn') {
+      console.warn(`[Poddit] Claude still paused after ${MAX_CONTINUATIONS} continuations, using partial response`);
+    }
+
+    return {
+      content: allContent,
+      usage: {
+        ...response.usage,
+        input_tokens: totalInputTokens,
+        output_tokens: totalOutputTokens,
+        server_tool_use: { web_search_requests: totalSearches, web_fetch_requests: 0 },
+      },
+      stop_reason: response.stop_reason,
+    };
+  } catch (error: any) {
+    // If web search tool causes the call to fail, retry without it
+    const isToolError = error?.status === 400 &&
+      (error?.message?.includes('web_search') || error?.error?.message?.includes('web_search'));
+
+    if (isToolError) {
+      console.warn('[Poddit] Web search tool unavailable, falling back to parametric knowledge...');
+      const fallbackResponse = await withRetry(
+        () => anthropic.messages.create({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 12000,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: synthesisPrompt }],
+        }),
+        { label: 'Claude synthesis (no web search)', attempts: 2, delayMs: 3000 }
+      );
+      return {
+        content: [...fallbackResponse.content],
+        usage: fallbackResponse.usage,
+        stop_reason: fallbackResponse.stop_reason,
+      };
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Parse Claude's interleaved response (text + web search blocks).
+ * Concatenates text blocks, extracts JSON, and harvests citations.
+ */
+function parseSynthesisResponse(
+  content: Anthropic.ContentBlock[],
+  stopReason: string | null
+): ParsedSynthesisResponse {
+  // Check for truncation
+  if (stopReason === 'max_tokens') {
+    console.error('[Poddit] Claude response was truncated (hit max_tokens)');
+    throw new Error('Synthesis was truncated — response exceeded token limit. Try fewer signals or shorter episode length.');
+  }
+
+  // Concatenate all text blocks (ignore server_tool_use and web_search_tool_result)
+  const textBlocks = content.filter(
+    (block): block is Anthropic.TextBlock => block.type === 'text'
+  );
+
+  if (textBlocks.length === 0) {
+    throw new Error('No text response from Claude');
+  }
+
+  // Harvest citations from all text blocks
+  const citations: WebSearchCitation[] = [];
+  for (const block of textBlocks) {
+    if (block.citations) {
+      for (const citation of block.citations) {
+        if (citation.type === 'web_search_result_location') {
+          citations.push({
+            url: citation.url,
+            title: citation.title || '',
+            cited_text: citation.cited_text,
+          });
+        }
+      }
+    }
+  }
+
+  // Count web searches performed
+  const searchCount = content.filter(
+    (block) => block.type === 'server_tool_use'
+  ).length;
+
+  // Concatenate text and extract JSON
+  let rawText = textBlocks.map(b => b.text).join('').trim();
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  rawText = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '');
+
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    console.error('[Poddit] No JSON object found. Raw text:', rawText.slice(0, 1000));
+    throw new Error('Could not extract JSON from response');
+  }
+
+  let jsonStr = jsonMatch[0];
+
+  let episodeData: EpisodeData;
+  try {
+    episodeData = JSON.parse(jsonStr);
+  } catch (firstError) {
+    // Attempt repair: fix common issues (unescaped control chars)
+    console.warn('[Poddit] First JSON parse failed, attempting repair...');
+    try {
+      jsonStr = jsonStr.replace(/[\x00-\x1f]/g, (ch) => {
+        if (ch === '\n') return '\\n';
+        if (ch === '\r') return '\\r';
+        if (ch === '\t') return '\\t';
+        return '';
+      });
+      episodeData = JSON.parse(jsonStr);
+      console.log('[Poddit] JSON repair succeeded');
+    } catch (repairError) {
+      console.error('[Poddit] JSON parse failed after repair. Raw text (first 1500 chars):', rawText.slice(0, 1500));
+      console.error('[Poddit] JSON parse failed around:', jsonStr.slice(0, 500));
+      throw new Error('Failed to parse Claude response as JSON');
+    }
+  }
+
+  // Basic schema validation
+  if (!episodeData.title || !Array.isArray(episodeData.segments) || episodeData.segments.length === 0) {
+    throw new Error('Claude response missing required fields (title, segments)');
+  }
+
+  return { episodeData, citations, searchCount };
+}
+
 export async function generateEpisode(params: {
   userId: string;
   since?: Date;
@@ -106,70 +317,32 @@ export async function generateEpisode(params: {
       { manual: params.manual, userName, episodeLength }
     );
 
-    // 4. Call Claude for synthesis (with retry for transient failures)
-    console.log('[Poddit] Calling Claude for synthesis...');
-    const response = await withRetry(
-      () => anthropic.messages.create({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 12000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: synthesisPrompt }],
-      }),
-      { label: 'Claude synthesis', attempts: 2, delayMs: 3000 }
+    // 4. Call Claude for synthesis with web search
+    const synthesisStart = Date.now();
+    console.log('[Poddit] Calling Claude for synthesis (with web search)...');
+    const synthesisResult = await callClaudeWithWebSearch(synthesisPrompt);
+    const synthesisMs = Date.now() - synthesisStart;
+
+    // Log synthesis metrics
+    const webSearchCount = synthesisResult.usage.server_tool_use?.web_search_requests || 0;
+    console.log(
+      `[Poddit] Synthesis: ${(synthesisMs / 1000).toFixed(1)}s, ${webSearchCount} web searches, ` +
+      `${synthesisResult.usage.input_tokens} in / ${synthesisResult.usage.output_tokens} out tokens`
+    );
+    if (webSearchCount > 0) {
+      console.log(`[Poddit] Web search cost: ~$${(webSearchCount * 0.01).toFixed(2)} (${webSearchCount} searches x $0.01)`);
+    }
+    if (synthesisMs > 120000) {
+      console.warn(`[Poddit] Synthesis exceeded 120s (${(synthesisMs / 1000).toFixed(1)}s) — remaining budget tight`);
+    }
+
+    // 5. Parse response (extract JSON, harvest web search citations)
+    const { episodeData, citations, searchCount } = parseSynthesisResponse(
+      synthesisResult.content,
+      synthesisResult.stop_reason
     );
 
-    // 5. Check for truncation
-    if (response.stop_reason === 'max_tokens') {
-      console.error('[Poddit] Claude response was truncated (hit max_tokens)');
-      throw new Error('Synthesis was truncated — response exceeded token limit. Try fewer signals or shorter episode length.');
-    }
-
-    // 6. Parse the response
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text response from Claude');
-    }
-
-    // Extract JSON from response (handle potential markdown wrapping)
-    let rawText = textContent.text.trim();
-    // Strip markdown code fences (```json ... ``` or ``` ... ```)
-    rawText = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '');
-
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('[Poddit] No JSON object found. Raw text:', rawText.slice(0, 1000));
-      throw new Error('Could not extract JSON from response');
-    }
-
-    let jsonStr = jsonMatch[0];
-
-    let episodeData: EpisodeData;
-    try {
-      episodeData = JSON.parse(jsonStr);
-    } catch (firstError) {
-      // Attempt repair: fix common issues (unescaped control chars in string values)
-      console.warn('[Poddit] First JSON parse failed, attempting repair...');
-      try {
-        // Replace unescaped control characters inside strings (newlines, tabs)
-        jsonStr = jsonStr.replace(/[\x00-\x1f]/g, (ch) => {
-          if (ch === '\n') return '\\n';
-          if (ch === '\r') return '\\r';
-          if (ch === '\t') return '\\t';
-          return '';
-        });
-        episodeData = JSON.parse(jsonStr);
-        console.log('[Poddit] JSON repair succeeded');
-      } catch (repairError) {
-        console.error('[Poddit] JSON parse failed after repair. Raw text (first 1500 chars):', rawText.slice(0, 1500));
-        console.error('[Poddit] JSON parse failed around:', jsonStr.slice(0, 500));
-        throw new Error('Failed to parse Claude response as JSON');
-      }
-    }
-
-    // Basic schema validation
-    if (!episodeData.title || !Array.isArray(episodeData.segments) || episodeData.segments.length === 0) {
-      throw new Error('Claude response missing required fields (title, segments)');
-    }
+    console.log(`[Poddit] Parsed: "${episodeData.title}", ${episodeData.segments.length} segments, ${citations.length} web citations`);
 
     // 5a. Validate segment + source structure before processing
     for (const seg of episodeData.segments) {
@@ -183,13 +356,40 @@ export async function generateEpisode(params: {
       );
     }
 
-    // 5b. Validate source URLs — strip hallucinated URLs that don't exist
-    // Strategy: SSRF check → HEAD → GET fallback, real User-Agent, only strip 404/410/451
-    // Concurrent batching (5 at a time) to stay within 300s route budget
+    // 5b. Enrich sources with web search citation URLs
+    // If Claude referenced a source in JSON but used a guessed URL,
+    // try to match by title to a web search citation with a verified URL
+    const citationsByTitle = new Map<string, string>();
+    for (const citation of citations) {
+      if (citation.title) {
+        citationsByTitle.set(citation.title.toLowerCase(), citation.url);
+      }
+    }
+    let enrichedCount = 0;
+    for (const segment of episodeData.segments) {
+      for (const source of segment.sources) {
+        if ((!source.url || !source.url.trim()) && citationsByTitle.has(source.name.toLowerCase())) {
+          source.url = citationsByTitle.get(source.name.toLowerCase())!;
+          enrichedCount++;
+        }
+      }
+    }
+    if (enrichedCount > 0) {
+      console.log(`[Poddit] Enriched ${enrichedCount} source(s) with web search citation URLs`);
+    }
+
+    // 5c. Validate source URLs — strip hallucinated URLs that don't exist
+    // Web search citation URLs are verified, signal URLs are known-good — both skip validation
     const validationStart = Date.now();
     const signalUrls = new Set(
       signals.filter(s => s.url).map(s => s.url!.toLowerCase())
     );
+    const webSearchUrls = new Set(
+      citations.map(c => c.url.toLowerCase())
+    );
+    if (webSearchUrls.size > 0) {
+      console.log(`[Poddit] ${webSearchUrls.size} unique web search citation URLs (skip validation)`);
+    }
 
     const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
     const DEAD_STATUSES = new Set([404, 410, 451]);
@@ -203,7 +403,6 @@ export async function generateEpisode(params: {
       try {
         const headRes = await fetch(url, { ...fetchOpts, method: 'HEAD' });
         if (!DEAD_STATUSES.has(headRes.status)) return true;
-        // HEAD returned dead status — confirm with GET (some servers lie on HEAD)
         const getRes = await fetch(url, { ...fetchOpts, method: 'GET' });
         return !DEAD_STATUSES.has(getRes.status);
       } catch {
@@ -219,7 +418,7 @@ export async function generateEpisode(params: {
     // Validation cache — dedup same URL across segments
     const validationCache = new Map<string, boolean>();
 
-    // Collect all non-signal source URLs that need validation
+    // Collect source URLs that need validation (not signal, not web-search-verified)
     interface SourceToValidate { segIdx: number; srcIdx: number; url: string; }
     const toValidate: SourceToValidate[] = [];
     let strippedNoUrl = 0;
@@ -236,6 +435,8 @@ export async function generateEpisode(params: {
         }
         // Signal URLs are known-good — skip validation
         if (signalUrls.has(src.url.toLowerCase())) continue;
+        // Web search citation URLs are verified — skip validation
+        if (webSearchUrls.has(src.url.toLowerCase())) continue;
         toValidate.push({ segIdx, srcIdx, url: src.url });
       }
     }
@@ -294,6 +495,7 @@ export async function generateEpisode(params: {
       segment.sources = segment.sources.filter((src: { url?: string }) => {
         if (!src.url || !src.url.trim()) return false;
         if (signalUrls.has(src.url.toLowerCase())) return true;
+        if (webSearchUrls.has(src.url.toLowerCase())) return true;
         return !failedUrls.has(src.url.toLowerCase());
       });
     }
