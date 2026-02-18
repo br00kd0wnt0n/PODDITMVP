@@ -185,7 +185,7 @@ export async function generateEpisode(params: {
     async function isUrlReachable(url: string): Promise<boolean> {
       const fetchOpts = {
         redirect: 'follow' as const,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(12000),
         headers: { 'User-Agent': BROWSER_UA },
       };
       try {
