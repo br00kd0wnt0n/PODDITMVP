@@ -173,21 +173,53 @@ function parseSynthesisResponse(
     throw new Error('No text response from Claude');
   }
 
-  // Harvest citations from all text blocks
+  // Log content block types for debugging
+  const blockTypes = content.reduce((acc, b) => {
+    acc[b.type] = (acc[b.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  console.log(`[Poddit] Response blocks: ${JSON.stringify(blockTypes)}`);
+
+  // Harvest citation URLs from web_search_tool_result blocks.
+  // These contain the actual search results with verified URLs and titles.
+  // Note: TextBlock.citations requires `citations: { enabled: true }` in the API request,
+  // which we don't set. WebSearchToolResultBlock is the reliable source.
   const citations: WebSearchCitation[] = [];
-  for (const block of textBlocks) {
-    if (block.citations) {
-      for (const citation of block.citations) {
-        if (citation.type === 'web_search_result_location') {
-          citations.push({
-            url: citation.url,
-            title: citation.title || '',
-            cited_text: citation.cited_text,
-          });
+  const seenCitationUrls = new Set<string>();
+
+  for (const block of content) {
+    if (block.type === 'web_search_tool_result') {
+      const resultBlock = block as Anthropic.Messages.WebSearchToolResultBlock;
+      if (Array.isArray(resultBlock.content)) {
+        for (const result of resultBlock.content) {
+          if (result.type === 'web_search_result' && result.url) {
+            const lower = result.url.toLowerCase();
+            if (!seenCitationUrls.has(lower)) {
+              seenCitationUrls.add(lower);
+              citations.push({ url: result.url, title: result.title || '', cited_text: '' });
+            }
+          }
         }
       }
     }
   }
+
+  // Secondary: also harvest from TextBlock.citations if present (future-proofing)
+  for (const block of textBlocks) {
+    if (block.citations) {
+      for (const citation of block.citations) {
+        if (citation.type === 'web_search_result_location' && citation.url) {
+          const lower = citation.url.toLowerCase();
+          if (!seenCitationUrls.has(lower)) {
+            seenCitationUrls.add(lower);
+            citations.push({ url: citation.url, title: citation.title || '', cited_text: citation.cited_text || '' });
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`[Poddit] Citation harvest: ${citations.length} unique URLs from web search results`);
 
   // Count web searches performed
   const searchCount = content.filter(
@@ -198,6 +230,11 @@ function parseSynthesisResponse(
   let rawText = textBlocks.map(b => b.text).join('').trim();
   // Strip markdown code fences (```json ... ``` or ``` ... ```)
   rawText = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '');
+
+  // Strip <cite> tags that Claude's web search embeds inline.
+  // These would otherwise leak into JSON string values (content, summary, etc.)
+  // and appear in the player UI and TTS audio.
+  rawText = stripCiteTags(rawText);
 
   const jsonMatch = rawText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -574,6 +611,15 @@ export async function generateEpisode(params: {
 // ──────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────
+
+/**
+ * Strip <cite> tags from text, preserving the inner content.
+ * Claude's web search embeds inline <cite index="X-Y">...</cite> tags
+ * that must be removed before JSON extraction and TTS.
+ */
+function stripCiteTags(text: string): string {
+  return text.replace(/<cite[^>]*>/gi, '').replace(/<\/cite>/gi, '');
+}
 
 function buildFullScript(data: EpisodeData): string {
   const parts: string[] = [];

@@ -39,8 +39,12 @@ Every source MUST include a real, clickable URL. Sources without URLs are automa
 PREFERRED SOURCE TYPES:
 - URLs from your web search results (PREFERRED — these are verified and current)
 - The user's original signal URLs (always safe to include verbatim)
+- Major national/international outlets: NYT, Washington Post, WSJ, The Atlantic, The Guardian, BBC, Reuters, AP News, Bloomberg, Wired, Ars Technica, The Verge, TechCrunch, MIT Technology Review, Nature, Science
 - Wikipedia articles you've confirmed exist via search
 - Government (.gov), institutional (.edu), and organization homepages
+
+SOURCE QUALITY GUIDANCE:
+When multiple sources cover a topic, prefer established national/international publications and recognized wire services (AP, Reuters, AFP) over local affiliates. Avoid local radio stations, small regional affiliates, or obscure blogs when mainstream coverage of the same story exists. If only niche sources cover a topic, they are acceptable — always prefer the most authoritative source available.
 
 DO NOT:
 - Guess or construct URLs from memory — use web search to find real URLs instead.
