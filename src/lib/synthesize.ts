@@ -170,42 +170,40 @@ export async function generateEpisode(params: {
       throw new Error('Claude response missing required fields (title, segments)');
     }
 
-    // 5b. Strip hallucinated source URLs from link-based segments
-    // For link signals: only allow URLs that match the original signal URLs
-    // For topic/voice signals: Claude is allowed to cite real sources it researched
+    // 5b. Validate source URLs — strip any that don't resolve (hallucinated)
+    // Signal URLs are pre-validated (already fetched during enrichment), so skip those
     const signalUrls = new Set(
       signals.filter(s => s.url).map(s => s.url!.toLowerCase())
     );
-    const hasLinkSignals = signalUrls.size > 0;
 
     let strippedCount = 0;
-    if (hasLinkSignals) {
-      for (const segment of episodeData.segments) {
-        if (Array.isArray(segment.sources)) {
-          const before = segment.sources.length;
-          segment.sources = segment.sources.filter(
-            (src: { url?: string }) => {
-              if (!src.url) return false;
-              // Keep if it matches a signal URL (link-based source)
-              if (signalUrls.has(src.url.toLowerCase())) return true;
-              // Keep if it doesn't look like a variant of a signal URL (topic-researched source)
-              // Strip if it shares a domain with a signal URL but has a different path (likely hallucinated article)
-              try {
-                const srcDomain = new URL(src.url).hostname.toLowerCase();
-                for (const signalUrl of signalUrls) {
-                  const signalDomain = new URL(signalUrl).hostname.toLowerCase();
-                  if (srcDomain === signalDomain) return false; // Same domain, different URL = likely hallucinated
-                }
-              } catch { /* invalid URL — strip it */ return false; }
-              return true; // Different domain entirely = topic-researched source, keep it
-            }
-          );
-          strippedCount += before - segment.sources.length;
+    for (const segment of episodeData.segments) {
+      if (Array.isArray(segment.sources)) {
+        const validated: typeof segment.sources = [];
+        for (const src of segment.sources) {
+          if (!src.url) continue;
+          // Signal URLs are known-good — skip validation
+          if (signalUrls.has(src.url.toLowerCase())) { validated.push(src); continue; }
+          // Validate Claude-researched URLs with a lightweight HEAD request
+          try {
+            const res = await fetch(src.url, {
+              method: 'HEAD',
+              redirect: 'follow',
+              signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) { validated.push(src); continue; }
+            console.log(`[Poddit] Stripped unreachable source: ${src.url} (${res.status})`);
+          } catch {
+            console.log(`[Poddit] Stripped unreachable source: ${src.url} (fetch failed)`);
+          }
         }
+        const before = segment.sources.length;
+        segment.sources = validated;
+        strippedCount += before - segment.sources.length;
       }
     }
     if (strippedCount > 0) {
-      console.log(`[Poddit] Stripped ${strippedCount} hallucinated source URL(s) from synthesis response`);
+      console.log(`[Poddit] Stripped ${strippedCount} unreachable source URL(s) from synthesis response`);
     }
 
     // 6. Build the full script for TTS
