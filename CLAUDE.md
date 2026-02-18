@@ -200,7 +200,7 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] Add topic extraction/tagging via Claude (use ENRICHMENT_PROMPT in prompts.ts)
 - [x] Dashboard text input + voice recording capture (via /api/capture/quick)
 - [x] Test full capture → generate → play loop end-to-end
-- [x] Chrome extension submitted to Web Store (unlisted)
+- [x] Chrome extension submitted to Web Store (approved, v1.2.0 with email+inviteCode auth)
 - [x] SMS voice memo transcription (AMR → WAV → Whisper)
 - [x] **Multi-user auth** — NextAuth.js v5 with access code login, per-user signals/episodes
 - [x] **Settings / preferences page** — voice selection (4 voices), episode length, display name, phone
@@ -393,6 +393,14 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Signals route enum validation** — status filter validated against `VALID_STATUSES` whitelist before querying Prisma. Invalid values return 400 with helpful message. Queries wrapped in try/catch.
 - [x] **Forwarded email false positive** — replaced loose `includes()` checks with `isForwardedEmail()` using line-boundary regex (`/^[>\s]*From:\s+\S/m`). Now requires `From:` and `Subject:` at start of lines with optional `>` quoting, preventing false positives from conversational text.
 - [ ] **Clipboard writeText error handling** — dashboard page.tsx line 251 calls `navigator.clipboard.writeText()` with no `.catch()`. Fails silently on non-HTTPS or denied permission. Fix: add `.catch()` with fallback message.
+
+### Sprint: Chrome Extension v1.2.0 Release ✅
+- [x] **Extension auth model** — replaced broken API_SECRET + userId auth with email + invite code validation. Server looks up user by email, validates invite code, checks revocation. No shared secrets exposed in published extension source. Legacy Bearer + userId path preserved for internal tooling.
+- [x] **Extension settings redesign** — replaced "Server URL" + "API Key" with "Poddit Email" + "Invite Code" fields. Monospace styling on invite code input. Help text: "Find your code in the invite email from Poddit". Auto-shows settings panel when credentials are empty.
+- [x] **Extension JS rewrite** — hardcoded SERVER_URL (no user config needed), email + inviteCode sent in request body, email format validation, lowercase normalization on save.
+- [x] **Dashboard Chrome button activated** — replaced disabled "Coming soon" div with active `<a>` linking to Chrome Web Store. Matches styling of other active capture channels (hover effects, teal accent).
+- [x] **Welcome page Chrome section activated** — replaced dimmed "Coming soon" section with active link to Chrome Web Store. Teal icon, "Install from Chrome Web Store" link text.
+- [x] **Extension packaged** — v1.2.0 zip ready for Chrome Web Store upload (poddit-extension-v1.2.0.zip)
 
 ### Needs Assessment — Prioritize Before Action
 - [ ] **Image signal uploads** — new signal type: user uploads an image (screenshot, photo, chart, infographic) which gets assessed by GPT-4 Vision as a signal. Needs: new `IMAGE` InputType enum value, capture API accepting image uploads (multipart/form), GPT-4V analysis to extract topics/context/description, storage (R2 or inline base64), dashboard UI for image capture, synthesis prompt integration for image-derived signals. Consider: file size limits, supported formats, cost per image analysis, privacy implications of image content.

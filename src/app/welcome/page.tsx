@@ -130,10 +130,10 @@ export default function WelcomePage() {
             </div>
 
             {/* Chrome Extension */}
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-stone-800/60 flex items-center justify-center flex-shrink-0">
+            <a href="https://chromewebstore.google.com/detail/poddit-%E2%80%94-save-to-your-per/kjjogneapkgcccohhiipgcokghflilnl" target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 group">
+              <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" strokeWidth="1.5" className="text-stone-500">
+                     stroke="currentColor" strokeWidth="1.5" className="text-teal-400">
                   <circle cx="12" cy="12" r="10" />
                   <circle cx="12" cy="12" r="4" />
                   <line x1="21.17" y1="8" x2="12" y2="8" />
@@ -142,12 +142,12 @@ export default function WelcomePage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-400">Chrome Extension <span className="text-xs text-stone-600 font-normal ml-1">Coming soon</span></p>
-                <p className="text-xs text-stone-600 mt-0.5">
-                  Save any page with one click
+                <p className="text-sm font-medium text-white group-hover:text-teal-300 transition-colors">Chrome Extension</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Save any page with one click. <span className="text-teal-400/80 underline underline-offset-2">Install from Chrome Web Store</span>
                 </p>
               </div>
-            </div>
+            </a>
           </div>
         </section>
 

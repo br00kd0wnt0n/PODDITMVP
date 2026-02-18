@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Poddit — Save to your personal podcast",
   "short_name": "Poddit",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Save links and topics from any page. Poddit turns your curiosity into a personalized audio episode — your world, explained.",
   "permissions": ["activeTab", "storage"],
   "action": {

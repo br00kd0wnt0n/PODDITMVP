@@ -25,29 +25,74 @@ export async function OPTIONS(request: NextRequest) {
 // ──────────────────────────────────────────────
 // POST /api/capture/extension
 // Browser extension sends captured URLs/text
-// Auth: Bearer API_SECRET + optional userId in body
+// Auth: email + inviteCode (primary) or Bearer API_SECRET + userId (legacy)
 // ──────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    // Simple auth via shared secret
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.API_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: getCorsHeaders(request) });
-    }
-
     const body = await request.json();
-    const { url, title, text, selectedText, userId } = body;
+    const { url, title, text, selectedText, email, inviteCode, userId } = body;
 
-    // Resolve userId — must be provided and valid (no 'default' fallback)
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400, headers: getCorsHeaders(request) });
+    // ── Auth: email + inviteCode (primary) or legacy Bearer + userId ──
+    let resolvedUserId: string;
+
+    if (email && inviteCode) {
+      // New auth: look up user by email, validate invite code
+      const normalizedEmail = email.trim().toLowerCase();
+      const user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true, inviteCode: true, revokedAt: true },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { error: 'No Poddit account found for this email' },
+          { status: 404, headers: getCorsHeaders(request) }
+        );
+      }
+
+      if (user.revokedAt) {
+        return NextResponse.json(
+          { error: 'Access has been revoked' },
+          { status: 403, headers: getCorsHeaders(request) }
+        );
+      }
+
+      if (!user.inviteCode || user.inviteCode !== inviteCode) {
+        return NextResponse.json(
+          { error: 'Invalid invite code' },
+          { status: 401, headers: getCorsHeaders(request) }
+        );
+      }
+
+      resolvedUserId = user.id;
+    } else {
+      // Legacy auth: Bearer API_SECRET + userId in body
+      const authHeader = request.headers.get('authorization');
+      if (authHeader !== `Bearer ${process.env.API_SECRET}`) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401, headers: getCorsHeaders(request) }
+        );
+      }
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'userId is required' },
+          { status: 400, headers: getCorsHeaders(request) }
+        );
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404, headers: getCorsHeaders(request) }
+        );
+      }
+
+      resolvedUserId = user.id;
     }
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404, headers: getCorsHeaders(request) });
-    }
-    const resolvedUserId = user.id;
 
     // Build raw content from what the extension sends
     let rawContent = '';

@@ -140,7 +140,11 @@
       font-size: 0.75rem;
       outline: none;
       margin-top: 4px;
+      font-family: inherit;
+    }
+    .settings input#inviteCode {
       font-family: monospace;
+      letter-spacing: 0.05em;
     }
     .settings input:focus { border-color: var(--teal); }
     .settings label {
@@ -175,11 +179,12 @@
   <div class="status" id="status"></div>
 
   <div class="settings" id="settingsPanel" style="display:none">
-    <label>Server URL</label>
-    <input type="text" id="serverUrl" placeholder="https://poddit-mvp.up.railway.app">
-    <label style="margin-top:8px; display:block">API Key</label>
-    <input type="password" id="apiKey" placeholder="Your API secret">
+    <label>Poddit Email</label>
+    <input type="email" id="userEmail" placeholder="your@email.com" autocomplete="email">
+    <label style="margin-top:8px; display:block">Invite Code</label>
+    <input type="text" id="inviteCode" placeholder="Code from your invite email" spellcheck="false">
     <button class="btn btn-secondary" id="saveSettings" style="margin-top:8px; font-size:0.75rem">Save settings</button>
+    <p style="font-size:0.65rem; color:var(--muted); margin-top:6px; text-align:center;">Find your code in the invite email from Poddit</p>
   </div>
 
   <button class="btn btn-secondary" id="toggleSettings" style="font-size:0.7rem; margin-top:8px; background:transparent; border:none; color:var(--muted)">Settings</button>

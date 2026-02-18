@@ -1,18 +1,18 @@
-// ── Defaults ──
-const DEFAULT_SERVER = 'https://app.poddit.com';
+// ── Config ──
+const SERVER_URL = 'https://app.poddit.com';
 
 // ── State ──
-let serverUrl = '';
-let apiKey = '';
+let userEmail = '';
+let inviteCode = '';
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-  // Load settings (with sensible defaults)
-  const settings = await chrome.storage.sync.get(['serverUrl', 'apiKey']);
-  serverUrl = settings.serverUrl || DEFAULT_SERVER;
-  apiKey = settings.apiKey || '';
-  document.getElementById('serverUrl').value = serverUrl;
-  document.getElementById('apiKey').value = apiKey;
+  // Load settings
+  const settings = await chrome.storage.sync.get(['userEmail', 'inviteCode']);
+  userEmail = settings.userEmail || '';
+  inviteCode = settings.inviteCode || '';
+  document.getElementById('userEmail').value = userEmail;
+  document.getElementById('inviteCode').value = inviteCode;
 
   // Get current tab info
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('topicInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTopic(); }
   });
+
+  // Auto-show settings if not configured
+  if (!userEmail || !inviteCode) {
+    document.getElementById('settingsPanel').style.display = 'block';
+  }
 });
 
 // ── Actions ──
@@ -41,7 +46,7 @@ async function sendPage(tab) {
   btn.textContent = 'Sending...';
 
   try {
-    await capture({ url: tab.url, title: tab.title, source: 'extension' });
+    await capture({ url: tab.url, title: tab.title });
     showStatus('success', 'Added to your Poddit queue');
     btn.textContent = 'Sent!';
     setTimeout(() => window.close(), 1500);
@@ -62,7 +67,7 @@ async function sendTopic() {
   btn.disabled = true;
 
   try {
-    await capture({ text, source: 'extension' });
+    await capture({ text });
     showStatus('success', 'Topic added to your queue');
     input.value = '';
     setTimeout(() => window.close(), 1500);
@@ -75,10 +80,14 @@ async function sendTopic() {
 
 // ── API ──
 async function capture(data) {
-  const res = await fetch(`${serverUrl}/api/capture/extension`, {
+  const res = await fetch(`${SERVER_URL}/api/capture/extension`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...data,
+      email: userEmail,
+      inviteCode: inviteCode,
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -89,8 +98,8 @@ async function capture(data) {
 
 // ── Settings ──
 function checkSettings() {
-  if (!serverUrl || !apiKey) {
-    showStatus('error', 'Set your server URL and API key in Settings');
+  if (!userEmail || !inviteCode) {
+    showStatus('error', 'Enter your Poddit email and invite code in Settings');
     document.getElementById('settingsPanel').style.display = 'block';
     return false;
   }
@@ -103,9 +112,21 @@ function toggleSettings() {
 }
 
 async function saveSettings() {
-  serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
-  apiKey = document.getElementById('apiKey').value.trim();
-  await chrome.storage.sync.set({ serverUrl, apiKey });
+  userEmail = document.getElementById('userEmail').value.trim().toLowerCase();
+  inviteCode = document.getElementById('inviteCode').value.trim();
+
+  if (!userEmail || !inviteCode) {
+    showStatus('error', 'Both email and invite code are required');
+    return;
+  }
+
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+    showStatus('error', 'Please enter a valid email address');
+    return;
+  }
+
+  await chrome.storage.sync.set({ userEmail, inviteCode });
   showStatus('success', 'Settings saved');
 }
 
