@@ -170,36 +170,61 @@ export async function generateEpisode(params: {
       throw new Error('Claude response missing required fields (title, segments)');
     }
 
-    // 5b. Validate source URLs — strip any that don't resolve (hallucinated)
-    // Signal URLs are pre-validated (already fetched during enrichment), so skip those
+    // 5b. Validate source URLs — strip hallucinated URLs that don't exist
+    // Strategy: HEAD → GET fallback, real User-Agent, accept any non-404/410
+    // Many legit sites block HEAD or require cookies — so we're lenient.
+    // Goal: catch fabricated URLs (404/DNS fail), NOT block paywalled/auth-gated content.
     const signalUrls = new Set(
       signals.filter(s => s.url).map(s => s.url!.toLowerCase())
     );
+
+    const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    // Status codes that mean "page doesn't exist" — everything else is kept
+    const DEAD_STATUSES = new Set([404, 410, 451]);
+
+    async function isUrlReachable(url: string): Promise<boolean> {
+      const fetchOpts = {
+        redirect: 'follow' as const,
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': BROWSER_UA },
+      };
+      try {
+        // Try HEAD first (lightweight)
+        const headRes = await fetch(url, { ...fetchOpts, method: 'HEAD' });
+        if (!DEAD_STATUSES.has(headRes.status)) return true;
+        // HEAD returned 404/410 — confirm with GET (some servers lie on HEAD)
+        const getRes = await fetch(url, { ...fetchOpts, method: 'GET' });
+        return !DEAD_STATUSES.has(getRes.status);
+      } catch {
+        // Network error, DNS failure, timeout — try GET as last resort
+        try {
+          const getRes = await fetch(url, { ...fetchOpts, method: 'GET' });
+          return !DEAD_STATUSES.has(getRes.status);
+        } catch {
+          return false; // Truly unreachable (DNS fail, connection refused)
+        }
+      }
+    }
 
     let strippedCount = 0;
     for (const segment of episodeData.segments) {
       if (Array.isArray(segment.sources)) {
         const validated: typeof segment.sources = [];
         for (const src of segment.sources) {
-          if (!src.url) continue;
+          // Sources without URLs are name-only citations — keep them
+          if (!src.url) { validated.push(src); continue; }
           // Signal URLs are known-good — skip validation
           if (signalUrls.has(src.url.toLowerCase())) { validated.push(src); continue; }
-          // Validate Claude-researched URLs with a lightweight HEAD request
-          try {
-            const res = await fetch(src.url, {
-              method: 'HEAD',
-              redirect: 'follow',
-              signal: AbortSignal.timeout(5000),
-            });
-            if (res.ok) { validated.push(src); continue; }
-            console.log(`[Poddit] Stripped unreachable source: ${src.url} (${res.status})`);
-          } catch {
-            console.log(`[Poddit] Stripped unreachable source: ${src.url} (fetch failed)`);
+          // Validate Claude-researched URLs
+          const reachable = await isUrlReachable(src.url);
+          if (reachable) {
+            validated.push(src);
+          } else {
+            console.log(`[Poddit] Stripped unreachable source: ${src.url}`);
+            strippedCount++;
           }
         }
-        const before = segment.sources.length;
         segment.sources = validated;
-        strippedCount += before - segment.sources.length;
       }
     }
     if (strippedCount > 0) {
