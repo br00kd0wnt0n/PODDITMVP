@@ -1633,8 +1633,8 @@ function Dashboard() {
         </div>
 
         {/* ── How to use (inline in queue, triggered by +/× button) ── */}
-        {showCollectSignals && (
-          <div className="mb-4 animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
+        <div className={`grid transition-all duration-300 ease-in-out ${showCollectSignals ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0'}`}>
+          <div className="overflow-hidden">
             <div className="p-4 bg-poddit-950/60 border border-stone-800/25 rounded-xl">
               {/* Ways to capture signals */}
               <div className="space-y-1">
@@ -1705,7 +1705,7 @@ function Dashboard() {
               )}
             </div>
           </div>
-        )}
+        </div>
 
         <div>
             {/* Poddit Now button */}
