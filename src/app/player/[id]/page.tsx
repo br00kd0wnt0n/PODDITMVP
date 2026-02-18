@@ -545,20 +545,34 @@ export default function PlayerPage() {
             {episode.segments[activeSegment].sources?.length > 0 && (
               <div className="mt-6 space-y-2">
                 <h3 className="text-xs font-semibold text-poddit-500 uppercase tracking-wider">Sources</h3>
-                {(episode.segments[activeSegment].sources as Source[]).map((source, i) => (
-                  <a
-                    key={i}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl
-                               hover:border-violet-400/30 hover:bg-white/[0.05] transition-all text-sm group"
-                  >
-                    <span className="text-white font-medium group-hover:underline">{source.name}</span>
-                    <span className="text-poddit-600">&mdash;</span>
-                    <span className="text-poddit-400">{source.attribution}</span>
-                  </a>
-                ))}
+                {(episode.segments[activeSegment].sources as Source[]).map((source, i) => {
+                  const hasUrl = source.url && source.url.trim();
+                  const cardClasses = "flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm group"
+                    + (hasUrl ? " hover:border-violet-400/30 hover:bg-white/[0.05] transition-all cursor-pointer" : "");
+
+                  if (hasUrl) {
+                    return (
+                      <a
+                        key={i}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cardClasses}
+                      >
+                        <span className="text-white font-medium group-hover:underline">{source.name}</span>
+                        <span className="text-poddit-600">&mdash;</span>
+                        <span className="text-poddit-400">{source.attribution}</span>
+                      </a>
+                    );
+                  }
+                  return (
+                    <div key={i} className={cardClasses}>
+                      <span className="text-white/70 font-medium">{source.name}</span>
+                      <span className="text-poddit-600">&mdash;</span>
+                      <span className="text-poddit-400">{source.attribution}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
