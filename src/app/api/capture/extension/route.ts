@@ -58,7 +58,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (!user.inviteCode || user.inviteCode !== inviteCode) {
+      // Validate: per-user invite code OR global access code
+      const codeMatch = (user.inviteCode && user.inviteCode === inviteCode)
+        || (process.env.ACCESS_CODE && inviteCode === process.env.ACCESS_CODE);
+
+      if (!codeMatch) {
         return NextResponse.json(
           { error: 'Invalid invite code' },
           { status: 401, headers: getCorsHeaders(request) }
