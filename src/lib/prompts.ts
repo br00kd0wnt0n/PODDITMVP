@@ -107,7 +107,7 @@ export function buildSynthesisPrompt(signals: {
   source: string | null;
   fetchedContent: string | null;
   topics: string[];
-}[], options?: { manual?: boolean; userName?: string; episodeLength?: string }): string {
+}[], options?: { manual?: boolean; userName?: string; namePronunciation?: string; episodeLength?: string }): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
   const emailSignals = signals.filter(s => s.inputType === 'FORWARDED_EMAIL');
@@ -123,8 +123,10 @@ export function buildSynthesisPrompt(signals: {
     : `This is a weekly Poddit episode — the user's regular weekly briefing. Frame the intro with the week's feel, like "It's been a full week" or "Here's what your week added up to." Reference the time period naturally.`;
 
   // Personalization
+  const namePronunciation = options?.namePronunciation;
+  const spokenName = namePronunciation || userName;
   const nameContext = userName
-    ? `\nThe listener's name is ${userName}. You may use their name naturally in the intro (e.g., "Hey ${userName}") — but don't force it. Use it once, at most, and only if it sounds natural.`
+    ? `\nThe listener's name is ${userName}.${namePronunciation ? ` Write their name as "${namePronunciation}" in the script so TTS pronounces it correctly.` : ''} You may use their name once, naturally, in the intro — but don't force it. Always embed the name mid-sentence with words around it (e.g., "Hey ${spokenName}, you dropped five signals this week"). Never start the script with just the name alone — the TTS engine needs surrounding words for natural cadence.`
     : '';
 
   let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}${nameContext}\n\n`;

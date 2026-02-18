@@ -295,6 +295,7 @@ export async function generateEpisode(params: {
   const preferences = (user?.preferences as Record<string, string>) || {};
   const voiceKey = preferences.voice || undefined;
   const userName = user?.name || undefined;
+  const namePronunciation = preferences.namePronunciation || undefined;
   const episodeLength = preferences.episodeLength || undefined;
 
   // 1. Gather signals and lock them atomically in a transaction
@@ -351,7 +352,7 @@ export async function generateEpisode(params: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params.manual, userName, episodeLength }
+      { manual: params.manual, userName, namePronunciation, episodeLength }
     );
 
     // 4. Call Claude for synthesis with web search

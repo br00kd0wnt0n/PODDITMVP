@@ -126,6 +126,11 @@ export async function PATCH(request: NextRequest) {
         newPrefs.episodeLength = preferences.episodeLength || 'medium';
       }
 
+      // Name pronunciation guide (optional, stored as-is)
+      if (preferences.namePronunciation !== undefined) {
+        newPrefs.namePronunciation = preferences.namePronunciation?.trim() || '';
+      }
+
       updateData.preferences = newPrefs;
     }
 

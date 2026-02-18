@@ -23,6 +23,7 @@ export default function SettingsPage() {
 
   // Form state
   const [name, setName] = useState('');
+  const [namePronunciation, setNamePronunciation] = useState('');
   const [phone, setPhone] = useState('');
   const [voice, setVoice] = useState('gandalf');
   const [episodeLength, setEpisodeLength] = useState('medium');
@@ -67,6 +68,7 @@ export default function SettingsPage() {
       setName(prefs.name || '');
       setPhone(prefs.phone || '');
       const p = prefs.preferences || {};
+      setNamePronunciation(p.namePronunciation || '');
       setVoice(p.voice || 'gandalf');
       setEpisodeLength(p.episodeLength || 'medium');
       setNotificationsEnabled(!!prefs.consentedAt);
@@ -174,7 +176,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name,
           phone: phone || null,
-          preferences: { voice, episodeLength },
+          preferences: { voice, episodeLength, namePronunciation: namePronunciation || undefined },
           consent: notificationsEnabled,
         }),
       });
@@ -260,6 +262,25 @@ export default function SettingsPage() {
                        placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.10]
                        transition-colors"
           />
+          {name && (
+            <div className="mt-3">
+              <label className="block text-xs text-stone-500 mb-1.5">
+                Pronunciation guide <span className="text-stone-600">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={namePronunciation}
+                onChange={(e) => setNamePronunciation(e.target.value)}
+                placeholder={`e.g. ${name}`}
+                className="w-full px-4 py-2 bg-white/[0.05] border border-white/10 rounded-xl text-sm text-white
+                           placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.08]
+                           transition-colors"
+              />
+              <p className="text-[11px] text-stone-600 mt-1">
+                How the narrator should say your name. Leave blank if it sounds fine as-is.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ── Section 2: Voice Selection ── */}
