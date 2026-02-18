@@ -573,8 +573,10 @@ export async function generateEpisode(params: {
     // 9. (signals already marked USED in the transaction above)
 
     // 10. Generate audio (pass user's voice preference)
+    const ttsScript = sanitizeForTTS(fullScript);
     console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
-    const { audioUrl, duration } = await generateAudio(fullScript, episode.id, voiceKey);
+    console.log(`[Poddit] TTS intro preview: ${ttsScript.split('\n\n')[0].substring(0, 200)}`);
+    const { audioUrl, duration } = await generateAudio(ttsScript, episode.id, voiceKey);
 
     // 11. Finalize episode (store voice used for attribution)
     await prisma.episode.update({
@@ -620,6 +622,18 @@ export async function generateEpisode(params: {
  */
 function stripCiteTags(text: string): string {
   return text.replace(/<cite[^>]*>/gi, '').replace(/<\/cite>/gi, '');
+}
+
+/**
+ * Clean up text for TTS consumption. Em dashes (—) and en dashes (–) cause
+ * ElevenLabs to garble or vocalize them. Replace with comma-space for a
+ * natural pause, which is how dashes function in spoken English.
+ */
+function sanitizeForTTS(script: string): string {
+  return script
+    .replace(/\s*—\s*/g, ', ')   // em dash → comma pause
+    .replace(/\s*–\s*/g, ', ')   // en dash → comma pause
+    .replace(/,\s*,/g, ',');     // clean up double commas
 }
 
 function buildFullScript(data: EpisodeData): string {

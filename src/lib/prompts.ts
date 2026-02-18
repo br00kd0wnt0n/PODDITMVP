@@ -126,7 +126,7 @@ export function buildSynthesisPrompt(signals: {
   const namePronunciation = options?.namePronunciation;
   const spokenName = namePronunciation || userName;
   const nameContext = userName
-    ? `\nThe listener's name is ${userName}.${namePronunciation ? ` Write their name as "${namePronunciation}" in the script so TTS pronounces it correctly.` : ''} You may use their name once, naturally, in the intro — but don't force it. Always embed the name mid-sentence with words around it (e.g., "Hey ${spokenName}, you dropped five signals this week"). Never start the script with just the name alone — the TTS engine needs surrounding words for natural cadence.`
+    ? `\nThe listener's name is ${userName}.${namePronunciation ? ` Write their name as "${namePronunciation}" in the script so TTS pronounces it correctly.` : ''} Use their name once in the intro, naturally embedded mid-sentence with words around it (e.g., "Hey ${spokenName}, you've got three things on your mind"). Do not skip the name. Do not start the script with the name alone.`
     : '';
 
   let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}${nameContext}\n\n`;
