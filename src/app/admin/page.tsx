@@ -496,6 +496,7 @@ function AdminDashboard() {
 
   // Cost tracker state
   const [expandedEpisode, setExpandedEpisode] = useState<string | null>(null);
+  const [showFixedCosts, setShowFixedCosts] = useState(false);
   const [showAddCost, setShowAddCost] = useState(false);
   const [newCostName, setNewCostName] = useState('');
   const [newCostAmount, setNewCostAmount] = useState('');
@@ -902,61 +903,74 @@ function AdminDashboard() {
 
           {/* Fixed / subscription costs */}
           <div className="border-t border-stone-800/40 pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-stone-500">Fixed Monthly Costs <span className="text-stone-300 font-mono ml-1">${stats.costs.fixed.monthlyTotal.toFixed(2)}/mo</span></p>
-              <button onClick={() => setShowAddCost(!showAddCost)} className="text-xs text-teal-400 hover:text-teal-300 transition-colors">
-                {showAddCost ? 'Cancel' : '+ Add'}
-              </button>
-            </div>
+            <button onClick={() => setShowFixedCosts(!showFixedCosts)} className="flex items-center justify-between w-full group">
+              <p className="text-xs text-stone-500">Fixed Monthly Costs <span className="text-stone-300 font-mono ml-1">${stats.costs.fixed.monthlyTotal.toFixed(2)}/mo</span>
+                <span className="text-stone-600 ml-1">({stats.costs.fixed.items.length} item{stats.costs.fixed.items.length !== 1 ? 's' : ''})</span>
+              </p>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`text-stone-600 group-hover:text-stone-400 transition-transform ${showFixedCosts ? 'rotate-180' : ''}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
 
-            {/* Add cost form */}
-            {showAddCost && (
-              <div className="mb-3 p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={newCostName} onChange={e => setNewCostName(e.target.value)} placeholder="Name (e.g. Railway)"
-                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
-                  <input value={newCostAmount} onChange={e => setNewCostAmount(e.target.value)} placeholder="$/month" type="number" step="0.01"
-                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+            {showFixedCosts && (
+              <div className="mt-3">
+                <div className="flex items-center justify-end mb-2">
+                  <button onClick={() => setShowAddCost(!showAddCost)} className="text-xs text-teal-400 hover:text-teal-300 transition-colors">
+                    {showAddCost ? 'Cancel' : '+ Add'}
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={newCostCategory} onChange={e => setNewCostCategory(e.target.value)}
-                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white focus:outline-none focus:border-stone-600">
-                    <option value="infra">Infrastructure</option>
-                    <option value="api">API / AI</option>
-                    <option value="comms">Communications</option>
-                    <option value="storage">Storage</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <input value={newCostNotes} onChange={e => setNewCostNotes(e.target.value)} placeholder="Notes (optional)"
-                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
-                </div>
-                <button onClick={addFixedCost} disabled={savingCost || !newCostName.trim() || !newCostAmount}
-                  className="w-full py-1.5 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-                  {savingCost ? 'Saving...' : 'Add Cost'}
-                </button>
-              </div>
-            )}
 
-            {/* Fixed costs list */}
-            {stats.costs.fixed.items.length > 0 ? (
-              <div className="space-y-1">
-                {stats.costs.fixed.items.map(cost => (
-                  <div key={cost.id} className="flex items-center gap-2 text-xs py-1.5">
-                    <span className={`px-1.5 py-0.5 rounded ${CATEGORY_COLORS[cost.category] || CATEGORY_COLORS.other}`}>{cost.category}</span>
-                    <span className="text-stone-300 flex-1">{cost.name}</span>
-                    {cost.notes && <span className="text-stone-600 truncate max-w-[120px]">{cost.notes}</span>}
-                    <span className="text-stone-400 font-mono">${cost.amount.toFixed(2)}</span>
-                    <button onClick={() => toggleFixedCost(cost.id, false)} className="text-stone-600 hover:text-amber-400 transition-colors" title="Deactivate">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" /></svg>
-                    </button>
-                    <button onClick={() => deleteFixedCost(cost.id)} className="text-stone-600 hover:text-red-400 transition-colors" title="Delete">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                {/* Add cost form */}
+                {showAddCost && (
+                  <div className="mb-3 p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={newCostName} onChange={e => setNewCostName(e.target.value)} placeholder="Name (e.g. Railway)"
+                        className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                      <input value={newCostAmount} onChange={e => setNewCostAmount(e.target.value)} placeholder="$/month" type="number" step="0.01"
+                        className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={newCostCategory} onChange={e => setNewCostCategory(e.target.value)}
+                        className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white focus:outline-none focus:border-stone-600">
+                        <option value="infra">Infrastructure</option>
+                        <option value="api">API / AI</option>
+                        <option value="comms">Communications</option>
+                        <option value="storage">Storage</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <input value={newCostNotes} onChange={e => setNewCostNotes(e.target.value)} placeholder="Notes (optional)"
+                        className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                    </div>
+                    <button onClick={addFixedCost} disabled={savingCost || !newCostName.trim() || !newCostAmount}
+                      className="w-full py-1.5 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                      {savingCost ? 'Saving...' : 'Add Cost'}
                     </button>
                   </div>
-                ))}
+                )}
+
+                {/* Fixed costs list */}
+                {stats.costs.fixed.items.length > 0 ? (
+                  <div className="space-y-1">
+                    {stats.costs.fixed.items.map(cost => (
+                      <div key={cost.id} className="flex items-center gap-2 text-xs py-1.5">
+                        <span className={`px-1.5 py-0.5 rounded ${CATEGORY_COLORS[cost.category] || CATEGORY_COLORS.other}`}>{cost.category}</span>
+                        <span className="text-stone-300 flex-1">{cost.name}</span>
+                        {cost.notes && <span className="text-stone-600 truncate max-w-[120px]">{cost.notes}</span>}
+                        <span className="text-stone-400 font-mono">${cost.amount.toFixed(2)}</span>
+                        <button onClick={() => toggleFixedCost(cost.id, false)} className="text-stone-600 hover:text-amber-400 transition-colors" title="Deactivate">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" /></svg>
+                        </button>
+                        <button onClick={() => deleteFixedCost(cost.id)} className="text-stone-600 hover:text-red-400 transition-colors" title="Delete">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-600">No fixed costs added yet</p>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-stone-600">No fixed costs added yet</p>
             )}
           </div>
         </div>
