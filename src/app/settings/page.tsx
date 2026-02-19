@@ -230,15 +230,10 @@ export default function SettingsPage() {
         <h1 className="text-lg font-extrabold text-white font-display">Settings</h1>
       </div>
 
-      {/* Success toast */}
-      {success && (
-        <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-2xl backdrop-blur-sm text-teal-300 text-sm">
-          Settings saved!
-        </div>
-      )}
+      {/* Success/error toasts — hidden here, shown next to Save button instead */}
 
-      {/* Error toast */}
-      {error && (
+      {/* Error toast — keep at top for visibility on initial load errors */}
+      {error && !success && (
         <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-2xl backdrop-blur-sm text-red-400 text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
@@ -524,27 +519,40 @@ export default function SettingsPage() {
           />
         </section>
 
-        {/* ── Save Button ── */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                     hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
-                     transition-colors flex items-center justify-center gap-2
-                     shadow-[0_0_12px_rgba(20,184,166,0.2)]"
-        >
-          {saving ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            'Save Settings'
+        {/* ── Save Button + inline confirmation ── */}
+        <div className="space-y-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
+                       hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
+                       transition-colors flex items-center justify-center gap-2
+                       shadow-[0_0_12px_rgba(20,184,166,0.2)]"
+          >
+            {saving ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              'Save Settings'
+            )}
+          </button>
+          {success && (
+            <div className="p-3 bg-teal-400/10 border border-teal-400/20 rounded-2xl text-teal-300 text-sm text-center">
+              Settings saved!
+            </div>
           )}
-        </button>
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+            </div>
+          )}
+        </div>
 
       </div>
     </main>
