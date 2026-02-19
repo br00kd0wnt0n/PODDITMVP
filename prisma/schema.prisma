@@ -163,9 +163,11 @@ model Episode {
   voiceKey      String?
 
   // Generation
-  status      EpisodeStatus @default(PENDING)
-  generatedAt DateTime?
-  error       String?
+  status         EpisodeStatus @default(PENDING)
+  generatedAt    DateTime?
+  error          String?
+  generationMeta Json?          // { inputTokens, outputTokens, webSearches, ttsCharacters, costs: { claude, tts, total } }
+  playCount      Int            @default(0)
 
   // Relations
   signals     Signal[]
@@ -285,4 +287,19 @@ model QuestionnaireResponse {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ──────────────────────────────────────────
+// Fixed Costs — manually entered monthly subscriptions
+// ──────────────────────────────────────────
+model FixedCost {
+  id        String   @id @default(uuid())
+  name      String                            // e.g. "Railway", "Twilio", "SendGrid"
+  amount    Float                             // Monthly cost in USD
+  category  String   @default("infra")        // infra, api, comms, storage, other
+  notes     String?                           // Optional description
+  active    Boolean  @default(true)           // Toggle without deleting
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

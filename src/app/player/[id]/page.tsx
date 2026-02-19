@@ -79,6 +79,7 @@ export default function PlayerPage() {
   const volumeBarRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number | null>(null);
   const ratingRef = useRef<HTMLDivElement>(null);
+  const hasTrackedPlay = useRef(false);
 
   // Episode rating state
   const [showRating, setShowRating] = useState(false);
@@ -158,6 +159,16 @@ export default function PlayerPage() {
       audio.play();
       setIsPlaying(true);
       animFrameRef.current = requestAnimationFrame(trackProgress);
+
+      // Track first play (fire-and-forget — never block playback)
+      if (!hasTrackedPlay.current && params.id) {
+        hasTrackedPlay.current = true;
+        fetch('/api/episodes/play', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ episodeId: params.id }),
+        }).catch(() => {}); // Silently ignore errors
+      }
     } else {
       audio.pause();
       setIsPlaying(false);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
 import prisma from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 // ──────────────────────────────────────────────
 // GET /api/admin/stats
@@ -112,6 +113,8 @@ export async function GET(request: NextRequest) {
       ratingAverages,
       questionnaireResponses,
       users,
+      episodesWithCosts,
+      activeFixedCosts,
     ] = await Promise.all([
       prisma.signal.count(),
       prisma.episode.count(),
@@ -132,7 +135,21 @@ export async function GET(request: NextRequest) {
           signalCount: true,
           generatedAt: true,
           error: true,
+          voiceKey: true,
+          playCount: true,
+          generationMeta: true,
           user: { select: { name: true, email: true } },
+          signals: {
+            select: {
+              id: true,
+              inputType: true,
+              channel: true,
+              rawContent: true,
+              url: true,
+              title: true,
+              topics: true,
+            },
+          },
         },
       }),
       prisma.episode.groupBy({ by: ['status'], _count: true }),
@@ -260,6 +277,21 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      // Cost tracking: all READY episodes with generation metadata
+      prisma.episode.findMany({
+        where: { status: 'READY', generationMeta: { not: Prisma.JsonNull } },
+        select: {
+          id: true,
+          userId: true,
+          generationMeta: true,
+          generatedAt: true,
+        },
+      }),
+      // Fixed costs
+      prisma.fixedCost.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+      }),
     ]);
 
     // Fetch access requests from PODDIT-CONCEPT server (server-side, no CORS issues)
@@ -282,6 +314,41 @@ export async function GET(request: NextRequest) {
         console.warn('[Admin] Failed to fetch concept access requests:', err.message);
       }
     }
+
+    // ── Cost aggregation ──
+    let totalGenerationCost = 0;
+    let totalClaudeCost = 0;
+    let totalWebSearchCost = 0;
+    let totalTtsCost = 0;
+    let generationCostThisWeek = 0;
+    const perUserCosts: Record<string, { userId: string; total: number; episodes: number }> = {};
+
+    for (const ep of episodesWithCosts) {
+      const meta = ep.generationMeta as Record<string, any> | null;
+      if (!meta?.costs) continue;
+
+      const epCost = meta.costs.total || 0;
+      totalGenerationCost += epCost;
+      totalClaudeCost += meta.costs.claude || 0;
+      totalWebSearchCost += meta.costs.webSearch || 0;
+      totalTtsCost += meta.costs.tts || 0;
+
+      if (ep.generatedAt && new Date(ep.generatedAt) >= weekAgo) {
+        generationCostThisWeek += epCost;
+      }
+
+      if (!perUserCosts[ep.userId]) {
+        perUserCosts[ep.userId] = { userId: ep.userId, total: 0, episodes: 0 };
+      }
+      perUserCosts[ep.userId].total += epCost;
+      perUserCosts[ep.userId].episodes++;
+    }
+
+    const avgCostPerEpisode = episodesWithCosts.length > 0
+      ? totalGenerationCost / episodesWithCosts.length
+      : 0;
+
+    const fixedMonthlyTotal = activeFixedCosts.reduce((sum: number, c: any) => sum + c.amount, 0);
 
     return NextResponse.json({
       totals: {
@@ -362,6 +429,27 @@ export async function GET(request: NextRequest) {
         responses: questionnaireResponses,
       },
       accessRequests,
+      costs: {
+        generation: {
+          total: Math.round(totalGenerationCost * 100) / 100,
+          thisWeek: Math.round(generationCostThisWeek * 100) / 100,
+          avgPerEpisode: Math.round(avgCostPerEpisode * 100) / 100,
+          breakdown: {
+            claude: Math.round(totalClaudeCost * 100) / 100,
+            webSearch: Math.round(totalWebSearchCost * 100) / 100,
+            tts: Math.round(totalTtsCost * 100) / 100,
+          },
+          perUser: Object.values(perUserCosts)
+            .sort((a, b) => b.total - a.total)
+            .map(u => ({ ...u, total: Math.round(u.total * 100) / 100 })),
+          trackedEpisodes: episodesWithCosts.length,
+        },
+        fixed: {
+          monthlyTotal: Math.round(fixedMonthlyTotal * 100) / 100,
+          items: activeFixedCosts,
+        },
+        totalMonthly: Math.round((fixedMonthlyTotal + generationCostThisWeek * (30 / 7)) * 100) / 100,
+      },
       generatedAt: now.toISOString(),
     });
   } catch (error: any) {

@@ -4,6 +4,7 @@ import { SYSTEM_PROMPT, buildSynthesisPrompt } from './prompts';
 import { generateAudio } from './tts';
 import { withRetry } from './retry';
 import { isSafeUrl } from './capture';
+import { calculateGenerationCosts } from './pricing';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -582,9 +583,24 @@ export async function generateEpisode(params: {
     const ttsScript = sanitizeForTTS(fullScript);
     console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
     console.log(`[Poddit] TTS intro preview: ${ttsScript.split('\n\n')[0].substring(0, 200)}`);
-    const { audioUrl, duration } = await generateAudio(ttsScript, episode.id, voiceKey);
+    const { audioUrl, duration, ttsCharacters, ttsChunks, ttsMs } = await generateAudio(ttsScript, episode.id, voiceKey);
 
-    // 11. Finalize episode (store voice used for attribution)
+    // 11. Build generation metadata for cost tracking
+    const inputTokens = synthesisResult.usage.input_tokens;
+    const outputTokens = synthesisResult.usage.output_tokens;
+    const generationMeta = {
+      inputTokens,
+      outputTokens,
+      webSearches: webSearchCount,
+      synthesisMs,
+      ttsCharacters,
+      ttsChunks,
+      ttsMs,
+      costs: calculateGenerationCosts({ inputTokens, outputTokens, webSearches: webSearchCount, ttsCharacters }),
+    };
+    console.log(`[Poddit] Generation cost: $${generationMeta.costs.total.toFixed(4)} (Claude: $${generationMeta.costs.claude.toFixed(4)}, Search: $${generationMeta.costs.webSearch.toFixed(4)}, TTS: $${generationMeta.costs.tts.toFixed(4)})`);
+
+    // 12. Finalize episode (store voice used for attribution + cost metadata)
     await prisma.episode.update({
       where: { id: episode.id },
       data: {
@@ -593,6 +609,7 @@ export async function generateEpisode(params: {
         voiceKey: voiceKey || 'gandalf',
         status: 'READY',
         generatedAt: new Date(),
+        generationMeta: JSON.parse(JSON.stringify(generationMeta)),
       },
     });
 

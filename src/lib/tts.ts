@@ -52,7 +52,8 @@ export async function generateAudio(
   script: string,
   episodeId: string,
   voiceKey?: string
-): Promise<{ audioUrl: string; duration: number }> {
+): Promise<{ audioUrl: string; duration: number; ttsCharacters: number; ttsChunks: number; ttsMs: number }> {
+  const ttsStart = Date.now();
   const voice = VOICES[voiceKey || DEFAULT_VOICE] || VOICES[DEFAULT_VOICE];
   const voiceId = voice.id;
 
@@ -137,7 +138,8 @@ export async function generateAudio(
   const audioUrl = `${process.env.S3_PUBLIC_URL}/${key}`;
   console.log(`[TTS] Audio uploaded: ${audioUrl} (~${duration}s)`);
 
-  return { audioUrl, duration };
+  const ttsMs = Date.now() - ttsStart;
+  return { audioUrl, duration, ttsCharacters: script.length, ttsChunks: chunks.length, ttsMs };
 }
 
 // ──────────────────────────────────────────────

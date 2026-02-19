@@ -30,7 +30,19 @@ interface AdminStats {
       signalCount: number;
       generatedAt: string | null;
       error: string | null;
+      voiceKey: string | null;
+      playCount: number;
+      generationMeta: Record<string, any> | null;
       user?: { name: string | null; email: string | null };
+      signals?: Array<{
+        id: string;
+        inputType: string;
+        channel: string;
+        rawContent: string;
+        url: string | null;
+        title: string | null;
+        topics: string[];
+      }>;
     }>;
     byStatus: Array<{ status: string; count: number }>;
   };
@@ -147,6 +159,28 @@ interface AdminStats {
     nda_accepted_at: string | null;
     created_at: string;
   }>;
+  costs: {
+    generation: {
+      total: number;
+      thisWeek: number;
+      avgPerEpisode: number;
+      breakdown: { claude: number; webSearch: number; tts: number };
+      perUser: Array<{ userId: string; total: number; episodes: number }>;
+      trackedEpisodes: number;
+    };
+    fixed: {
+      monthlyTotal: number;
+      items: Array<{
+        id: string;
+        name: string;
+        amount: number;
+        category: string;
+        notes: string | null;
+        active: boolean;
+      }>;
+    };
+    totalMonthly: number;
+  };
   generatedAt: string;
 }
 
@@ -424,6 +458,22 @@ const USER_TYPE_LABELS: Record<string, string> = {
   TESTER: 'Tester',
 };
 
+const VOICE_NAMES: Record<string, string> = {
+  gandalf: 'Gandalf',
+  jon: 'Jon',
+  ivy: 'Ivy',
+  harper: 'Harper',
+  marcus: 'Marcus',
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  infra: 'bg-violet-500/15 text-violet-300',
+  api: 'bg-teal-500/15 text-teal-300',
+  comms: 'bg-amber-500/15 text-amber-300',
+  storage: 'bg-rose-500/15 text-rose-300',
+  other: 'bg-stone-700/50 text-stone-400',
+};
+
 const USER_TYPE_COLORS: Record<string, string> = {
   MASTER: 'bg-amber-500/15 text-amber-300',
   EARLY_ACCESS: 'bg-teal-500/15 text-teal-300',
@@ -443,6 +493,15 @@ function AdminDashboard() {
   // Tab state
   const [peopleTab, setPeopleTab] = useState<'users' | 'requests'>('requests');
   const [insightsTab, setInsightsTab] = useState<'feedback' | 'ratings' | 'questionnaire'>('feedback');
+
+  // Cost tracker state
+  const [expandedEpisode, setExpandedEpisode] = useState<string | null>(null);
+  const [showAddCost, setShowAddCost] = useState(false);
+  const [newCostName, setNewCostName] = useState('');
+  const [newCostAmount, setNewCostAmount] = useState('');
+  const [newCostCategory, setNewCostCategory] = useState('infra');
+  const [newCostNotes, setNewCostNotes] = useState('');
+  const [savingCost, setSavingCost] = useState(false);
 
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState<{
@@ -568,6 +627,52 @@ function AdminDashboard() {
     } finally {
       setRevokingUser(null);
     }
+  };
+
+  // ── Fixed cost handlers ──
+  const addFixedCost = async () => {
+    if (!adminKey || !newCostName.trim() || !newCostAmount) return;
+    setSavingCost(true);
+    try {
+      const res = await fetch('/api/admin/costs', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCostName.trim(), amount: parseFloat(newCostAmount), category: newCostCategory, notes: newCostNotes.trim() || undefined }),
+      });
+      if (res.ok) {
+        setActionMessage({ type: 'success', text: `Added ${newCostName.trim()}` });
+        setNewCostName(''); setNewCostAmount(''); setNewCostCategory('infra'); setNewCostNotes(''); setShowAddCost(false);
+        fetchStats(adminKey);
+      } else {
+        const data = await res.json();
+        setActionMessage({ type: 'error', text: data.error || 'Failed to add cost' });
+      }
+    } catch { setActionMessage({ type: 'error', text: 'Failed to add cost' }); }
+    finally { setSavingCost(false); }
+  };
+
+  const toggleFixedCost = async (id: string, active: boolean) => {
+    if (!adminKey) return;
+    try {
+      const res = await fetch('/api/admin/costs', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active }),
+      });
+      if (res.ok) fetchStats(adminKey);
+    } catch { setActionMessage({ type: 'error', text: 'Failed to update cost' }); }
+  };
+
+  const deleteFixedCost = async (id: string) => {
+    if (!adminKey) return;
+    try {
+      const res = await fetch('/api/admin/costs', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) { setActionMessage({ type: 'success', text: 'Cost removed' }); fetchStats(adminKey); }
+    } catch { setActionMessage({ type: 'error', text: 'Failed to delete cost' }); }
   };
 
   // Generic delete handler
@@ -729,6 +834,133 @@ function AdminDashboard() {
         <MetricCard label="Episodes / Week" value={stats.totals.episodesThisWeek} accent="violet" subtitle="last 7 days" />
         <MetricCard label="Feedback" value={stats.feedback.total} accent="amber" subtitle={`${stats.feedback.new} new`} />
       </div>
+
+      {/* ── Cost Tracker ── */}
+      {stats.costs && (
+        <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-4">Cost Tracker</h2>
+
+          {/* Summary metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+              <p className="text-xs text-stone-500 mb-1">Est. Monthly</p>
+              <p className="text-xl font-extrabold text-white">${stats.costs.totalMonthly.toFixed(2)}</p>
+              <p className="text-xs text-stone-600">fixed + projected</p>
+            </div>
+            <div className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+              <p className="text-xs text-stone-500 mb-1">This Week</p>
+              <p className="text-xl font-extrabold text-teal-300">${stats.costs.generation.thisWeek.toFixed(2)}</p>
+              <p className="text-xs text-stone-600">generation</p>
+            </div>
+            <div className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+              <p className="text-xs text-stone-500 mb-1">Avg / Episode</p>
+              <p className="text-xl font-extrabold text-violet-300">${stats.costs.generation.avgPerEpisode.toFixed(2)}</p>
+              <p className="text-xs text-stone-600">{stats.costs.generation.trackedEpisodes} tracked</p>
+            </div>
+            <div className="p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg text-center">
+              <p className="text-xs text-stone-500 mb-1">Total Plays</p>
+              <p className="text-xl font-extrabold text-amber-300">
+                {stats.episodes.recent.reduce((sum, ep) => sum + (ep.playCount || 0), 0)}
+              </p>
+            </div>
+          </div>
+
+          {/* Generation cost breakdown bar */}
+          {stats.costs.generation.total > 0 && (
+            <div className="mb-5">
+              <p className="text-xs text-stone-500 mb-2">Generation Cost Breakdown (${stats.costs.generation.total.toFixed(2)} total)</p>
+              <div className="flex h-3 rounded-full overflow-hidden bg-poddit-800">
+                <div className="bg-violet-500 transition-all" style={{ width: `${(stats.costs.generation.breakdown.claude / stats.costs.generation.total) * 100}%` }} title={`Claude: $${stats.costs.generation.breakdown.claude.toFixed(2)}`} />
+                <div className="bg-teal-500 transition-all" style={{ width: `${(stats.costs.generation.breakdown.webSearch / stats.costs.generation.total) * 100}%` }} title={`Web Search: $${stats.costs.generation.breakdown.webSearch.toFixed(2)}`} />
+                <div className="bg-amber-500 transition-all" style={{ width: `${(stats.costs.generation.breakdown.tts / stats.costs.generation.total) * 100}%` }} title={`TTS: $${stats.costs.generation.breakdown.tts.toFixed(2)}`} />
+              </div>
+              <div className="flex justify-between mt-1.5 text-xs text-stone-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />Claude ${stats.costs.generation.breakdown.claude.toFixed(2)}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-500 inline-block" />Search ${stats.costs.generation.breakdown.webSearch.toFixed(2)}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />TTS ${stats.costs.generation.breakdown.tts.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Per-user generation costs */}
+          {stats.costs.generation.perUser.length > 0 && (
+            <div className="mb-5">
+              <p className="text-xs text-stone-500 mb-2">Cost by User</p>
+              <div className="space-y-1">
+                {stats.costs.generation.perUser.map(u => {
+                  const user = stats.users.find(usr => usr.id === u.userId);
+                  return (
+                    <div key={u.userId} className="flex items-center justify-between text-xs py-1">
+                      <span className="text-stone-300">{user?.name || user?.email || u.userId.slice(0, 8)}</span>
+                      <span className="text-stone-400 font-mono">${u.total.toFixed(2)} ({u.episodes} ep)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Fixed / subscription costs */}
+          <div className="border-t border-stone-800/40 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-stone-500">Fixed Monthly Costs <span className="text-stone-300 font-mono ml-1">${stats.costs.fixed.monthlyTotal.toFixed(2)}/mo</span></p>
+              <button onClick={() => setShowAddCost(!showAddCost)} className="text-xs text-teal-400 hover:text-teal-300 transition-colors">
+                {showAddCost ? 'Cancel' : '+ Add'}
+              </button>
+            </div>
+
+            {/* Add cost form */}
+            {showAddCost && (
+              <div className="mb-3 p-3 bg-poddit-950/40 border border-stone-800/30 rounded-lg space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={newCostName} onChange={e => setNewCostName(e.target.value)} placeholder="Name (e.g. Railway)"
+                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                  <input value={newCostAmount} onChange={e => setNewCostAmount(e.target.value)} placeholder="$/month" type="number" step="0.01"
+                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={newCostCategory} onChange={e => setNewCostCategory(e.target.value)}
+                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white focus:outline-none focus:border-stone-600">
+                    <option value="infra">Infrastructure</option>
+                    <option value="api">API / AI</option>
+                    <option value="comms">Communications</option>
+                    <option value="storage">Storage</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <input value={newCostNotes} onChange={e => setNewCostNotes(e.target.value)} placeholder="Notes (optional)"
+                    className="px-2.5 py-1.5 bg-poddit-950 border border-stone-800/50 rounded-lg text-xs text-white placeholder:text-stone-600 focus:outline-none focus:border-stone-600" />
+                </div>
+                <button onClick={addFixedCost} disabled={savingCost || !newCostName.trim() || !newCostAmount}
+                  className="w-full py-1.5 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                  {savingCost ? 'Saving...' : 'Add Cost'}
+                </button>
+              </div>
+            )}
+
+            {/* Fixed costs list */}
+            {stats.costs.fixed.items.length > 0 ? (
+              <div className="space-y-1">
+                {stats.costs.fixed.items.map(cost => (
+                  <div key={cost.id} className="flex items-center gap-2 text-xs py-1.5">
+                    <span className={`px-1.5 py-0.5 rounded ${CATEGORY_COLORS[cost.category] || CATEGORY_COLORS.other}`}>{cost.category}</span>
+                    <span className="text-stone-300 flex-1">{cost.name}</span>
+                    {cost.notes && <span className="text-stone-600 truncate max-w-[120px]">{cost.notes}</span>}
+                    <span className="text-stone-400 font-mono">${cost.amount.toFixed(2)}</span>
+                    <button onClick={() => toggleFixedCost(cost.id, false)} className="text-stone-600 hover:text-amber-400 transition-colors" title="Deactivate">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" /></svg>
+                    </button>
+                    <button onClick={() => deleteFixedCost(cost.id)} className="text-stone-600 hover:text-red-400 transition-colors" title="Delete">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-600">No fixed costs added yet</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── System Health ── */}
       <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
@@ -1184,32 +1416,88 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* Recent episodes list — scrollable */}
-          <div className="max-h-96 overflow-y-auto space-y-1 pr-1">
+          {/* Recent episodes list — scrollable, expandable */}
+          <div className="max-h-[32rem] overflow-y-auto space-y-1 pr-1">
             {stats.episodes.recent.map((ep) => (
-              <div
-                key={ep.id}
-                className={`flex items-center gap-3 p-2.5 rounded-lg hover:bg-poddit-900/60 transition-colors ${
-                  ep.status === 'FAILED' ? 'border-l-2 border-l-red-500' : ''
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[ep.status] || 'bg-stone-500'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
-                  {ep.user && (
-                    <p className="text-xs text-stone-500 truncate">{ep.user.name || ep.user.email || 'Unknown user'}</p>
+              <div key={ep.id}>
+                <div
+                  onClick={() => setExpandedEpisode(expandedEpisode === ep.id ? null : ep.id)}
+                  className={`flex items-center gap-2 p-2.5 rounded-lg hover:bg-poddit-900/60 transition-colors cursor-pointer ${
+                    ep.status === 'FAILED' ? 'border-l-2 border-l-red-500' : ''
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_COLORS[ep.status] || 'bg-stone-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">{ep.title || 'Untitled'}</p>
+                    {ep.user && (
+                      <p className="text-xs text-stone-500 truncate">{ep.user.name || ep.user.email || 'Unknown user'}</p>
+                    )}
+                    {ep.error && (
+                      <p className="text-xs text-red-400 truncate">{ep.error}</p>
+                    )}
+                    <p className="text-xs text-stone-600">
+                      {ep.generatedAt ? timeAgo(ep.generatedAt) : '--'}
+                    </p>
+                  </div>
+                  {/* Voice */}
+                  {ep.voiceKey && (
+                    <span className="text-xs text-stone-500 flex-shrink-0">{VOICE_NAMES[ep.voiceKey] || ep.voiceKey}</span>
                   )}
-                  {ep.error && (
-                    <p className="text-xs text-red-400 truncate">{ep.error}</p>
-                  )}
-                  <p className="text-xs text-stone-600">
-                    {ep.generatedAt ? timeAgo(ep.generatedAt) : '--'}
-                  </p>
+                  {/* Play count */}
+                  <span className="text-xs font-mono text-stone-500 flex-shrink-0" title="Play count">
+                    {ep.playCount || 0} ▶
+                  </span>
+                  {/* Cost */}
+                  {ep.generationMeta?.costs?.total ? (
+                    <span className="text-xs font-mono text-amber-400/70 flex-shrink-0">${ep.generationMeta.costs.total.toFixed(2)}</span>
+                  ) : null}
+                  <span className="text-xs text-stone-500 flex-shrink-0">{formatDuration(ep.audioDuration)}</span>
+                  <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
+                    {ep.signalCount} sig
+                  </span>
+                  {/* Expand chevron */}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    className={`text-stone-600 flex-shrink-0 transition-transform ${expandedEpisode === ep.id ? 'rotate-180' : ''}`}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </div>
-                <span className="text-xs text-stone-500 flex-shrink-0">{formatDuration(ep.audioDuration)}</span>
-                <span className="text-xs font-mono bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded flex-shrink-0">
-                  {ep.signalCount} sig
-                </span>
+
+                {/* Expanded detail panel */}
+                {expandedEpisode === ep.id && (
+                  <div className="ml-5 pl-4 border-l border-stone-800/40 py-2 space-y-2">
+                    {/* Signals used */}
+                    {ep.signals && ep.signals.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1">Signals used</p>
+                        <div className="space-y-1">
+                          {ep.signals.map(sig => (
+                            <div key={sig.id} className="flex items-center gap-2 text-xs">
+                              <span className="font-mono px-1 py-0.5 rounded bg-stone-800/60 text-stone-400">{sig.channel}</span>
+                              <span className="text-stone-400 truncate">{sig.title || sig.rawContent.slice(0, 60)}</span>
+                              {sig.url && (
+                                <a href={sig.url} target="_blank" rel="noopener noreferrer"
+                                  className="text-violet-400/60 hover:text-violet-300 flex-shrink-0">↗</a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Generation details */}
+                    {ep.generationMeta && (
+                      <div className="pt-2 border-t border-stone-800/30 flex flex-wrap gap-3 text-xs text-stone-600">
+                        {ep.generationMeta.inputTokens && <span>{ep.generationMeta.inputTokens.toLocaleString()} in tok</span>}
+                        {ep.generationMeta.outputTokens && <span>{ep.generationMeta.outputTokens.toLocaleString()} out tok</span>}
+                        {ep.generationMeta.webSearches > 0 && <span>{ep.generationMeta.webSearches} searches</span>}
+                        {ep.generationMeta.ttsCharacters && <span>{ep.generationMeta.ttsCharacters.toLocaleString()} TTS chars</span>}
+                        {ep.generationMeta.synthesisMs && <span>{(ep.generationMeta.synthesisMs / 1000).toFixed(1)}s synthesis</span>}
+                        {ep.generationMeta.ttsMs && <span>{(ep.generationMeta.ttsMs / 1000).toFixed(1)}s TTS</span>}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {stats.episodes.recent.length === 0 && (
