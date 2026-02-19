@@ -15,12 +15,13 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
 
-  // Redirect already-authenticated users to dashboard
+  // Redirect already-authenticated users to dashboard (e.g. back button)
+  // Skip when exiting — the handleSubmit timeout handles that navigation
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && !exiting) {
       router.replace('/');
     }
-  }, [status, router]);
+  }, [status, router, exiting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
