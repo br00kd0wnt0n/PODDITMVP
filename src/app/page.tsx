@@ -1059,8 +1059,11 @@ function Dashboard() {
 
   const totalQueued = (signalCounts.QUEUED || 0) + (signalCounts.ENRICHED || 0);
 
-  // Don't render dashboard until session is confirmed
-  if (status === 'loading' || status === 'unauthenticated') {
+  // Don't render dashboard until session is confirmed AND data has loaded
+  // Without `loading` check, returning users with a cached JWT cookie skip the skeleton
+  // (status goes straight to 'authenticated') and the full heavy UI renders with empty state,
+  // which overwhelms mobile GPU/CPU and crashes Chrome on iOS/Android.
+  if (status === 'loading' || status === 'unauthenticated' || loading) {
     return (
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="animate-pulse space-y-4">
