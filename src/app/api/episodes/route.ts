@@ -74,10 +74,13 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      // Lightweight query for Highlights: topics + channels from ALL episodes (no heavy fields)
+      // Lightweight query for Highlights: topics + channels from recent used signals
+      // Bounded to 500 most recent to prevent unbounded queries for heavy users
       prisma.signal.findMany({
         where: { userId, status: 'USED' },
         select: { channel: true, topics: true },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
       }),
     ]);
 

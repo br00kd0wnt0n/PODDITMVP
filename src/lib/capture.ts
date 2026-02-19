@@ -395,6 +395,9 @@ export async function createSignal(params: {
     throw new Error('[Capture] userId is required to create a signal');
   }
 
+  // Update last activity timestamp (fire-and-forget, non-blocking)
+  prisma.user.update({ where: { id: userId }, data: { lastActiveAt: new Date() } }).catch(() => {});
+
   const { type, urls } = classifyInput(rawContent);
 
   // Email channel → always one signal per email (never split on embedded URLs)

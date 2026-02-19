@@ -33,11 +33,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
-    // Increment atomically
-    await prisma.episode.update({
-      where: { id: episodeId },
-      data: { playCount: { increment: 1 } },
-    });
+    // Increment play count + update last activity (for engagement tracking)
+    await Promise.all([
+      prisma.episode.update({
+        where: { id: episodeId },
+        data: { playCount: { increment: 1 } },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: { lastActiveAt: new Date() },
+      }),
+    ]);
 
     return NextResponse.json({ status: 'counted' });
   } catch (error) {
