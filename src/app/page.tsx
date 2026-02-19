@@ -1600,7 +1600,7 @@ function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── TWO-COLUMN LAYOUT: Queue + Episodes (side-by-side on lg) */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:grid-rows-[auto_auto] lg:items-start lg:gap-6">
 
       {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
       <section className="mb-6 lg:mb-0 order-1">
