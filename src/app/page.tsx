@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { patchDomForAutofillSafety } from '@/lib/dom-safety';
 
 const STATUS_PHRASES = [
   'Connecting the dots...',
@@ -72,6 +73,10 @@ function Dashboard() {
   const router = useRouter();
   const heroTagline = useMemo(() => HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)], []);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Patch DOM methods to prevent Chrome autofill from crashing React reconciler.
+  // Must run before any React reconciliation that touches form elements.
+  useEffect(() => { patchDomForAutofillSafety(); }, []);
 
   // Client-side auth guard — redirect if no session
   useEffect(() => {
@@ -1149,6 +1154,7 @@ function Dashboard() {
                           onChange={(e) => setQResponses(p => ({ ...p, describe: e.target.value }))}
                           placeholder="It's like..."
                           rows={2}
+                          autoComplete="off"
                           className="w-full px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
                                      placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30 resize-none"
                         />
@@ -1269,6 +1275,7 @@ function Dashboard() {
                             value={qResponses.frictionOther as string}
                             onChange={(e) => setQResponses(p => ({ ...p, frictionOther: e.target.value }))}
                             placeholder="Please specify..."
+                            autoComplete="off"
                             className="w-full mt-2 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
                                        placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30"
                           />
@@ -1289,6 +1296,7 @@ function Dashboard() {
                           onChange={(e) => setQResponses(p => ({ ...p, essential: e.target.value }))}
                           placeholder="If Poddit could..."
                           rows={2}
+                          autoComplete="off"
                           className="w-full px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
                                      placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-teal-400/30 resize-none"
                         />
@@ -1523,32 +1531,31 @@ function Dashboard() {
                   <p className="text-xs font-medium text-stone-200">Add your phone number</p>
                 </div>
                 <p className="text-[11px] text-stone-500 leading-relaxed mb-3">Text links and voice memos straight to Poddit — the fastest way to capture on the go.</p>
-                {setupPhoneSaved || userPhone ? (
-                  <div className="flex items-center gap-2 text-xs text-teal-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    Phone saved
+                {/* Both states always mounted — toggled via display */}
+                <div style={{ display: setupPhoneSaved || userPhone ? 'flex' : 'none' }} className="items-center gap-2 text-xs text-teal-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  Phone saved
+                </div>
+                <div style={{ display: !(setupPhoneSaved || userPhone) ? 'block' : 'none' }}>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(null); }}
+                      placeholder="(555) 123-4567"
+                      autoComplete="off"
+                      className={`flex-1 px-3 py-2 bg-white/[0.07] border rounded-lg text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all ${phoneError ? 'border-red-500/40' : 'border-white/15'}`}
+                    />
+                    <button
+                      onClick={savePhoneSetup}
+                      disabled={phoneSaving || !phoneInput.trim()}
+                      className="px-4 py-2 bg-teal-500 text-white text-xs font-bold rounded-lg hover:bg-teal-400 disabled:bg-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed transition-all"
+                    >
+                      {phoneSaving ? '...' : 'Save'}
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        value={phoneInput}
-                        onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(null); }}
-                        placeholder="(555) 123-4567"
-                        className={`flex-1 px-3 py-2 bg-white/[0.07] border rounded-lg text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all ${phoneError ? 'border-red-500/40' : 'border-white/15'}`}
-                      />
-                      <button
-                        onClick={savePhoneSetup}
-                        disabled={phoneSaving || !phoneInput.trim()}
-                        className="px-4 py-2 bg-teal-500 text-white text-xs font-bold rounded-lg hover:bg-teal-400 disabled:bg-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed transition-all"
-                      >
-                        {phoneSaving ? '...' : 'Save'}
-                      </button>
-                    </div>
-                    {phoneError && <p className="text-[11px] text-red-400 mt-1.5">{phoneError}</p>}
-                  </>
-                )}
+                  {phoneError && <p className="text-[11px] text-red-400 mt-1.5">{phoneError}</p>}
+                </div>
               </div>
 
               {/* Settings nudge section */}
@@ -1580,19 +1587,25 @@ function Dashboard() {
 
         {/* Capture input */}
         <div className="mb-2">
-          {inputError && (
-            <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
-              <span>{inputError}</span>
-              <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-            </div>
-          )}
-          {recording ? (
+          {/* Input error — always mounted, toggled via display */}
+          <div
+            style={{ display: inputError ? 'flex' : 'none' }}
+            className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs items-center justify-between"
+          >
+            <span>{inputError}</span>
+            <button onClick={() => setInputError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+          </div>
+
+          {/* All three capture states always mounted — toggled via display to avoid
+              React removeChild calls that conflict with Chrome autofill DOM mutations. */}
+          <div style={{ display: recording ? 'block' : 'none' }}>
             <button onClick={stopRecording} className="w-full py-3 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
               <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
               {formatTime(recordingTime)} &mdash; Recording...
               <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
             </button>
-          ) : processing ? (
+          </div>
+          <div style={{ display: processing ? 'block' : 'none' }}>
             <div className="w-full py-3 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400 flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4 text-teal-400" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1600,51 +1613,49 @@ function Dashboard() {
               </svg>
               Transcribing...
             </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 input-lens-flare">
-                <input
-                  type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
-                  onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                  placeholder=" " disabled={submitting} autoComplete="off"
-                  className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
-                             placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
-                             focus:bg-white/[0.10] disabled:opacity-40 transition-all
-                             ${inputSuccess ? 'border-teal-500/25 shadow-[0_0_12px_rgba(20,184,166,0.08)]' : isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
-                />
-                {/* Always-mounted overlays — toggled via CSS opacity, never unmounted.
-                     Avoids React removeChild calls that conflict with Chrome autofill DOM mutations. */}
-                <span
-                  className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200"
-                  style={{ opacity: inputSuccess && !textInput && !inputFocused ? 1 : 0 }}
-                  aria-hidden={!(inputSuccess && !textInput && !inputFocused)}
-                >
-                  ✓ {inputSuccess}
-                </span>
-                <span
-                  className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200${twFading ? ' animate-tw-fade-out' : ''}`}
-                  style={{ opacity: !textInput && !inputFocused && !inputSuccess ? 1 : 0 }}
-                  aria-hidden={!(!textInput && !inputFocused && !inputSuccess)}
-                >
-                  {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
-                </span>
-                <span className="flare-right" /><span className="flare-bottom" /><span className="flare-left" />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={submitText} disabled={submitting || !textInput.trim()}
-                  className="flex-1 sm:flex-none px-6 py-3.5 bg-white text-poddit-950 text-sm font-bold rounded-xl hover:bg-stone-100 disabled:bg-stone-800 disabled:text-stone-600 disabled:cursor-not-allowed shadow-[0_2px_8px_rgba(255,255,255,0.10)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:shadow-none transition-all flex-shrink-0">
-                  {submitting ? '...' : 'Add'}
-                </button>
-                <button onClick={startRecording} disabled={submitting} title="Record a voice note"
-                  className={`px-3 py-3.5 border rounded-xl hover:border-white/30 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0
-                             ${isEmptyState ? 'border-white/20 text-stone-300 animate-mic-pulse' : 'border-white/15 text-stone-400'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                </button>
-              </div>
+          </div>
+          <div style={{ display: !recording && !processing ? 'flex' : 'none' }} className="flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 input-lens-flare">
+              <input
+                type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
+                placeholder=" " disabled={submitting} autoComplete="off"
+                className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
+                           placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
+                           focus:bg-white/[0.10] disabled:opacity-40 transition-all
+                           ${inputSuccess ? 'border-teal-500/25 shadow-[0_0_12px_rgba(20,184,166,0.08)]' : isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
+              />
+              {/* Always-mounted overlays — toggled via CSS opacity */}
+              <span
+                className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200"
+                style={{ opacity: inputSuccess && !textInput && !inputFocused ? 1 : 0 }}
+                aria-hidden={!(inputSuccess && !textInput && !inputFocused)}
+              >
+                ✓ {inputSuccess}
+              </span>
+              <span
+                className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200${twFading ? ' animate-tw-fade-out' : ''}`}
+                style={{ opacity: !textInput && !inputFocused && !inputSuccess ? 1 : 0 }}
+                aria-hidden={!(!textInput && !inputFocused && !inputSuccess)}
+              >
+                {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
+              </span>
+              <span className="flare-right" /><span className="flare-bottom" /><span className="flare-left" />
             </div>
-          )}
+            <div className="flex gap-2">
+              <button onClick={submitText} disabled={submitting || !textInput.trim()}
+                className="flex-1 sm:flex-none px-6 py-3.5 bg-white text-poddit-950 text-sm font-bold rounded-xl hover:bg-stone-100 disabled:bg-stone-800 disabled:text-stone-600 disabled:cursor-not-allowed shadow-[0_2px_8px_rgba(255,255,255,0.10)] hover:shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:shadow-none transition-all flex-shrink-0">
+                {submitting ? '...' : 'Add'}
+              </button>
+              <button onClick={startRecording} disabled={submitting} title="Record a voice note"
+                className={`px-3 py-3.5 border rounded-xl hover:border-white/30 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0
+                           ${isEmptyState ? 'border-white/20 text-stone-300 animate-mic-pulse' : 'border-white/15 text-stone-400'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1749,25 +1760,23 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Phone number prompt */}
-              {showPhonePrompt && (
-                <div className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
-                  <button onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }} className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Close">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              {/* Phone number prompt — always mounted, toggled via display */}
+              <div style={{ display: showPhonePrompt ? 'block' : 'none' }} className="mt-3 p-3 bg-poddit-950/80 border border-teal-500/20 rounded-lg relative">
+                <button onClick={() => { setShowPhonePrompt(false); setPhoneError(null); }} className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Close">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <p className="text-xs text-stone-300 mb-2">Add your phone number so Poddit can match your texts to your account</p>
+                <div className="flex gap-2">
+                  <input type="tel" value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && savePhone()}
+                    placeholder="(555) 123-4567" autoComplete="off"
+                    className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors" />
+                  <button onClick={savePhone} disabled={phoneSaving || !phoneInput.trim()}
+                    className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+                    {phoneSaving ? 'Saving...' : 'Save & Text'}
                   </button>
-                  <p className="text-xs text-stone-300 mb-2">Add your phone number so Poddit can match your texts to your account</p>
-                  <div className="flex gap-2">
-                    <input type="tel" value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && savePhone()}
-                      placeholder="(555) 123-4567" autoFocus
-                      className="flex-1 min-w-0 px-3 py-2 bg-poddit-950 border border-stone-800/50 rounded-lg text-sm text-white placeholder:text-stone-600 focus:outline-none focus:border-teal-500/40 transition-colors" />
-                    <button onClick={savePhone} disabled={phoneSaving || !phoneInput.trim()}
-                      className="px-4 py-2 bg-teal-500/15 text-teal-400 text-xs font-semibold rounded-lg border border-teal-500/20 hover:bg-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap">
-                      {phoneSaving ? 'Saving...' : 'Save & Text'}
-                    </button>
-                  </div>
-                  {phoneError && <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>}
                 </div>
-              )}
+                {phoneError && <p className="text-xs text-red-400 mt-1.5">{phoneError}</p>}
+              </div>
             </div>
           </div>
         </div>
@@ -2118,20 +2127,23 @@ function Dashboard() {
                   Found a bug? Have an idea? We&apos;d love to hear from you — text or voice.
                 </p>
 
-                {feedbackError && (
-                  <div className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs flex items-center justify-between">
-                    <span>{feedbackError}</span>
-                    <button onClick={() => setFeedbackError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
-                  </div>
-                )}
+                {/* Feedback error/success — always mounted, toggled via display */}
+                <div
+                  style={{ display: feedbackError ? 'flex' : 'none' }}
+                  className="mb-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs items-center justify-between"
+                >
+                  <span>{feedbackError}</span>
+                  <button onClick={() => setFeedbackError(null)} className="text-red-500/50 hover:text-red-400 ml-2">&times;</button>
+                </div>
+                <div
+                  style={{ display: feedbackSuccess ? 'block' : 'none' }}
+                  className="mb-3 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs"
+                >
+                  {'\u2713'} {feedbackSuccess}
+                </div>
 
-                {feedbackSuccess && (
-                  <div className="mb-3 p-2 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-xs">
-                    {'\u2713'} {feedbackSuccess}
-                  </div>
-                )}
-
-                {feedbackRecording ? (
+                {/* All three feedback states always mounted — toggled via display */}
+                <div style={{ display: feedbackRecording ? 'block' : 'none' }}>
                   <button
                     onClick={stopFeedbackRecording}
                     className="w-full py-2.5 px-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400
@@ -2141,7 +2153,8 @@ function Dashboard() {
                     {formatTime(feedbackRecordingTime)} &mdash; Recording...
                     <span className="ml-1 text-xs text-red-500 font-medium">[Stop]</span>
                   </button>
-                ) : feedbackProcessing ? (
+                </div>
+                <div style={{ display: feedbackProcessing ? 'block' : 'none' }}>
                   <div className="w-full py-2.5 px-4 bg-poddit-900 border border-poddit-700 rounded-xl text-sm text-stone-400
                                   flex items-center justify-center gap-2">
                     <svg className="animate-spin h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="none">
@@ -2150,49 +2163,48 @@ function Dashboard() {
                     </svg>
                     Transcribing...
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <textarea
-                      value={feedbackText}
-                      onChange={(e) => setFeedbackText(e.target.value)}
-                      placeholder="Bugs, ideas, anything..."
+                </div>
+                <div style={{ display: !feedbackRecording && !feedbackProcessing ? 'flex' : 'none' }} className="gap-2">
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="Bugs, ideas, anything..."
+                    disabled={feedbackSubmitting}
+                    rows={3}
+                    autoComplete="off"
+                    className="flex-1 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
+                               placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30
+                               disabled:opacity-40 transition-all resize-none"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={submitFeedback}
+                      disabled={feedbackSubmitting || !feedbackText.trim()}
+                      className="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg
+                                 hover:bg-amber-500/25 hover:border-amber-500/30
+                                 disabled:bg-poddit-800/50 disabled:text-poddit-600 disabled:border-stone-800/30 disabled:cursor-not-allowed
+                                 transition-all flex-shrink-0"
+                    >
+                      {feedbackSubmitting ? '...' : 'Send'}
+                    </button>
+                    <button
+                      onClick={startFeedbackRecording}
                       disabled={feedbackSubmitting}
-                      rows={3}
-                      autoFocus
-                      className="flex-1 px-3 py-2.5 bg-poddit-900/80 border border-stone-800/50 rounded-xl text-sm text-white
-                                 placeholder:text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-500/20 focus:border-amber-500/30
-                                 disabled:opacity-40 transition-all resize-none"
-                    />
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={submitFeedback}
-                        disabled={feedbackSubmitting || !feedbackText.trim()}
-                        className="px-4 py-2 bg-amber-500/15 border border-amber-500/20 text-amber-300 text-xs font-medium rounded-lg
-                                   hover:bg-amber-500/25 hover:border-amber-500/30
-                                   disabled:bg-poddit-800/50 disabled:text-poddit-600 disabled:border-stone-800/30 disabled:cursor-not-allowed
-                                   transition-all flex-shrink-0"
-                      >
-                        {feedbackSubmitting ? '...' : 'Send'}
-                      </button>
-                      <button
-                        onClick={startFeedbackRecording}
-                        disabled={feedbackSubmitting}
-                        className="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500
-                                   hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5
-                                   disabled:opacity-40 disabled:cursor-not-allowed
-                                   transition-all flex-shrink-0 flex items-center justify-center"
-                        title="Record voice feedback"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                          <line x1="12" x2="12" y1="19" y2="22" />
-                        </svg>
-                      </button>
-                    </div>
+                      className="px-3 py-2 border border-stone-800/40 rounded-lg text-stone-500
+                                 hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5
+                                 disabled:opacity-40 disabled:cursor-not-allowed
+                                 transition-all flex-shrink-0 flex items-center justify-center"
+                      title="Record voice feedback"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" x2="12" y1="19" y2="22" />
+                      </svg>
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
