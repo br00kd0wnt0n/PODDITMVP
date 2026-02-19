@@ -445,33 +445,33 @@ function Dashboard() {
           s.phase = 'holding';
         }
       } else if (s.phase === 'holding') {
-        // Hold for ~2s (40 ticks at 50ms)
+        // Hold for ~2s (14 ticks at 150ms)
         s.charIdx++;
-        if (s.charIdx >= phrase.length + 40) {
+        if (s.charIdx >= phrase.length + 14) {
           s.phase = 'fading';
           setTwFading(true);
           s.charIdx = 0;
         }
       } else if (s.phase === 'fading') {
-        // Wait for fade-out animation (~500ms = 10 ticks)
+        // Wait for fade-out animation (~500ms = 4 ticks at 150ms)
         s.charIdx++;
-        if (s.charIdx >= 10) {
+        if (s.charIdx >= 4) {
           setTwFading(false);
           setTypedText('');
           s.phase = 'pause';
           s.charIdx = 0;
         }
       } else {
-        // Brief pause before next phrase (~10 ticks = 500ms)
+        // Brief pause before next phrase (~500ms = 4 ticks at 150ms)
         s.charIdx++;
-        if (s.charIdx >= 10) {
+        if (s.charIdx >= 4) {
           s.phraseIdx = (s.phraseIdx + 1) % HERO_PLACEHOLDERS.length;
           s.charIdx = 0;
           s.phase = 'typing';
         }
       }
     };
-    typewriterRef.current = setInterval(tick, 50);
+    typewriterRef.current = setInterval(tick, 150);
     return () => {
       if (typewriterRef.current) clearInterval(typewriterRef.current);
     };
@@ -680,6 +680,12 @@ function Dashboard() {
   // ── Generate (with theatre) ──
 
   const startTheatre = useCallback(() => {
+    // Stop typewriter during generation — input is disabled, saves ~7 renders/sec on mobile
+    if (typewriterRef.current) {
+      clearInterval(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+
     // Collapse signals animation
     setSignalsCollapsing(true);
 
@@ -720,11 +726,12 @@ function Dashboard() {
     if (generateDoneRef.current) return;
     generateDoneRef.current = true;
 
-    // Stop polling
+    // Stop polling IMMEDIATELY + abort any in-flight poll request
     if (generatePollRef.current) {
       clearInterval(generatePollRef.current);
       generatePollRef.current = null;
     }
+    abortRef.current?.abort();
 
     stopTheatre();
 

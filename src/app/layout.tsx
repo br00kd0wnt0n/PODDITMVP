@@ -40,8 +40,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="min-h-screen bg-poddit-950 antialiased text-poddit-100">
-        {/* Drifting bokeh background — CSS-only, GPU-composited */}
-        <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Drifting bokeh background — hidden on mobile to prevent GPU crash */}
+        <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0 hidden sm:block">
           <div className="bokeh-orb bokeh-1 absolute -bottom-[10%] -left-[5%] w-[50vw] h-[50vw] rounded-full bg-amber-500/[0.03] blur-3xl" />
           <div className="bokeh-orb bokeh-2 absolute -top-[15%] -right-[10%] w-[40vw] h-[40vw] rounded-full bg-violet-500/[0.025] blur-3xl" />
           <div className="bokeh-orb bokeh-3 absolute top-[30%] -left-[8%] w-[25vw] h-[25vw] rounded-full bg-teal-500/[0.025] blur-2xl" />
