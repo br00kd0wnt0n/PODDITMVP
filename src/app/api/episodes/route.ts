@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
           take: 1,
         },
         signals: {
-          select: { channel: true },
+          select: { channel: true, topics: true },
         },
       },
     });
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
       ...ep,
       rated: ratings.length > 0,
       channels: signals.map(s => s.channel),
+      signalTopics: signals.flatMap(s => s.topics),
     }));
 
     return NextResponse.json(result);

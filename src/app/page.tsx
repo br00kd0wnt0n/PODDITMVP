@@ -29,6 +29,7 @@ interface Episode {
   status?: string;
   rated?: boolean;
   channels?: string[];
+  signalTopics?: string[];
 }
 
 interface Signal {
@@ -341,11 +342,24 @@ function Dashboard() {
   // ── Insights: topic frequency + channel breakdown ──
   const topicFrequency = useMemo(() => {
     const counts: Record<string, number> = {};
-    signals.forEach(s => s.topics.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
-    episodes.forEach(e => e.topicsCovered.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+    const displayName: Record<string, string> = {};
+    const normalize = (t: string) => t.trim().toLowerCase();
+
+    const addTopic = (t: string) => {
+      const key = normalize(t);
+      if (!displayName[key]) displayName[key] = t;
+      counts[key] = (counts[key] || 0) + 1;
+    };
+
+    // Pending signals — current curiosity
+    signals.forEach(s => s.topics.forEach(addTopic));
+    // Used signals (via episodes) — historical curiosity
+    episodes.forEach(e => e.signalTopics?.forEach(addTopic));
+
     return Object.entries(counts)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 8);
+      .slice(0, 8)
+      .map(([key, count]) => [displayName[key], count] as [string, number]);
   }, [signals, episodes]);
 
   const channelBreakdown = useMemo(() => {
@@ -1589,7 +1603,7 @@ function Dashboard() {
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:grid-rows-[auto_auto]">
 
       {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
-      <section className="mb-6 lg:mb-6">
+      <section className="mb-6 lg:mb-0">
         {/* Share confirmation toast */}
         {shared === 'success' && (
           <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
@@ -1939,7 +1953,7 @@ function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── YOUR HIGHLIGHTS (left column row 2 on desktop) ─────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-6 lg:mb-0 lg:col-start-1 lg:row-start-2 relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
+      <section className="mb-6 lg:mb-0 lg:col-start-1 lg:row-start-2 lg:self-start relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
         {/* Inner bokeh for Insights panel */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute bottom-[-10%] left-[-5%] w-36 h-36 rounded-full bg-violet-400/10 blur-3xl bokeh-orb bokeh-2" />
