@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 export default function SignInPage() {
-  const { status } = useSession();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -15,13 +14,18 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
 
-  // Redirect already-authenticated users to dashboard (e.g. back button)
-  // Skip when exiting — the handleSubmit timeout handles that navigation
+  // One-time auth check — redirect if already logged in (back-button case).
+  // Uses a direct fetch instead of useSession() to avoid subscribing to
+  // SessionProvider re-renders, which cause a visible content flicker during hydration.
   useEffect(() => {
-    if (status === 'authenticated' && !exiting) {
-      router.replace('/');
-    }
-  }, [status, router, exiting]);
+    if (exiting) return;
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(session => {
+        if (session?.user) router.replace('/');
+      })
+      .catch(() => {}); // no session = stay on sign-in page
+  }, [router, exiting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +61,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden transition-all ${exiting ? 'page-exit' : ''}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden ${exiting ? 'page-exit' : ''}`}>
       {/* Bokeh orbs — bright, warm */}
       <div className="absolute top-[10%] -right-16 w-80 h-80 rounded-full bg-violet-500/[0.08] blur-3xl" />
       <div className="absolute top-[25%] right-24 w-48 h-48 rounded-full bg-amber-400/[0.10] blur-2xl" />
