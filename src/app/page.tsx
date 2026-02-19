@@ -111,11 +111,13 @@ function Dashboard() {
     return PODDIT_SMS_US;
   }, [userPhone]);
 
-  // Placeholder phrases — includes region-specific SMS number
+  // Placeholder phrases — generic SMS prompt (no phone number — Chrome auto-detects
+  // phone numbers in text nodes, wraps them in <a href="tel:"> links, and breaks
+  // React's text node reconciliation causing the typewriter to persist/accumulate)
   const HERO_PLACEHOLDERS = useMemo(() => [
     ...DEFAULT_PLACEHOLDERS,
-    `Text a link or topic to ${podditSms.display}...`,
-  ], [podditSms]);
+    'Text a link or topic to your Poddit number...',
+  ], []);
 
   // insightsExpanded state removed — Highlights always visible
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
