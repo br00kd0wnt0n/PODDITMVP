@@ -110,7 +110,7 @@ function Dashboard() {
     `Text a link or topic to ${podditSms.display}...`,
   ], [podditSms]);
 
-  const [insightsExpanded, setInsightsExpanded] = useState(true);
+  // insightsExpanded state removed — Highlights always visible
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -1768,19 +1768,8 @@ function Dashboard() {
             {/* Signal cards or empty state */}
             {signals.length === 0 ? (
               showCollectSignals ? null : (
-              <div className="py-8 px-4 text-center">
-                <button
-                  onClick={() => setShowCollectSignals(true)}
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all bg-teal-500/10 border border-transparent text-teal-400 hover:bg-teal-500/15 hover:border-teal-500/20"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                </button>
-                <p className="text-sm text-stone-400 font-medium mb-1">No signals yet</p>
-                <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                  Drop a link, type a topic, or record a voice note above. Tap <span className="text-teal-400/70 font-medium">+</span> to see all capture channels.
-                </p>
+              <div className="py-3 px-4 text-center">
+                <p className="text-sm text-stone-500">No signals yet — drop a link or topic above to get started.</p>
               </div>
               )
             ) : (
@@ -1961,17 +1950,10 @@ function Dashboard() {
           <div className="absolute top-[-15%] right-[-5%] w-28 h-28 rounded-full bg-amber-400/[0.08] blur-2xl bokeh-orb bokeh-4" />
         </div>
         <div className="relative z-10 p-5">
-          <button onClick={() => setInsightsExpanded(prev => !prev)} className="w-full flex items-center justify-between group">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-white">Your Highlights</h2>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2" className={`text-stone-500 transition-transform duration-300 ${insightsExpanded ? 'rotate-180' : ''}`}>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-white">Your Highlights</h2>
+          </div>
 
-          {insightsExpanded && (
             <div className="mt-4">
               {topicFrequency.length === 0 && episodes.length === 0 ? (
                 <div className="py-8 px-4 text-center bg-white/[0.02] border border-white/[0.05] rounded-2xl">
@@ -2043,7 +2025,6 @@ function Dashboard() {
                 </div>
               )}
             </div>
-          )}
         </div>
       </section>
 
