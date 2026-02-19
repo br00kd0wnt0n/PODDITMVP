@@ -1768,8 +1768,19 @@ function Dashboard() {
             {/* Signal cards or empty state */}
             {signals.length === 0 ? (
               showCollectSignals ? null : (
-              <div className="py-3 px-4 text-center">
-                <p className="text-sm text-stone-500">No signals yet — drop a link or topic above to get started.</p>
+              <div className="py-8 px-4 text-center">
+                <button
+                  onClick={() => setShowCollectSignals(true)}
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all bg-teal-500/10 border border-transparent text-teal-400 hover:bg-teal-500/15 hover:border-teal-500/20"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </button>
+                <p className="text-sm text-stone-400 font-medium mb-1">No signals yet</p>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                  Drop a link, type a topic, or record a voice note above. Tap <span className="text-teal-400/70 font-medium">+</span> to see all capture channels.
+                </p>
               </div>
               )
             ) : (
