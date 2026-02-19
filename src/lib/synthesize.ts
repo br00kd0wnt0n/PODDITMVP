@@ -297,6 +297,7 @@ export async function generateEpisode(params: {
   const userName = user?.name || undefined;
   const namePronunciation = preferences.namePronunciation || undefined;
   const episodeLength = preferences.episodeLength || undefined;
+  const timezone = preferences.timezone || 'America/New_York';
 
   // 1. Gather signals and lock them atomically in a transaction
   //    This prevents duplicate episodes from concurrent generate requests.
@@ -352,7 +353,7 @@ export async function generateEpisode(params: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params.manual, userName, namePronunciation, episodeLength }
+      { manual: params.manual, userName, namePronunciation, episodeLength, timezone }
     );
 
     // 4. Call Claude for synthesis with web search

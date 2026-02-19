@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [voice, setVoice] = useState('gandalf');
   const [episodeLength, setEpisodeLength] = useState('medium');
+  const [timezone, setTimezone] = useState('America/New_York');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // UI state
@@ -71,6 +72,7 @@ export default function SettingsPage() {
       setNamePronunciation(p.namePronunciation || '');
       setVoice(p.voice || 'gandalf');
       setEpisodeLength(p.episodeLength || 'medium');
+      setTimezone(p.timezone || 'America/New_York');
       setNotificationsEnabled(!!prefs.consentedAt);
       setVoices(voiceData.voices || []);
     }).catch(() => {
@@ -176,7 +178,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name,
           phone: phone || null,
-          preferences: { voice, episodeLength, namePronunciation: namePronunciation || undefined },
+          preferences: { voice, episodeLength, namePronunciation: namePronunciation || undefined, timezone },
           consent: notificationsEnabled,
         }),
       });
@@ -386,7 +388,73 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* ── Section 4: Phone Number ── */}
+        {/* ── Section 4: Timezone ── */}
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
+          <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
+            Timezone
+          </label>
+          <p className="text-xs text-stone-500 mb-3">
+            Used for episode dates and scheduling
+          </p>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full px-4 py-2.5 bg-white/[0.07] border border-white/15 rounded-xl text-sm text-white
+                       focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.10]
+                       transition-colors appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+          >
+            <optgroup label="North America">
+              <option value="America/New_York">Eastern Time (New York)</option>
+              <option value="America/Chicago">Central Time (Chicago)</option>
+              <option value="America/Denver">Mountain Time (Denver)</option>
+              <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+              <option value="America/Anchorage">Alaska (Anchorage)</option>
+              <option value="Pacific/Honolulu">Hawaii (Honolulu)</option>
+              <option value="America/Toronto">Eastern Time (Toronto)</option>
+              <option value="America/Vancouver">Pacific Time (Vancouver)</option>
+            </optgroup>
+            <optgroup label="Europe">
+              <option value="Europe/London">GMT / BST (London)</option>
+              <option value="Europe/Paris">CET (Paris)</option>
+              <option value="Europe/Berlin">CET (Berlin)</option>
+              <option value="Europe/Amsterdam">CET (Amsterdam)</option>
+              <option value="Europe/Madrid">CET (Madrid)</option>
+              <option value="Europe/Rome">CET (Rome)</option>
+              <option value="Europe/Zurich">CET (Zurich)</option>
+              <option value="Europe/Stockholm">CET (Stockholm)</option>
+              <option value="Europe/Dublin">GMT / IST (Dublin)</option>
+              <option value="Europe/Lisbon">WET (Lisbon)</option>
+              <option value="Europe/Athens">EET (Athens)</option>
+              <option value="Europe/Helsinki">EET (Helsinki)</option>
+              <option value="Europe/Moscow">MSK (Moscow)</option>
+            </optgroup>
+            <optgroup label="Asia & Pacific">
+              <option value="Asia/Dubai">GST (Dubai)</option>
+              <option value="Asia/Kolkata">IST (Mumbai)</option>
+              <option value="Asia/Singapore">SGT (Singapore)</option>
+              <option value="Asia/Hong_Kong">HKT (Hong Kong)</option>
+              <option value="Asia/Shanghai">CST (Shanghai)</option>
+              <option value="Asia/Tokyo">JST (Tokyo)</option>
+              <option value="Asia/Seoul">KST (Seoul)</option>
+              <option value="Australia/Sydney">AEST (Sydney)</option>
+              <option value="Australia/Melbourne">AEST (Melbourne)</option>
+              <option value="Australia/Perth">AWST (Perth)</option>
+              <option value="Pacific/Auckland">NZST (Auckland)</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="America/Mexico_City">CST (Mexico City)</option>
+              <option value="America/Sao_Paulo">BRT (São Paulo)</option>
+              <option value="America/Argentina/Buenos_Aires">ART (Buenos Aires)</option>
+              <option value="Africa/Johannesburg">SAST (Johannesburg)</option>
+              <option value="Africa/Lagos">WAT (Lagos)</option>
+              <option value="Africa/Cairo">EET (Cairo)</option>
+              <option value="UTC">UTC</option>
+            </optgroup>
+          </select>
+        </section>
+
+        {/* ── Section 5: Phone Number ── */}
         <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Phone Number

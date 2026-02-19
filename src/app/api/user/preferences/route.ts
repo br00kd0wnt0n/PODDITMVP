@@ -131,6 +131,19 @@ export async function PATCH(request: NextRequest) {
         newPrefs.namePronunciation = preferences.namePronunciation?.trim() || '';
       }
 
+      // Timezone (IANA format, e.g. "America/New_York")
+      if (preferences.timezone !== undefined) {
+        try {
+          const validTimezones = Intl.supportedValuesOf('timeZone');
+          if (preferences.timezone && !validTimezones.includes(preferences.timezone)) {
+            return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 });
+          }
+        } catch {
+          // Intl.supportedValuesOf not available — skip validation
+        }
+        newPrefs.timezone = preferences.timezone || 'America/New_York';
+      }
+
       updateData.preferences = newPrefs;
     }
 

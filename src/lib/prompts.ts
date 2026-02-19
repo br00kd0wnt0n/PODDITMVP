@@ -107,7 +107,7 @@ export function buildSynthesisPrompt(signals: {
   source: string | null;
   fetchedContent: string | null;
   topics: string[];
-}[], options?: { manual?: boolean; userName?: string; namePronunciation?: string; episodeLength?: string }): string {
+}[], options?: { manual?: boolean; userName?: string; namePronunciation?: string; episodeLength?: string; timezone?: string }): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
   const emailSignals = signals.filter(s => s.inputType === 'FORWARDED_EMAIL');
@@ -115,7 +115,8 @@ export function buildSynthesisPrompt(signals: {
   const isManual = options?.manual ?? false;
   const userName = options?.userName;
   const episodeLength = options?.episodeLength || 'medium';
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timezone = options?.timezone || 'America/New_York';
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: timezone });
 
   // Context-aware episode framing
   const episodeType = isManual
