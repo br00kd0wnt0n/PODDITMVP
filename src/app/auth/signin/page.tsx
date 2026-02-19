@@ -41,12 +41,13 @@ export default function SignInPage() {
       if (result?.error) {
         setError('Invalid email or access code.');
         setLoading(false);
-      } else if (result?.url) {
-        // Trigger fade-out, then client-side navigate after animation
+      } else if (result?.ok) {
+        // Trigger fade-out, then client-side navigate after animation.
+        // Use relative '/' (not result.url which is absolute and forces a full page reload).
+        // Use replace() so sign-in page doesn't stay in browser history.
         setExiting(true);
-        const targetUrl = result.url;
         setTimeout(() => {
-          router.push(targetUrl || '/');
+          router.replace('/');
         }, 450);
       }
     } catch {
