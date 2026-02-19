@@ -60,7 +60,6 @@ const PODDIT_SMS_UK = { e164: '+447426985763', display: '+44 7426 985763' };
 const DEFAULT_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
   'Type in a topic you\'re curious about...',
-  'Forward a newsletter to your Poddit inbox...',
   'Drop a podcast episode URL...',
   'Record a voice note with something on your mind...',
   '"Why is everyone talking about X?"',
@@ -110,14 +109,6 @@ function Dashboard() {
     }
     return PODDIT_SMS_US;
   }, [userPhone]);
-
-  // Placeholder phrases — generic SMS prompt (no phone number — Chrome auto-detects
-  // phone numbers in text nodes, wraps them in <a href="tel:"> links, and breaks
-  // React's text node reconciliation causing the typewriter to persist/accumulate)
-  const HERO_PLACEHOLDERS = useMemo(() => [
-    ...DEFAULT_PLACEHOLDERS,
-    'Text a link or topic to your Poddit number...',
-  ], []);
 
   // insightsExpanded state removed — Highlights always visible
   const [expandedEpisodeId, setExpandedEpisodeId] = useState<string | null>(null);
@@ -444,7 +435,7 @@ function Dashboard() {
   useEffect(() => {
     const tick = () => {
       const s = twStateRef.current;
-      const phrase = HERO_PLACEHOLDERS[s.phraseIdx];
+      const phrase = DEFAULT_PLACEHOLDERS[s.phraseIdx];
       if (s.phase === 'typing') {
         s.charIdx++;
         setTypedText(phrase.slice(0, s.charIdx));
@@ -472,7 +463,7 @@ function Dashboard() {
         // Brief pause before next phrase (~500ms = 10 ticks at 50ms)
         s.charIdx++;
         if (s.charIdx >= 10) {
-          s.phraseIdx = (s.phraseIdx + 1) % HERO_PLACEHOLDERS.length;
+          s.phraseIdx = (s.phraseIdx + 1) % DEFAULT_PLACEHOLDERS.length;
           s.charIdx = 0;
           s.phase = 'typing';
         }
@@ -482,7 +473,7 @@ function Dashboard() {
     return () => {
       if (typewriterRef.current) clearInterval(typewriterRef.current);
     };
-  }, [HERO_PLACEHOLDERS]);
+  }, []); // DEFAULT_PLACEHOLDERS is a module-level constant
 
   // Cleanup on unmount
   useEffect(() => {
@@ -529,6 +520,13 @@ function Dashboard() {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
+
+  // Auto-open capture channels panel when queue is empty (guide new users)
+  useEffect(() => {
+    if (!loading && signals.length === 0) {
+      setShowCollectSignals(true);
+    }
+  }, [loading, signals.length]);
 
   const refreshData = async () => {
     // Skip during generation — the 5s generation poll handles episode updates
@@ -1667,7 +1665,7 @@ function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── TWO-COLUMN LAYOUT: Queue + Episodes (side-by-side on lg) */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:grid-rows-[auto_auto] lg:items-start lg:gap-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:grid-rows-[min-content_1fr] lg:items-start lg:gap-6">
 
       {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
       <section className="mb-6 lg:mb-0 order-1 lg:col-start-1 lg:row-start-1">
@@ -1722,7 +1720,7 @@ function Dashboard() {
                 {/* Type / paste */}
                 <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                  <p className="text-sm text-stone-300">Type or paste a link right here</p>
+                  <p className="text-sm text-stone-300">Type or paste a link above</p>
                 </div>
                 {/* Voice note */}
                 <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg">
