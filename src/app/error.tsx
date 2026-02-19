@@ -44,7 +44,19 @@ export default function Error({
             Hard refresh
           </button>
         </div>
-        <p className="text-xs text-stone-700 mt-8">
+        {/* Debug: show actual error for mobile crash diagnosis */}
+        <div className="mt-6 p-3 bg-red-500/5 border border-red-500/10 rounded-lg text-left max-h-48 overflow-auto">
+          <p className="text-[10px] text-red-400/70 font-mono break-all mb-1">
+            {error?.message || 'No message'}
+          </p>
+          <p className="text-[10px] text-red-400/40 font-mono break-all">
+            {error?.stack?.slice(0, 800) || 'No stack'}
+          </p>
+          {error?.digest && (
+            <p className="text-[10px] text-stone-600 font-mono mt-1">Digest: {error.digest}</p>
+          )}
+        </div>
+        <p className="text-xs text-stone-700 mt-4">
           If this keeps happening, contact <a href="mailto:hello@poddit.com" className="text-stone-600 hover:text-stone-400 transition-colors underline">hello@poddit.com</a>
         </p>
       </div>

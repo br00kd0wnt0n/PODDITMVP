@@ -47,6 +47,15 @@ export default function GlobalError({
             >
               Hard refresh
             </button>
+            {/* Debug: show actual error for mobile crash diagnosis */}
+            <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.1)', borderRadius: '0.5rem', textAlign: 'left', maxHeight: '12rem', overflow: 'auto' }}>
+              <p style={{ fontSize: '10px', color: 'rgba(239,68,68,0.7)', fontFamily: 'monospace', wordBreak: 'break-all', margin: '0 0 4px 0' }}>
+                {error?.message || 'No message'}
+              </p>
+              <p style={{ fontSize: '10px', color: 'rgba(239,68,68,0.4)', fontFamily: 'monospace', wordBreak: 'break-all', margin: 0 }}>
+                {error?.stack?.slice(0, 800) || 'No stack'}
+              </p>
+            </div>
           </div>
         </div>
       </body>
