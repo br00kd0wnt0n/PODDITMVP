@@ -1668,7 +1668,7 @@ function Dashboard() {
       <div className="flex flex-col lg:grid lg:grid-cols-2 lg:grid-rows-[auto_auto] lg:items-start lg:gap-6">
 
       {/* ── YOUR QUEUE (left column on desktop) ──────────────────── */}
-      <section className="mb-6 lg:mb-0 order-1">
+      <section className="mb-6 lg:mb-0 order-1 lg:col-start-1 lg:row-start-1">
         {/* Share confirmation toast */}
         {shared === 'success' && (
           <div className="mb-4 p-3 bg-teal-400/10 border border-teal-400/20 rounded-lg text-teal-300 text-sm">
@@ -1887,7 +1887,7 @@ function Dashboard() {
       </section>
 
       {/* ── YOUR EPISODES (right column on desktop) */}
-      <section className="mb-6 lg:mb-0 order-2 lg:row-span-2">
+      <section className="mb-6 lg:mb-0 order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Your Episodes</h2>
           {episodes.filter(e => e.status === 'READY' || !e.status).length > 0 && (
@@ -2017,7 +2017,7 @@ function Dashboard() {
       {/* ── YOUR HIGHLIGHTS ─────────────────────────────────────────── */}
       {/* Mobile: order-3 (after Episodes). Desktop: left column row 2. */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-6 lg:mb-0 order-3 lg:col-start-1 lg:self-start relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
+      <section className="mb-6 lg:mb-0 order-3 lg:col-start-1 lg:row-start-2 lg:self-start relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
         {/* Inner bokeh for Insights panel */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute bottom-[-10%] left-[-5%] w-36 h-36 rounded-full bg-violet-400/10 blur-3xl bokeh-orb bokeh-2" />
