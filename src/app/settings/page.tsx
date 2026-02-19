@@ -209,11 +209,11 @@ export default function SettingsPage() {
 
   return (
     <>
-      {/* ── Bokeh orbs ── */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-[15%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-500/[0.06] blur-[100px] animate-drift-1" />
-        <div className="absolute bottom-[20%] right-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-500/[0.05] blur-[100px] animate-drift-3" />
-        <div className="absolute top-[60%] left-[50%] w-[25vw] h-[25vw] rounded-full bg-amber-400/[0.04] blur-[80px] animate-drift-5" />
+      {/* ── Bokeh orbs — desktop only (100px blur too heavy for mobile GPU) ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden hidden sm:block">
+        <div className="bokeh-orb absolute top-[15%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-500/[0.06] blur-[100px] animate-drift-1" />
+        <div className="bokeh-orb absolute bottom-[20%] right-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-500/[0.05] blur-[100px] animate-drift-3" />
+        <div className="bokeh-orb absolute top-[60%] left-[50%] w-[25vw] h-[25vw] rounded-full bg-amber-400/[0.04] blur-[80px] animate-drift-5" />
       </div>
 
     <main className="max-w-lg mx-auto px-4 py-8 relative z-10">
@@ -287,9 +287,9 @@ export default function SettingsPage() {
 
         {/* ── Section 2: Voice Selection ── */}
         <section className="relative p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl overflow-hidden">
-          {/* Inner bokeh */}
-          <div className="absolute top-[10%] right-[5%] w-[30%] h-[30%] rounded-full bg-violet-500/[0.08] blur-[60px] pointer-events-none" />
-          <div className="absolute bottom-[10%] left-[10%] w-[25%] h-[25%] rounded-full bg-amber-400/[0.06] blur-[50px] pointer-events-none" />
+          {/* Inner bokeh — desktop only */}
+          <div className="absolute top-[10%] right-[5%] w-[30%] h-[30%] rounded-full bg-violet-500/[0.08] blur-[60px] pointer-events-none hidden sm:block" />
+          <div className="absolute bottom-[10%] left-[10%] w-[25%] h-[25%] rounded-full bg-amber-400/[0.06] blur-[50px] pointer-events-none hidden sm:block" />
 
           <label className="relative block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Voice

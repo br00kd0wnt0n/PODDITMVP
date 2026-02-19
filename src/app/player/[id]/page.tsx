@@ -329,8 +329,8 @@ export default function PlayerPage() {
 
   return (
     <>
-    {/* Player bokeh — ambient depth */}
-    <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    {/* Player bokeh — desktop only (blur too heavy for mobile GPU) */}
+    <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0 hidden sm:block">
       <div className="bokeh-orb bokeh-3 absolute top-[8%] right-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/[0.07] blur-3xl" />
       <div className="bokeh-orb bokeh-1 absolute bottom-[12%] left-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-400/[0.06] blur-3xl" />
       <div className="bokeh-orb bokeh-5 absolute top-[45%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.05] blur-2xl" />
