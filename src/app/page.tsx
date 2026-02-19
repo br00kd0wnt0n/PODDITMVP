@@ -413,8 +413,11 @@ function Dashboard() {
   const abortRef = useRef<AbortController | null>(null);
 
   // Load data + poll every 30s for new signals (SMS, extension, etc.)
+  // Waits for authenticated session before fetching to prevent 401 race conditions.
   // Pauses polling when the tab is hidden (saves API calls + battery)
   useEffect(() => {
+    if (status !== 'authenticated') return;
+
     refreshData();
     let poll = setInterval(refreshData, 30_000);
 
@@ -436,7 +439,7 @@ function Dashboard() {
       if (generatePollRef.current) clearInterval(generatePollRef.current);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [status]);
 
   // Auto-open capture channels panel when queue is empty (guide new users)
   useEffect(() => {

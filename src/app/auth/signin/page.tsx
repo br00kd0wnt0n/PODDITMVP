@@ -1,16 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 export default function SignInPage() {
+  const { status } = useSession();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
+
+  // Redirect already-authenticated users to dashboard
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/');
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,11 +41,11 @@ export default function SignInPage() {
         setError('Invalid email or access code.');
         setLoading(false);
       } else if (result?.url) {
-        // Trigger fade-out, then navigate after animation
+        // Trigger fade-out, then client-side navigate after animation
         setExiting(true);
         const targetUrl = result.url;
         setTimeout(() => {
-          window.location.href = targetUrl;
+          router.push(targetUrl || '/');
         }, 450);
       }
     } catch {
