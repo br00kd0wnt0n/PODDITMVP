@@ -43,7 +43,7 @@ body {
   70% { transform: translate(-12vw, -4vh) scale(0.95); opacity: 1; }
 }
 
-.bokeh-orb { will-change: transform; }
+.bokeh-orb { will-change: transform; contain: layout style paint; }
 .bokeh-1 { animation: bokeh-drift-1 45s ease-in-out infinite; }
 .bokeh-2 { animation: bokeh-drift-2 55s ease-in-out infinite; }
 .bokeh-3 { animation: bokeh-drift-3 60s ease-in-out infinite; }

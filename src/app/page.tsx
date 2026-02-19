@@ -261,6 +261,9 @@ function Dashboard() {
         navigator.clipboard.writeText(smsNum.e164).then(() => {
           setInputSuccess('Phone saved! Number copied — text your signals.');
           setTimeout(() => setInputSuccess(null), 3000);
+        }).catch(() => {
+          setInputSuccess('Phone saved! Text your signals to ' + smsNum.display);
+          setTimeout(() => setInputSuccess(null), 3000);
         });
       }
     } catch (err: any) {
@@ -1065,8 +1068,8 @@ function Dashboard() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
 
-      {/* Dashboard bokeh + lens flare — always visible for atmosphere */}
-      <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {/* Dashboard bokeh — desktop only (mobile uses layout bokeh alone to avoid GPU crash) */}
+      <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0 hidden md:block">
         <div className="bokeh-orb bokeh-3 absolute top-[8%] right-[10%] w-[40vw] h-[40vw] rounded-full bg-teal-400/[0.07] blur-3xl" />
         <div className="bokeh-orb bokeh-1 absolute bottom-[12%] left-[5%] w-[35vw] h-[35vw] rounded-full bg-violet-400/[0.06] blur-3xl" />
         <div className="bokeh-orb bokeh-5 absolute top-[45%] left-[55%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.05] blur-2xl" />
@@ -1474,8 +1477,8 @@ function Dashboard() {
 
         {/* Hero greeting panel — light background with inner bokeh */}
         <div className="relative mb-5 p-5 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.04] to-transparent border border-white/[0.10] overflow-hidden">
-          {/* Inner bokeh orbs */}
-          <div className="absolute inset-0 pointer-events-none">
+          {/* Inner bokeh orbs — desktop only (reduces GPU load on mobile) */}
+          <div className="absolute inset-0 pointer-events-none hidden sm:block">
             <div className="absolute top-[-20%] left-[-10%] w-48 h-48 rounded-full bg-teal-500/20 blur-3xl bokeh-orb bokeh-1" />
             <div className="absolute bottom-[-15%] right-[-5%] w-40 h-40 rounded-full bg-violet-400/[0.18] blur-3xl bokeh-orb bokeh-2" />
             <div className="absolute top-[30%] right-[20%] w-32 h-32 rounded-full bg-amber-400/[0.12] blur-2xl bokeh-orb bokeh-3" />

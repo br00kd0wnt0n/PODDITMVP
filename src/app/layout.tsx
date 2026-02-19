@@ -45,8 +45,8 @@ export default function RootLayout({
           <div className="bokeh-orb bokeh-1 absolute -bottom-[10%] -left-[5%] w-[50vw] h-[50vw] rounded-full bg-amber-500/[0.03] blur-3xl" />
           <div className="bokeh-orb bokeh-2 absolute -top-[15%] -right-[10%] w-[40vw] h-[40vw] rounded-full bg-violet-500/[0.025] blur-3xl" />
           <div className="bokeh-orb bokeh-3 absolute top-[30%] -left-[8%] w-[25vw] h-[25vw] rounded-full bg-teal-500/[0.025] blur-2xl" />
-          <div className="bokeh-orb bokeh-4 absolute bottom-[20%] right-[5%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.02] blur-3xl" />
-          <div className="bokeh-orb bokeh-5 absolute top-[60%] left-[40%] w-[20vw] h-[20vw] rounded-full bg-violet-400/[0.02] blur-2xl" />
+          <div className="bokeh-orb bokeh-4 absolute bottom-[20%] right-[5%] w-[30vw] h-[30vw] rounded-full bg-amber-400/[0.02] blur-3xl hidden sm:block" />
+          <div className="bokeh-orb bokeh-5 absolute top-[60%] left-[40%] w-[20vw] h-[20vw] rounded-full bg-violet-400/[0.02] blur-2xl hidden sm:block" />
         </div>
         <div className="relative z-10 flex flex-col min-h-screen">
           <div className="flex-1">
