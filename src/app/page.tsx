@@ -64,6 +64,7 @@ const DEFAULT_PLACEHOLDERS = [
   'Record a voice note with something on your mind...',
   '"Why is everyone talking about X?"',
 ];
+const VOICE_PLACEHOLDER_IDX = DEFAULT_PLACEHOLDERS.findIndex(p => p.startsWith('Record a voice'));
 
 function Dashboard() {
   const searchParams = useSearchParams();
@@ -146,6 +147,7 @@ function Dashboard() {
   // Empty state — typewriter placeholder
   const [typedText, setTypedText] = useState('');
   const [twFading, setTwFading] = useState(false);
+  const [twPhraseIdx, setTwPhraseIdx] = useState(0);
   const [inputFocused, setInputFocused] = useState(false);
   const typewriterRef = useRef<NodeJS.Timeout | null>(null);
   const twStateRef = useRef({ phraseIdx: 0, charIdx: 0, phase: 'typing' as 'typing' | 'holding' | 'fading' | 'pause' });
@@ -464,6 +466,7 @@ function Dashboard() {
         s.charIdx++;
         if (s.charIdx >= 10) {
           s.phraseIdx = (s.phraseIdx + 1) % DEFAULT_PLACEHOLDERS.length;
+          setTwPhraseIdx(s.phraseIdx);
           s.charIdx = 0;
           s.phase = 'typing';
         }
@@ -1652,7 +1655,7 @@ function Dashboard() {
               </button>
               <button onClick={startRecording} disabled={submitting} title="Record a voice note"
                 className={`px-3 py-3.5 border rounded-xl hover:border-white/30 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0
-                           ${isEmptyState ? 'border-white/20 text-stone-300 animate-mic-pulse' : 'border-white/15 text-stone-400'}`}>
+                           ${isEmptyState && twPhraseIdx === VOICE_PLACEHOLDER_IDX && !twFading ? 'border-red-400/40 text-red-400 animate-mic-pulse-red' : isEmptyState ? 'border-white/20 text-stone-300 animate-mic-pulse' : 'border-white/15 text-stone-400'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
                 </svg>

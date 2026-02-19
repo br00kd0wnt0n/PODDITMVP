@@ -352,6 +352,16 @@ input[type="checkbox"] {
   animation: mic-pulse 2.5s ease-in-out infinite;
 }
 
+/* Mic button red pulse — plays twice when "Record a voice note" typewriter line is active */
+@keyframes mic-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+  50% { box-shadow: 0 0 16px 4px rgba(248, 113, 113, 0.25); }
+}
+
+.animate-mic-pulse-red {
+  animation: mic-pulse-red 0.6s ease-in-out 2;
+}
+
 /* Blinking cursor for typewriter placeholder */
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
