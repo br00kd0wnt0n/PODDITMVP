@@ -318,14 +318,19 @@ export async function generateEpisode(params: {
       throw new Error('No signals captured this period. Send some links or topics first!');
     }
 
+    // Derive date range from actual signal timestamps
+    const signalDates = foundSignals.map(s => new Date(s.createdAt).getTime());
+    const actualStart = new Date(Math.min(...signalDates));
+    const actualEnd = new Date(Math.max(...signalDates));
+
     // Immediately mark signals as USED to prevent double-consumption
     const ep = await tx.episode.create({
       data: {
         userId,
         title: `Generating...`,
         script: '',
-        periodStart: since,
-        periodEnd: new Date(),
+        periodStart: actualStart,
+        periodEnd: actualEnd,
         signalCount: foundSignals.length,
         status: 'GENERATING',
       },
