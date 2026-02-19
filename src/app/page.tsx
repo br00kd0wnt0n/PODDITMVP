@@ -1634,8 +1634,12 @@ function Dashboard() {
                 ✓ {inputSuccess}
               </span>
               <span
-                className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200${twFading ? ' animate-tw-fade-out' : ''}`}
-                style={{ opacity: !textInput && !inputFocused && !inputSuccess ? 1 : 0 }}
+                className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}
+                style={
+                  !textInput && !inputFocused && !inputSuccess
+                    ? twFading ? undefined : { opacity: 1 }
+                    : { opacity: 0 }
+                }
                 aria-hidden={!(!textInput && !inputFocused && !inputSuccess)}
               >
                 {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
