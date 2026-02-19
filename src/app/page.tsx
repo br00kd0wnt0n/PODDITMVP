@@ -445,33 +445,33 @@ function Dashboard() {
           s.phase = 'holding';
         }
       } else if (s.phase === 'holding') {
-        // Hold for ~2s (14 ticks at 150ms)
+        // Hold for ~2s (40 ticks at 50ms)
         s.charIdx++;
-        if (s.charIdx >= phrase.length + 14) {
+        if (s.charIdx >= phrase.length + 40) {
           s.phase = 'fading';
           setTwFading(true);
           s.charIdx = 0;
         }
       } else if (s.phase === 'fading') {
-        // Wait for fade-out animation (~500ms = 4 ticks at 150ms)
+        // Wait for fade-out animation (~500ms = 10 ticks at 50ms)
         s.charIdx++;
-        if (s.charIdx >= 4) {
+        if (s.charIdx >= 10) {
           setTwFading(false);
           setTypedText('');
           s.phase = 'pause';
           s.charIdx = 0;
         }
       } else {
-        // Brief pause before next phrase (~500ms = 4 ticks at 150ms)
+        // Brief pause before next phrase (~500ms = 10 ticks at 50ms)
         s.charIdx++;
-        if (s.charIdx >= 4) {
+        if (s.charIdx >= 10) {
           s.phraseIdx = (s.phraseIdx + 1) % HERO_PLACEHOLDERS.length;
           s.charIdx = 0;
           s.phase = 'typing';
         }
       }
     };
-    typewriterRef.current = setInterval(tick, 150);
+    typewriterRef.current = setInterval(tick, 50);
     return () => {
       if (typewriterRef.current) clearInterval(typewriterRef.current);
     };
@@ -1606,21 +1606,28 @@ function Dashboard() {
                 <input
                   type="text" value={textInput} onChange={(e) => setTextInput(e.target.value)}
                   onKeyDown={handleKeyDown} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                  placeholder=" " disabled={submitting}
+                  placeholder=" " disabled={submitting} autoComplete="off"
                   className={`w-full px-4 py-3.5 bg-white/[0.07] border rounded-xl text-sm text-white
                              placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30
                              focus:bg-white/[0.10] disabled:opacity-40 transition-all
                              ${inputSuccess ? 'border-teal-500/25 shadow-[0_0_12px_rgba(20,184,166,0.08)]' : isEmptyState ? 'border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.04)]' : 'border-white/15'}`}
                 />
-                {inputSuccess && !textInput && !inputFocused ? (
-                  <span className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap">
-                    ✓ {inputSuccess}
-                  </span>
-                ) : !textInput && !inputFocused && !inputSuccess ? (
-                  <span className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap${twFading ? ' animate-tw-fade-out' : ''}`}>
-                    {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
-                  </span>
-                ) : null}
+                {/* Always-mounted overlays — toggled via CSS opacity, never unmounted.
+                     Avoids React removeChild calls that conflict with Chrome autofill DOM mutations. */}
+                <span
+                  className="absolute inset-0 flex items-center pl-4 pr-4 text-sm text-teal-400 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200"
+                  style={{ opacity: inputSuccess && !textInput && !inputFocused ? 1 : 0 }}
+                  aria-hidden={!(inputSuccess && !textInput && !inputFocused)}
+                >
+                  ✓ {inputSuccess}
+                </span>
+                <span
+                  className={`absolute inset-0 flex items-center pl-4 pr-4 text-sm text-stone-500 pointer-events-none overflow-hidden whitespace-nowrap transition-opacity duration-200${twFading ? ' animate-tw-fade-out' : ''}`}
+                  style={{ opacity: !textInput && !inputFocused && !inputSuccess ? 1 : 0 }}
+                  aria-hidden={!(!textInput && !inputFocused && !inputSuccess)}
+                >
+                  {typedText}<span className="animate-blink-cursor text-teal-400/60 font-light">|</span>
+                </span>
                 <span className="flare-right" /><span className="flare-bottom" /><span className="flare-left" />
               </div>
               <div className="flex gap-2">
