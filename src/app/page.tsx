@@ -60,7 +60,7 @@ const PODDIT_SMS_UK = { e164: '+447426985763', display: '+44 7426 985763' };
 const DEFAULT_PLACEHOLDERS = [
   'Paste a link you\'ve been meaning to read...',
   'Type in a topic you\'re curious about...',
-  'Forward a newsletter to your Poddit inbox...',
+  'Forward a newsletter to capture\u200C@poddit.com...',
   'Drop a podcast episode URL...',
   'Record a voice note with something on your mind...',
   '"Why is everyone talking about X?"',
