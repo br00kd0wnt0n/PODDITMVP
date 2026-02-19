@@ -26,7 +26,7 @@ export const VOICES: Record<string, { id: string; name: string; description: str
   harper:   { id: 'Fihx1nL7DQV0DEuFJSG1', name: 'Harper',  description: 'Clear, factual, strong' },
 };
 
-export const DEFAULT_VOICE = 'gandalf';
+export const DEFAULT_VOICE = 'jon';
 
 // ──────────────────────────────────────────────
 // MUSIC PATHS
