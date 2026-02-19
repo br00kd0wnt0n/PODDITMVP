@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Feedback] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to submit feedback' },
+      { error: 'Failed to submit feedback' },
       { status: 500 }
     );
   }

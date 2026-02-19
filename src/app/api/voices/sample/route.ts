@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { VOICES } from '@/lib/tts';
+import { requireSession } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
@@ -17,6 +19,17 @@ const s3 = new S3Client({
 // ──────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // Require logged-in user (only settings page uses this)
+  const sessionResult = await requireSession();
+  if (sessionResult instanceof NextResponse) return sessionResult;
+  const { userId } = sessionResult;
+
+  // Rate limit: 10 per minute per user (each miss generates an ElevenLabs TTS call)
+  const { allowed } = rateLimit(`voice-sample:${userId}`, 10, 60_000);
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
   const voiceKey = request.nextUrl.searchParams.get('voice');
 
   if (!voiceKey || !VOICES[voiceKey]) {

@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Rating] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to submit rating' },
+      { error: 'Failed to submit rating' },
       { status: 500 }
     );
   }
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('[Rating] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to check rating' },
+      { error: 'Failed to check rating' },
       { status: 500 }
     );
   }

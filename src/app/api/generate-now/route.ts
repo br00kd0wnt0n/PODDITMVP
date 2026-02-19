@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       userId,
       signalIds,
       manual: true,
+      episodeLimit: limit, // Atomic cap check inside transaction
     });
 
     const episode = await prisma.episode.findUnique({
@@ -88,6 +89,15 @@ export async function POST(request: NextRequest) {
     console.error('[GenerateNow] Error:', error);
     // Clear rate limit on failure so user can retry immediately
     clearRateLimit(rateLimitKey);
+
+    // Atomic cap check from transaction may throw this
+    if (error.message === 'early_access_limit') {
+      return NextResponse.json(
+        { error: 'early_access_limit', message: 'Episode limit reached. Complete the feedback questionnaire to unlock more!' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Generation failed. Please try again.' },
       { status: 500 }

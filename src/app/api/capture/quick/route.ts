@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Quick] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Capture failed' },
+      { error: 'Capture failed' },
       { status: 500 }
     );
   }

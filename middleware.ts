@@ -7,9 +7,6 @@ export default auth((req) => {
   // Auth pages are always accessible
   if (pathname.startsWith('/auth')) return;
 
-  // Admin has its own API_SECRET auth
-  if (pathname.startsWith('/admin')) return;
-
   // API routes handle their own auth
   if (pathname.startsWith('/api')) return;
 

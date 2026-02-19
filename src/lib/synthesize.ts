@@ -280,6 +280,7 @@ export async function generateEpisode(params: {
   since?: Date;
   manual?: boolean;
   signalIds?: string[];
+  episodeLimit?: number; // max READY episodes allowed (Infinity = unlimited)
 }): Promise<string> {
   const { userId } = params;
 
@@ -323,6 +324,14 @@ export async function generateEpisode(params: {
     const signalDates = foundSignals.map(s => new Date(s.createdAt).getTime());
     const actualStart = new Date(Math.min(...signalDates));
     const actualEnd = new Date(Math.max(...signalDates));
+
+    // Atomic episode cap check inside the transaction (prevents TOCTOU race)
+    if (params.episodeLimit !== undefined && params.episodeLimit !== Infinity) {
+      const readyCount = await tx.episode.count({ where: { userId, status: 'READY' } });
+      if (readyCount >= params.episodeLimit) {
+        throw new Error('early_access_limit');
+      }
+    }
 
     // Immediately mark signals as USED to prevent double-consumption
     const ep = await tx.episode.create({

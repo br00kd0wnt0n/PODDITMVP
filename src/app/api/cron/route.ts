@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const episodeId = await generateEpisode({ userId, since });
+        const episodeId = await generateEpisode({ userId, since, episodeLimit: limit });
 
         // Fetch episode and notify
         const episode = await prisma.episode.findUnique({
