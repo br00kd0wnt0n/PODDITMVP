@@ -82,6 +82,8 @@ function Dashboard() {
 
   // Data state
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [highlightTopics, setHighlightTopics] = useState<string[]>([]);
+  const [highlightChannels, setHighlightChannels] = useState<string[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
   const [episodeLimit, setEpisodeLimit] = useState(3);
@@ -340,6 +342,8 @@ function Dashboard() {
   };
 
   // ── Insights: topic frequency + channel breakdown ──
+  // Uses highlightTopics/highlightChannels (aggregated server-side from ALL used signals)
+  // plus current pending signals for a complete picture
   const topicFrequency = useMemo(() => {
     const counts: Record<string, number> = {};
     const displayName: Record<string, string> = {};
@@ -353,21 +357,21 @@ function Dashboard() {
 
     // Pending signals — current curiosity
     signals.forEach(s => s.topics.forEach(addTopic));
-    // Used signals (via episodes) — historical curiosity
-    episodes.forEach(e => e.signalTopics?.forEach(addTopic));
+    // Used signals (from server aggregation) — historical curiosity
+    highlightTopics.forEach(addTopic);
 
     return Object.entries(counts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 8)
       .map(([key, count]) => [displayName[key], count] as [string, number]);
-  }, [signals, episodes]);
+  }, [signals, highlightTopics]);
 
   const channelBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     signals.forEach(s => { counts[s.channel] = (counts[s.channel] || 0) + 1; });
-    episodes.forEach(e => e.channels?.forEach(ch => { counts[ch] = (counts[ch] || 0) + 1; }));
+    highlightChannels.forEach(ch => { counts[ch] = (counts[ch] || 0) + 1; });
     return Object.entries(counts).sort(([, a], [, b]) => b - a);
-  }, [signals, episodes]);
+  }, [signals, highlightChannels]);
 
   // ── Episode accent colors (violet/amber/rose — teal reserved for action buttons) ──
   const EPISODE_ACCENTS = [
@@ -535,51 +539,72 @@ function Dashboard() {
       if (controller.signal.aborted) return;
 
       // Handle episodes — independent of signals
+      // Each handler wrapped in try/catch so a malformed response during deploy can't crash the app
       if (results[0].status === 'fulfilled') {
-        const eps = results[0].value;
-        setEpisodes(Array.isArray(eps) ? eps : []);
+        try {
+          const data = results[0].value;
+          // New shape: { episodes: [...], highlights: { topics, channels } }
+          if (data && data.episodes && Array.isArray(data.episodes)) {
+            setEpisodes(data.episodes);
+            setHighlightTopics(data.highlights?.topics || []);
+            setHighlightChannels(data.highlights?.channels || []);
+          } else if (Array.isArray(data)) {
+            // Backward compat
+            setEpisodes(data);
+          }
+        } catch (e) {
+          console.error('[Dashboard] Failed to parse episodes:', e);
+        }
       }
 
       // Handle signals — independent of episodes
       if (results[1].status === 'fulfilled') {
-        const sigs = results[1].value;
-        const signalList = sigs.signals || [];
-        setSignals(signalList);
-        // Only reset selections on initial load — subsequent polls just add new signals
-        setSelectedIds(prev => {
-          if (prev.size === 0 && signalList.length > 0) {
-            // Initial load: select all
-            return new Set(signalList.map((s: Signal) => s.id));
-          }
-          // Subsequent polls: keep existing selections, auto-select new signals
-          const updated = new Set<string>(prev);
-          const currentIds = new Set<string>(signalList.map((s: Signal) => s.id));
-          // Add newly arrived signals
-          for (const id of currentIds) {
-            if (!prev.has(id)) updated.add(id);
-          }
-          // Remove signals that no longer exist (used/deleted)
-          for (const id of updated) {
-            if (!currentIds.has(id)) updated.delete(id);
-          }
-          return updated;
-        });
-        const counts: Record<string, number> = {};
-        (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
-        setSignalCounts(counts);
+        try {
+          const sigs = results[1].value;
+          const signalList = sigs.signals || [];
+          setSignals(signalList);
+          // Only reset selections on initial load — subsequent polls just add new signals
+          setSelectedIds(prev => {
+            if (prev.size === 0 && signalList.length > 0) {
+              // Initial load: select all
+              return new Set(signalList.map((s: Signal) => s.id));
+            }
+            // Subsequent polls: keep existing selections, auto-select new signals
+            const updated = new Set<string>(prev);
+            const currentIds = new Set<string>(signalList.map((s: Signal) => s.id));
+            // Add newly arrived signals
+            for (const id of currentIds) {
+              if (!prev.has(id)) updated.add(id);
+            }
+            // Remove signals that no longer exist (used/deleted)
+            for (const id of updated) {
+              if (!currentIds.has(id)) updated.delete(id);
+            }
+            return updated;
+          });
+          const counts: Record<string, number> = {};
+          (sigs.counts || []).forEach((c: any) => { counts[c.status] = c._count; });
+          setSignalCounts(counts);
+        } catch (e) {
+          console.error('[Dashboard] Failed to parse signals:', e);
+        }
       }
 
       // Handle user preferences (episode limit + phone + name)
       if (results[2].status === 'fulfilled') {
-        const prefs = results[2].value;
-        if (prefs.episodeLimit !== undefined) {
-          setEpisodeLimit(prefs.episodeLimit);
-        }
-        if (prefs.phone) {
-          setUserPhone(prefs.phone);
-        }
-        if (prefs.name) {
-          setUserName(prefs.name);
+        try {
+          const prefs = results[2].value;
+          if (prefs.episodeLimit !== undefined) {
+            setEpisodeLimit(prefs.episodeLimit);
+          }
+          if (prefs.phone) {
+            setUserPhone(prefs.phone);
+          }
+          if (prefs.name) {
+            setUserName(prefs.name);
+          }
+        } catch (e) {
+          console.error('[Dashboard] Failed to parse preferences:', e);
         }
       }
     } catch {
@@ -763,11 +788,17 @@ function Dashboard() {
       try {
         const res = await fetch('/api/episodes');
         if (!res.ok) return;
-        const eps = await res.json();
-        if (!Array.isArray(eps)) return;
+        const data = await res.json();
+        // New shape: { episodes: [...], highlights: { topics, channels } }
+        const eps = data?.episodes && Array.isArray(data.episodes) ? data.episodes : (Array.isArray(data) ? data : []);
+        if (eps.length === 0) return;
 
         // Always update episodes list (shows GENERATING placeholder)
         setEpisodes(eps);
+        if (data?.highlights) {
+          setHighlightTopics(data.highlights.topics || []);
+          setHighlightChannels(data.highlights.channels || []);
+        }
 
         // Check if the new episode has landed
         const newEp = eps.find((e: Episode) => !knownEpisodeIds.has(e.id));
