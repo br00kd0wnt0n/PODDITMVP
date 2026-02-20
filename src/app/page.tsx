@@ -102,6 +102,15 @@ function Dashboard() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null);
   const [showCollectSignals, setShowCollectSignals] = useState(false);
+  const prevSignalCount = useRef(0);
+
+  // Auto-collapse the "How to use" panel when first signal arrives
+  useEffect(() => {
+    if (prevSignalCount.current === 0 && signals.length > 0 && showCollectSignals) {
+      setShowCollectSignals(false);
+    }
+    prevSignalCount.current = signals.length;
+  }, [signals.length, showCollectSignals]);
 
   // Derive which Poddit SMS number to show based on user's phone country
   const podditSms = useMemo(() => {
