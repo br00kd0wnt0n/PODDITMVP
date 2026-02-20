@@ -118,6 +118,12 @@ export function buildSynthesisPrompt(signals: {
   briefingStyle?: string;
   timezone?: string;
   priorEpisodes?: { title: string | null; topicsCovered: string[]; summary: string | null; generatedAt: Date | null }[];
+  topicProfile?: {
+    familiar: { topic: string; episodeCount: number; signalCount: number; lastEpisodeDate: Date }[];
+    growing: { topic: string; previousWeek: number; currentWeek: number; change: number }[];
+    new: string[];
+  } | null;
+  researchDepth?: string;
 }): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
@@ -159,6 +165,49 @@ export function buildSynthesisPrompt(signals: {
         prompt += `Summary: ${ep.summary}\n`;
       }
       prompt += `\n`;
+    }
+  }
+
+  // ── TOPIC PROFILE (for depth calibration) ──
+  const topicProfile = options?.topicProfile;
+  const researchDepth = options?.researchDepth || 'auto';
+
+  if (topicProfile || researchDepth !== 'auto') {
+    prompt += `## LISTENER TOPIC PROFILE\n`;
+
+    if (researchDepth === 'explain-more') {
+      prompt += `DEPTH PREFERENCE: "Explain more" — always provide context and background, even for familiar topics. The listener may share this episode or is listening casually. Treat every topic as if the audience might be new to it.\n\n`;
+    } else if (researchDepth === 'go-deeper') {
+      prompt += `DEPTH PREFERENCE: "Go deeper" — skip all introductory context. The listener wants what's new, what's changed, counterpoints, and implications. Assume full familiarity with every topic.\n\n`;
+    } else if (topicProfile) {
+      prompt += `DEPTH PREFERENCE: Auto — calibrate depth per topic based on the listener's history below.\n\n`;
+    }
+
+    if (topicProfile) {
+      if (topicProfile.familiar.length > 0) {
+        prompt += `FAMILIAR TOPICS (skip basics, go deep — this listener has heard about these across multiple episodes):\n`;
+        for (const t of topicProfile.familiar) {
+          const ago = Math.round((Date.now() - new Date(t.lastEpisodeDate).getTime()) / (1000 * 60 * 60 * 24));
+          prompt += `- "${t.topic}" — ${t.episodeCount} episodes, ${t.signalCount} signals, last covered ${ago}d ago\n`;
+        }
+        prompt += `\n`;
+      }
+
+      if (topicProfile.growing.length > 0) {
+        prompt += `GROWING INTERESTS (there's momentum here — note the trajectory):\n`;
+        for (const t of topicProfile.growing) {
+          prompt += `- "${t.topic}" — ${t.change}x increase this week (${t.previousWeek} → ${t.currentWeek} signals)\n`;
+        }
+        prompt += `\n`;
+      }
+
+      if (topicProfile.new.length > 0) {
+        prompt += `NEW TOPICS (provide broader context — this is new to the listener):\n`;
+        for (const t of topicProfile.new) {
+          prompt += `- "${t}"\n`;
+        }
+        prompt += `\n`;
+      }
     }
   }
 
@@ -219,6 +268,8 @@ Keep it tight. Every word earns its place. Skip the connections segment — weav
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
 - Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
 
+TOPIC DEPTH: For Essential style, the topic profile is advisory only — keep all segments concise regardless. For familiar topics, skip the setup sentence. For new topics, include one orienting sentence.
+
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields. The "connections" field can be empty for Essential style.`;
 
   } else if (briefingStyle === 'strategic') {
@@ -251,6 +302,8 @@ Go deep. Multiple perspectives on each theme. Don't shy from complexity or nuanc
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
 - Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
 
+TOPIC DEPTH: For Strategic style, use the topic profile fully. For familiar topics, skip all background and focus on what's changed, competing interpretations, and strategic implications. For growing interests, explicitly note the acceleration and explore why. For new topics, provide a structured introduction: what it is, why it matters now, and the key tensions.
+
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
 
   } else {
@@ -267,6 +320,8 @@ Remember: Output valid JSON matching the specified structure. Include the "intro
 - End with a subtle outro — an implied thought that lingers, not an explicit takeaway list
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
 - Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
+
+TOPIC DEPTH: For familiar topics, open with what's new rather than explaining the topic. For new topics, dedicate an extra sentence or two to orient the listener.
 
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
   }

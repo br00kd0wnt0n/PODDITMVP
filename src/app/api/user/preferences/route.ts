@@ -5,6 +5,7 @@ import { VOICES } from '@/lib/tts';
 
 const VALID_LENGTHS = ['short', 'medium', 'long'];
 const VALID_BRIEFING_STYLES = ['essential', 'standard', 'strategic'];
+const VALID_RESEARCH_DEPTHS = ['explain-more', 'auto', 'go-deeper'];
 
 // E.164 phone format: +1XXXXXXXXXX
 const E164_REGEX = /^\+[1-9]\d{1,14}$/;
@@ -136,6 +137,17 @@ export async function PATCH(request: NextRequest) {
           );
         }
         newPrefs.briefingStyle = preferences.briefingStyle || 'standard';
+      }
+
+      // Research depth
+      if (preferences.researchDepth !== undefined) {
+        if (preferences.researchDepth && !VALID_RESEARCH_DEPTHS.includes(preferences.researchDepth)) {
+          return NextResponse.json(
+            { error: `Invalid research depth. Options: ${VALID_RESEARCH_DEPTHS.join(', ')}` },
+            { status: 400 }
+          );
+        }
+        newPrefs.researchDepth = preferences.researchDepth || 'auto';
       }
 
       // Name pronunciation guide (optional, stored as-is)

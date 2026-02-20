@@ -18,6 +18,12 @@ const BRIEFING_STYLES = [
   { key: 'strategic', label: 'Strategic', duration: '10-15 min', description: 'In-depth analysis with counterpoints, implications, and decision prompts.' },
 ];
 
+const RESEARCH_DEPTHS = [
+  { key: 'explain-more', label: 'Explain More', description: 'Always provide context, even for topics you\'ve explored before.' },
+  { key: 'auto', label: 'Auto', description: 'Poddit calibrates depth based on your signal history. Familiar topics go deeper, new ones get more context.' },
+  { key: 'go-deeper', label: 'Go Deeper', description: 'Skip background and basics. Focus on what\'s new, counterpoints, and implications.' },
+];
+
 export default function SettingsPage() {
   const { data: session } = useSession();
 
@@ -27,6 +33,7 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState('');
   const [voice, setVoice] = useState('gandalf');
   const [briefingStyle, setBriefingStyle] = useState('standard');
+  const [researchDepth, setResearchDepth] = useState('auto');
   const [timezone, setTimezone] = useState('America/New_York');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -72,6 +79,7 @@ export default function SettingsPage() {
       setNamePronunciation(p.namePronunciation || '');
       setVoice(p.voice || 'gandalf');
       setBriefingStyle(p.briefingStyle || 'standard');
+      setResearchDepth(p.researchDepth || 'auto');
       setTimezone(p.timezone || 'America/New_York');
       setNotificationsEnabled(!!prefs.consentedAt);
       setVoices(voiceData.voices || []);
@@ -178,7 +186,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name,
           phone: phone || null,
-          preferences: { voice, briefingStyle, namePronunciation: namePronunciation || undefined, timezone },
+          preferences: { voice, briefingStyle, researchDepth, namePronunciation: namePronunciation || undefined, timezone },
           consent: notificationsEnabled,
         }),
       });
@@ -391,7 +399,38 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* ── Section 4: Timezone ── */}
+        {/* ── Section 4: Research Depth ── */}
+        <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
+          <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
+            Research Depth
+          </label>
+          <p className="text-xs text-stone-500 mb-3">
+            Controls how much background context Poddit provides per topic
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {RESEARCH_DEPTHS.map((depth) => {
+              const isSelected = researchDepth === depth.key;
+              return (
+                <button
+                  key={depth.key}
+                  onClick={() => setResearchDepth(depth.key)}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? 'border-teal-500/50 bg-teal-500/5 shadow-[0_0_12px_rgba(20,184,166,0.15)] lens-flare-edge'
+                      : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${isSelected ? 'text-teal-300' : 'text-white'}`}>
+                    {depth.label}
+                  </p>
+                  <p className="text-xs text-stone-500 leading-relaxed mt-1">{depth.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Section 5: Timezone ── */}
         <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
             Timezone

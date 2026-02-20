@@ -27,6 +27,132 @@ export interface EpisodeData {
   outro: string;
 }
 
+export interface TopicProfile {
+  familiar: { topic: string; episodeCount: number; signalCount: number; lastEpisodeDate: Date }[];
+  growing: { topic: string; previousWeek: number; currentWeek: number; change: number }[];
+  new: string[];
+}
+
+// ──────────────────────────────────────────────
+// TOPIC PROFILE (for depth calibration)
+// ──────────────────────────────────────────────
+
+/**
+ * Build a topic profile from signal + episode history.
+ * Classifies current signal topics as familiar, growing, or new.
+ * Returns null if no history exists (new users) or nothing relevant.
+ */
+async function buildTopicProfile(
+  userId: string,
+  currentSignalTopics: string[]
+): Promise<TopicProfile | null> {
+  const currentTopicKeys = new Set(currentSignalTopics.map(t => t.trim().toLowerCase()));
+  if (currentTopicKeys.size === 0) return null;
+
+  // Two bounded indexed queries (~10-30ms total)
+  const [usedSignals, allEpisodes] = await Promise.all([
+    prisma.signal.findMany({
+      where: { userId, status: 'USED' },
+      select: { topics: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    }),
+    prisma.episode.findMany({
+      where: { userId, status: 'READY' },
+      select: { topicsCovered: true, generatedAt: true },
+      orderBy: { generatedAt: 'desc' },
+      take: 50,
+    }),
+  ]);
+
+  if (usedSignals.length === 0 && allEpisodes.length === 0) return null;
+
+  // ── Topic → episode count + last episode date ──
+  const topicEpisodeMap: Record<string, { episodeCount: number; lastEpisodeDate: Date }> = {};
+  for (const ep of allEpisodes) {
+    for (const t of ep.topicsCovered) {
+      const key = t.trim().toLowerCase();
+      if (!topicEpisodeMap[key]) {
+        topicEpisodeMap[key] = { episodeCount: 0, lastEpisodeDate: ep.generatedAt || new Date(0) };
+      }
+      topicEpisodeMap[key].episodeCount++;
+      if (ep.generatedAt && ep.generatedAt > topicEpisodeMap[key].lastEpisodeDate) {
+        topicEpisodeMap[key].lastEpisodeDate = ep.generatedAt;
+      }
+    }
+  }
+
+  // ── Topic → signal count ──
+  const topicSignalCount: Record<string, number> = {};
+  for (const sig of usedSignals) {
+    for (const t of sig.topics) {
+      const key = t.trim().toLowerCase();
+      topicSignalCount[key] = (topicSignalCount[key] || 0) + 1;
+    }
+  }
+
+  // ── Weekly bucketing for growing interests ──
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const currentWeekTopics: Record<string, number> = {};
+  const lastWeekTopics: Record<string, number> = {};
+
+  for (const sig of usedSignals) {
+    const ts = sig.createdAt.getTime();
+    const bucket = ts >= startOfWeek.getTime() ? currentWeekTopics
+      : ts >= startOfLastWeek.getTime() ? lastWeekTopics
+      : null;
+    if (bucket) {
+      for (const t of sig.topics) {
+        const key = t.trim().toLowerCase();
+        bucket[key] = (bucket[key] || 0) + 1;
+      }
+    }
+  }
+
+  // ── Familiar: appeared in 3+ episodes, relevant to current signals ──
+  const familiar = Object.entries(topicEpisodeMap)
+    .filter(([key, data]) => data.episodeCount >= 3 && currentTopicKeys.has(key))
+    .sort((a, b) => b[1].episodeCount - a[1].episodeCount)
+    .slice(0, 5)
+    .map(([topic, data]) => ({
+      topic,
+      episodeCount: data.episodeCount,
+      signalCount: topicSignalCount[topic] || 0,
+      lastEpisodeDate: data.lastEpisodeDate,
+    }));
+
+  // ── Growing: 2x+ week-over-week, relevant to current signals ──
+  const growing: TopicProfile['growing'] = [];
+  for (const [key, current] of Object.entries(currentWeekTopics)) {
+    if (!currentTopicKeys.has(key)) continue;
+    const previous = lastWeekTopics[key] || 0;
+    if (previous > 0 && current / previous >= 2) {
+      growing.push({ topic: key, previousWeek: previous, currentWeek: current, change: +(current / previous).toFixed(1) });
+    }
+  }
+  growing.sort((a, b) => b.change - a.change);
+
+  // ── New: in current signals but never in past episodes ──
+  const allPastTopics = new Set(
+    allEpisodes.flatMap(ep => ep.topicsCovered.map(t => t.trim().toLowerCase()))
+  );
+  const newTopics = [...currentTopicKeys].filter(t => !allPastTopics.has(t));
+
+  if (familiar.length === 0 && growing.length === 0 && newTopics.length === 0) return null;
+
+  return {
+    familiar,
+    growing: growing.slice(0, 3),
+    new: newTopics.slice(0, 5),
+  };
+}
+
 // ──────────────────────────────────────────────
 // WEB SEARCH INTEGRATION
 // ──────────────────────────────────────────────
@@ -369,7 +495,16 @@ export async function generateEpisode(params: {
       console.log(`[Poddit] Found ${priorEpisodes.length} prior episode(s) for continuity context`);
     }
 
-    // 3b. Build the synthesis prompt (pass user prefs + prior episodes for personalization)
+    // 3b. Build topic profile for depth calibration
+    const currentSignalTopics = signals.flatMap(s => s.topics);
+    const topicProfile = await buildTopicProfile(userId, currentSignalTopics);
+    if (topicProfile) {
+      console.log(`[Poddit] Topic profile: ${topicProfile.familiar.length} familiar, ${topicProfile.growing.length} growing, ${topicProfile.new.length} new`);
+    }
+
+    const researchDepth = preferences.researchDepth || 'auto';
+
+    // 3c. Build the synthesis prompt (pass user prefs + prior episodes + topic profile)
     const synthesisPrompt = buildSynthesisPrompt(
       signals.map(s => ({
         inputType: s.inputType,
@@ -380,7 +515,7 @@ export async function generateEpisode(params: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params.manual, userName, namePronunciation, episodeLength, briefingStyle, timezone, priorEpisodes }
+      { manual: params.manual, userName, namePronunciation, episodeLength, briefingStyle, timezone, priorEpisodes, topicProfile, researchDepth }
     );
 
     // 4. Call Claude for synthesis with web search
@@ -620,6 +755,7 @@ export async function generateEpisode(params: {
       ttsChunks,
       ttsMs,
       briefingStyle,
+      researchDepth,
       costs: calculateGenerationCosts({ inputTokens, outputTokens, webSearches: webSearchCount, ttsCharacters }),
     };
     console.log(`[Poddit] Generation cost: $${generationMeta.costs.total.toFixed(4)} (Claude: $${generationMeta.costs.claude.toFixed(4)}, Search: $${generationMeta.costs.webSearch.toFixed(4)}, TTS: $${generationMeta.costs.tts.toFixed(4)})`);
