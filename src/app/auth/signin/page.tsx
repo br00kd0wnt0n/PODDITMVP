@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,19 +13,22 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
+  const signingInRef = useRef(false);
 
-  // One-time auth check — redirect if already logged in (back-button case).
+  // One-time auth check on mount — redirect if already logged in (back-button case).
   // Uses a direct fetch instead of useSession() to avoid subscribing to
   // SessionProvider re-renders, which cause a visible content flicker during hydration.
+  // Only runs once on mount (empty deps). signingInRef prevents it from interfering
+  // if signIn() internally triggers a SessionProvider re-render mid-login.
   useEffect(() => {
-    if (exiting) return;
     fetch('/api/auth/session')
       .then(res => res.json())
       .then(session => {
-        if (session?.user) router.replace('/');
+        if (session?.user && !signingInRef.current) router.replace('/');
       })
       .catch(() => {}); // no session = stay on sign-in page
-  }, [router, exiting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +36,7 @@ export default function SignInPage() {
 
     setLoading(true);
     setError(null);
+    signingInRef.current = true;
 
     try {
       const result = await signIn('credentials', {
@@ -45,6 +49,7 @@ export default function SignInPage() {
       if (result?.error) {
         setError('Invalid email or access code.');
         setLoading(false);
+        signingInRef.current = false;
       } else if (result?.ok) {
         // Trigger fade-out, then client-side navigate after animation.
         // Use relative '/' (not result.url which is absolute and forces a full page reload).
@@ -57,6 +62,7 @@ export default function SignInPage() {
     } catch {
       setError('Something went wrong. Please try again.');
       setLoading(false);
+      signingInRef.current = false;
     }
   };
 
