@@ -7,6 +7,8 @@ interface HighlightsPanelProps {
   channelBreakdown: [string, number][];
   readyEpisodeCount: number;
   signalCount: number;
+  trends?: { topic: string; previous: number; current: number; change: number }[];
+  newTopics?: string[];
 }
 
 export default function HighlightsPanel({
@@ -14,6 +16,8 @@ export default function HighlightsPanel({
   channelBreakdown,
   readyEpisodeCount,
   signalCount,
+  trends,
+  newTopics,
 }: HighlightsPanelProps) {
   return (
     <section className="mb-6 lg:mb-0 order-3 lg:col-start-1 lg:row-start-2 lg:self-start relative rounded-2xl bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] overflow-hidden">
@@ -58,6 +62,30 @@ export default function HighlightsPanel({
                           );
                         })}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Curiosity Patterns — trends + new topics */}
+                {((trends && trends.length > 0) || (newTopics && newTopics.length > 0)) && (
+                  <div className="p-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl space-y-2.5">
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Curiosity Patterns</p>
+                    {trends && trends.map(t => (
+                      <p key={t.topic} className="text-sm text-stone-300 leading-relaxed">
+                        <span className="font-semibold text-teal-400">{t.topic}</span>
+                        {' '}signals up <span className="font-semibold text-teal-400">{t.change}×</span> this month
+                      </p>
+                    ))}
+                    {newTopics && newTopics.length > 0 && (
+                      <p className="text-sm text-stone-300 leading-relaxed">
+                        New this month:{' '}
+                        {newTopics.map((topic, i) => (
+                          <span key={topic}>
+                            {i > 0 && (i === newTopics.length - 1 ? ' and ' : ', ')}
+                            <span className="font-semibold text-violet-400">{topic}</span>
+                          </span>
+                        ))}
+                      </p>
                     )}
                   </div>
                 )}

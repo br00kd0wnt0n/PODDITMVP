@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       // Bounded to 500 most recent to prevent unbounded queries for heavy users
       prisma.signal.findMany({
         where: { userId, status: 'USED' },
-        select: { channel: true, topics: true },
+        select: { channel: true, topics: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
         take: 500,
       }),
@@ -92,11 +92,75 @@ export async function GET(request: NextRequest) {
       signalTopics: signals.flatMap(s => s.topics),
     }));
 
-    // Aggregate topic + channel data from ALL used signals for Highlights panel
-    const allTopics: string[] = highlightSignals.flatMap(s => s.topics);
-    const allChannels: string[] = highlightSignals.map(s => s.channel);
+    // ── Server-side highlights aggregation ──
+    // Pre-compute topic/channel counts + temporal trends instead of shipping raw arrays
+    const topicCounts: Record<string, { display: string; count: number }> = {};
+    const channelCounts: Record<string, number> = {};
 
-    return NextResponse.json({ episodes: result, highlights: { topics: allTopics, channels: allChannels } });
+    // Temporal bucketing for Curiosity Patterns
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthTopics: Record<string, number> = {};
+    const lastMonthTopics: Record<string, number> = {};
+    let currentMonthSignalCount = 0;
+
+    highlightSignals.forEach(s => {
+      // Channel counts
+      channelCounts[s.channel] = (channelCounts[s.channel] || 0) + 1;
+
+      // Monthly bucket
+      const month = `${s.createdAt.getFullYear()}-${String(s.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      if (month === currentMonth) currentMonthSignalCount++;
+      const bucket = month === currentMonth ? currentMonthTopics : month === lastMonth ? lastMonthTopics : null;
+
+      // Topic counts (all-time + monthly)
+      s.topics.forEach(t => {
+        const key = t.trim().toLowerCase();
+        if (!topicCounts[key]) topicCounts[key] = { display: t, count: 0 };
+        topicCounts[key].count++;
+        if (bucket) bucket[key] = (bucket[key] || 0) + 1;
+      });
+    });
+
+    // All-time top topics (pre-sorted, pre-sliced)
+    const topics = Object.values(topicCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    // Channel breakdown
+    const channels = Object.entries(channelCounts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([name, count]) => ({ name, count }));
+
+    // Curiosity Patterns: trends + new topics (only if enough data)
+    const trends: { topic: string; previous: number; current: number; change: number }[] = [];
+    const newTopics: string[] = [];
+
+    if (currentMonthSignalCount >= 5) {
+      for (const [key, current] of Object.entries(currentMonthTopics)) {
+        const previous = lastMonthTopics[key] || 0;
+        const display = topicCounts[key]?.display || key;
+        if (previous === 0 && current >= 2) {
+          newTopics.push(display);
+        } else if (previous > 0 && current / previous >= 2) {
+          trends.push({ topic: display, previous, current, change: +(current / previous).toFixed(1) });
+        }
+      }
+      trends.sort((a, b) => b.change - a.change);
+    }
+
+    return NextResponse.json({
+      episodes: result,
+      highlights: {
+        topics,
+        channels,
+        totalSignals: highlightSignals.length,
+        trends: trends.slice(0, 3),
+        newTopics: newTopics.slice(0, 3),
+      },
+    });
   } catch (error) {
     console.error('[Episodes] Error:', error);
     return NextResponse.json(

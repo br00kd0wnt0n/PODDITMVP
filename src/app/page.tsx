@@ -91,8 +91,13 @@ function Dashboard() {
 
   // Data state
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [highlightTopics, setHighlightTopics] = useState<string[]>([]);
-  const [highlightChannels, setHighlightChannels] = useState<string[]>([]);
+  const [highlightData, setHighlightData] = useState<{
+    topics: { display: string; count: number }[];
+    channels: { name: string; count: number }[];
+    totalSignals: number;
+    trends: { topic: string; previous: number; current: number; change: number }[];
+    newTopics: string[];
+  }>({ topics: [], channels: [], totalSignals: 0, trends: [], newTopics: [] });
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
   const [episodeLimit, setEpisodeLimit] = useState(3);
@@ -296,36 +301,33 @@ function Dashboard() {
   };
 
   // ── Insights: topic frequency + channel breakdown ──
-  // Uses highlightTopics/highlightChannels (aggregated server-side from ALL used signals)
-  // plus current pending signals for a complete picture
+  // Server provides pre-aggregated counts for USED signals.
+  // Merge in pending queue signals for a complete picture.
   const topicFrequency = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const displayName: Record<string, string> = {};
-    const normalize = (t: string) => t.trim().toLowerCase();
-
-    const addTopic = (t: string) => {
-      const key = normalize(t);
-      if (!displayName[key]) displayName[key] = t;
-      counts[key] = (counts[key] || 0) + 1;
-    };
-
-    // Pending signals — current curiosity
-    signals.forEach(s => s.topics.forEach(addTopic));
-    // Used signals (from server aggregation) — historical curiosity
-    highlightTopics.forEach(addTopic);
-
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
+    // Start with server-aggregated counts (keyed by lowercase)
+    const counts: Record<string, { display: string; count: number }> = {};
+    highlightData.topics.forEach(t => {
+      const key = t.display.trim().toLowerCase();
+      counts[key] = { display: t.display, count: t.count };
+    });
+    // Add pending signals
+    signals.forEach(s => s.topics.forEach(t => {
+      const key = t.trim().toLowerCase();
+      if (!counts[key]) counts[key] = { display: t, count: 0 };
+      counts[key].count++;
+    }));
+    return Object.values(counts)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 8)
-      .map(([key, count]) => [displayName[key], count] as [string, number]);
-  }, [signals, highlightTopics]);
+      .map(({ display, count }) => [display, count] as [string, number]);
+  }, [signals, highlightData.topics]);
 
   const channelBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
+    highlightData.channels.forEach(ch => { counts[ch.name] = (counts[ch.name] || 0) + ch.count; });
     signals.forEach(s => { counts[s.channel] = (counts[s.channel] || 0) + 1; });
-    highlightChannels.forEach(ch => { counts[ch] = (counts[ch] || 0) + 1; });
     return Object.entries(counts).sort(([, a], [, b]) => b - a);
-  }, [signals, highlightChannels]);
+  }, [signals, highlightData.channels]);
 
   // ── Episode accent colors (violet/amber/rose — teal reserved for action buttons) ──
 
@@ -454,11 +456,18 @@ function Dashboard() {
       if (results[0].status === 'fulfilled') {
         try {
           const data = results[0].value;
-          // New shape: { episodes: [...], highlights: { topics, channels } }
+          // Shape: { episodes: [...], highlights: { topics, channels, totalSignals, trends, newTopics } }
           if (data && data.episodes && Array.isArray(data.episodes)) {
             setEpisodes(data.episodes);
-            setHighlightTopics(data.highlights?.topics || []);
-            setHighlightChannels(data.highlights?.channels || []);
+            if (data.highlights) {
+              setHighlightData({
+                topics: data.highlights.topics || [],
+                channels: data.highlights.channels || [],
+                totalSignals: data.highlights.totalSignals || 0,
+                trends: data.highlights.trends || [],
+                newTopics: data.highlights.newTopics || [],
+              });
+            }
           } else if (Array.isArray(data)) {
             // Backward compat
             setEpisodes(data);
@@ -704,8 +713,13 @@ function Dashboard() {
         // Always update episodes list (shows GENERATING placeholder)
         setEpisodes(eps);
         if (data?.highlights) {
-          setHighlightTopics(data.highlights.topics || []);
-          setHighlightChannels(data.highlights.channels || []);
+          setHighlightData({
+            topics: data.highlights.topics || [],
+            channels: data.highlights.channels || [],
+            totalSignals: data.highlights.totalSignals || 0,
+            trends: data.highlights.trends || [],
+            newTopics: data.highlights.newTopics || [],
+          });
         }
 
         // Check if the new episode has landed
@@ -1327,7 +1341,7 @@ function Dashboard() {
                 </div>
                 {/* SMS */}
                 <button
-                  onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `sms:${podditSms.e164}`; } else { navigator.clipboard.writeText(podditSms.e164).then(() => { setPhoneSuccess('Number copied!'); setTimeout(() => setPhoneSuccess(null), 3000); }).catch(() => {}); } }}
+                  onClick={() => { if (!userPhone) { setShowPhonePrompt(true); setPhoneError(null); return; } const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `sms:${podditSms.e164}`; } else { navigator.clipboard.writeText(podditSms.e164).then(() => { setPhoneSuccess('Number copied!'); setTimeout(() => setPhoneSuccess(null), 3000); }).catch(() => { setPhoneSuccess('Text your signals to ' + podditSms.display); setTimeout(() => setPhoneSuccess(null), 3000); }); } }}
                   className="w-full flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.03] transition-all text-left group"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400 flex-shrink-0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
@@ -1510,6 +1524,8 @@ function Dashboard() {
         channelBreakdown={channelBreakdown}
         readyEpisodeCount={readyEpisodes.length}
         signalCount={signals.length}
+        trends={highlightData.trends}
+        newTopics={highlightData.newTopics}
       />
 
       </div>{/* end two-column grid */}
