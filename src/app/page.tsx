@@ -427,7 +427,9 @@ function Dashboard() {
         // Abort any in-flight fetch when tab goes hidden
         abortRef.current?.abort();
       } else {
-        refreshData();
+        // Resume polling only — skip immediate refreshData() to prevent a visible
+        // double-refresh when the visibility event fires during the initial navigation.
+        // The next 30s tick will pick up any changes.
         poll = setInterval(refreshData, 30_000);
       }
     };
@@ -867,7 +869,7 @@ function Dashboard() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 page-enter">
+    <main className="max-w-5xl mx-auto px-4 py-8">
 
       {/* Dashboard bokeh — desktop only (mobile uses layout bokeh alone to avoid GPU crash) */}
       <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none z-0 hidden md:block">
