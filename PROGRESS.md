@@ -35,7 +35,23 @@ Session continuity document. Captures decisions, implementation details, and got
 - Date formatted with user's timezone preference (falls back to America/New_York)
 - `buildFullScript()` updated to accept `{ timezone }` options and append epilogue after outro
 
-**Outro music interaction:** The outro music is positioned so its midpoint aligns with end of narration (`tts.ts` line 217). With the epilogue extending the narration, the outro music starts during the actual outro text, and the epilogue plays with gentle music underneath — a natural "credits" feel. No TTS/music timing changes needed.
+**Audio architecture (updated):** Epilogue is now a fully separate audio segment:
+1. Main narration TTS'd → mixed with intro/outro music as before (outro music completes fully)
+2. Epilogue TTS'd separately via `ttsToBuffer()` → mixed with `Poddit_Epilogue.mp3` sound bed via `mixEpilogue()`
+3. Concatenated via `concatenateWithGap()`: main episode + 1.5s silence + epilogue
+4. Epilogue sound bed volume: 0.18 (slightly higher than main music at 0.14 — it's a quieter bed)
+
+**Key functions added to `tts.ts`:**
+- `ttsToBuffer(text, voiceId)` — extracted common TTS logic (was inline in generateAudio)
+- `mixEpilogue(narrationBuffer)` — mixes epilogue narration with `Poddit_Epilogue.mp3`, trims to narration + 2s tail
+- `concatenateWithGap(mainBuffer, epilogueBuffer, gapSeconds)` — ffmpeg adelay + amix for clean concatenation
+- `getDurationFromBuffer(buffer)` — temp file probe helper
+
+**`buildFullScript` return type changed:** Now returns `{ main: string, epilogue: string }` instead of a single string. The full script is still stored in the Episode record for reference (concatenated with `\n\n`).
+
+**Graceful degradation:** If epilogue TTS or mixing fails at any point, the episode plays normally without it. Three fallback levels: (1) epilogue music missing → narration only, (2) epilogue mix fails → narration only, (3) epilogue TTS fails → no epilogue at all.
+
+**Audio asset:** `Epilogue_ending.mp3` moved from `/public/` to `/public/audio/Poddit_Epilogue.mp3` for consistent naming.
 
 **Decision:** Epilogue uses a fixed template (not LLM-generated) because:
 - Consistent tone across all episodes

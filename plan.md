@@ -100,7 +100,7 @@
 
 ## Pre-Phase 1: Episode Epilogue — Size: S (~1 day) ✅
 
-**What:** A fixed-format spoken epilogue appended after the outro, before outro music. Reinforces trust, differentiation, and transparency without sounding like a disclaimer.
+**What:** A fixed-format spoken epilogue appended after the outro, with its own sound bed. Reinforces trust, differentiation, and transparency without sounding like a disclaimer.
 
 **Template:**
 > "This episode was created for you on [DATE]. Poddit analyzed the signals you captured and conducted independent research across multiple perspectives. Sources referenced in this briefing include reporting from [Source A], [Source B], and [Source C]. You can explore the complete list of sources on your episode page."
@@ -108,10 +108,15 @@
 **Key design decisions:**
 - **Not LLM-generated** — fixed template assembled in code with dynamic data. Zero extra tokens, consistent tone, no risk of Claude making it sound like a compliance warning.
 - **Dynamic elements:** date (from generation), top 3 source publications (deduplicated by name from validated segment sources)
-- **Placement:** After outro, before outro music overlap zone. Appended in `buildFullScript()`.
-- **Graceful fallback:** If no named sources available, omit the sources sentence entirely.
+- **Separate audio segment** — epilogue is TTS'd independently, mixed with its own sound bed (`Poddit_Epilogue.mp3`), then concatenated after the main episode with a 1.5s gap. The outro music completes fully before the epilogue begins.
+- **Graceful fallback:** If epilogue TTS or mixing fails, episode plays without epilogue. If no named sources, omits the sources sentence.
 
-**Files:** `src/lib/synthesize.ts` (buildFullScript + epilogue builder)
+**Audio pipeline:**
+1. Main narration TTS'd → mixed with intro/outro music (unchanged)
+2. Epilogue TTS'd separately → mixed with epilogue sound bed (volume 0.18)
+3. Concatenated via ffmpeg: main + 1.5s silence + epilogue
+
+**Files:** `src/lib/synthesize.ts` (buildFullScript returns `{ main, epilogue }`), `src/lib/tts.ts` (generateAudio, mixEpilogue, concatenateWithGap), `public/audio/Poddit_Epilogue.mp3`
 
 **Status:** COMPLETE
 

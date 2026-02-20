@@ -34,12 +34,19 @@ export const DEFAULT_VOICE = 'jon';
 
 const INTRO_MUSIC = join(process.cwd(), 'public/audio/Poddit_Intro.mp3');
 const OUTRO_MUSIC = join(process.cwd(), 'public/audio/poddit_Outro.mp3');
+const EPILOGUE_MUSIC = join(process.cwd(), 'public/audio/Poddit_Epilogue.mp3');
 
 // Music volume relative to narration (0.0–1.0)
 const MUSIC_VOLUME = 0.14;
 
+// Epilogue sound bed volume (slightly higher — it's a quieter bed)
+const EPILOGUE_MUSIC_VOLUME = 0.18;
+
 // Seconds of intro music that plays solo before voiceover begins
 const INTRO_LEAD_IN = 4;
+
+// Seconds of silence between main episode end and epilogue start
+const EPILOGUE_GAP = 1.5;
 
 // The midpoint of the outro music should align with the end of narration.
 // This means half the outro plays under the final dialogue, half lingers after.
@@ -51,17 +58,98 @@ const INTRO_LEAD_IN = 4;
 export async function generateAudio(
   script: string,
   episodeId: string,
-  voiceKey?: string
+  voiceKey?: string,
+  epilogueScript?: string
 ): Promise<{ audioUrl: string; duration: number; ttsCharacters: number; ttsChunks: number; ttsMs: number }> {
   const ttsStart = Date.now();
   const voice = VOICES[voiceKey || DEFAULT_VOICE] || VOICES[DEFAULT_VOICE];
   const voiceId = voice.id;
 
-  console.log(`[TTS] Generating audio for episode ${episodeId} (${script.length} chars, voice: ${voice.name})`);
+  const totalChars = script.length + (epilogueScript?.length || 0);
+  console.log(`[TTS] Generating audio for episode ${episodeId} (${totalChars} chars, voice: ${voice.name}${epilogueScript ? ', +epilogue' : ''})`);
 
-  // ElevenLabs has a per-request character limit (~5000 for standard).
-  // For longer scripts, chunk and concatenate.
-  const chunks = chunkScript(script, 4500);
+  // ── Main narration TTS ──
+  const mainAudio = await ttsToBuffer(script, voiceId);
+
+  // ── Mix main narration with intro/outro music ──
+  const { buffer: mixedMain, duration: mainDuration } = await withRetry(
+    () => mixWithMusic(mainAudio),
+    { label: 'Music mixing', attempts: 2, delayMs: 3000 }
+  ).catch((error) => {
+    console.error('[TTS] Music mixing failed after retries, using narration only:', error);
+    return { buffer: mainAudio, duration: 0 };
+  });
+
+  // ── Epilogue (separate TTS + sound bed) ──
+  let fullAudio = mixedMain;
+  let epilogueChars = 0;
+  let epilogueChunks = 0;
+
+  if (epilogueScript) {
+    try {
+      const epilogueAudio = await ttsToBuffer(epilogueScript, voiceId);
+      epilogueChars = epilogueScript.length;
+      epilogueChunks = chunkScript(epilogueScript, 4500).length;
+
+      // Mix epilogue narration with epilogue sound bed, then concatenate after main
+      const { buffer: mixedEpilogue } = await withRetry(
+        () => mixEpilogue(epilogueAudio),
+        { label: 'Epilogue mixing', attempts: 2, delayMs: 3000 }
+      ).catch((error) => {
+        console.error('[TTS] Epilogue mixing failed, using narration only:', error);
+        return { buffer: epilogueAudio };
+      });
+
+      // Concatenate: main episode + gap + epilogue via ffmpeg
+      fullAudio = await concatenateWithGap(mixedMain, mixedEpilogue, EPILOGUE_GAP);
+      console.log(`[TTS] Epilogue appended (${epilogueChars} chars)`);
+    } catch (error) {
+      console.error('[TTS] Epilogue TTS failed, episode will play without epilogue:', error);
+      // fullAudio remains mixedMain — episode works fine without epilogue
+    }
+  }
+
+  // Get final duration
+  const finalDuration = await getDurationFromBuffer(fullAudio).catch(() => {
+    const estimatedWords = totalChars / 5;
+    return Math.round((estimatedWords / 150) * 60);
+  });
+
+  // Upload to S3/R2 (with retry)
+  const key = `episodes/${episodeId}.mp3`;
+
+  await withRetry(
+    () => s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET || 'poddit-audio',
+        Key: key,
+        Body: fullAudio,
+        ContentType: 'audio/mpeg',
+      })
+    ),
+    { label: 'S3 upload', attempts: 3, delayMs: 2000 }
+  );
+
+  const audioUrl = `${process.env.S3_PUBLIC_URL}/${key}`;
+  console.log(`[TTS] Audio uploaded: ${audioUrl} (~${finalDuration}s)`);
+
+  const mainChunks = chunkScript(script, 4500).length;
+  const ttsMs = Date.now() - ttsStart;
+  return {
+    audioUrl,
+    duration: finalDuration,
+    ttsCharacters: totalChars,
+    ttsChunks: mainChunks + epilogueChunks,
+    ttsMs,
+  };
+}
+
+// ──────────────────────────────────────────────
+// TTS HELPER — convert text to audio buffer via ElevenLabs
+// ──────────────────────────────────────────────
+
+async function ttsToBuffer(text: string, voiceId: string): Promise<Buffer> {
+  const chunks = chunkScript(text, 4500);
   const audioBuffers: Buffer[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
@@ -102,44 +190,22 @@ export async function generateAudio(
     audioBuffers.push(audioBuffer);
   }
 
-  // Concatenate audio chunks (simple concatenation works for MP3)
-  const rawAudio = Buffer.concat(audioBuffers);
+  return Buffer.concat(audioBuffers);
+}
 
-  // Mix intro/outro music if available (retry once on transient ffprobe/ffmpeg failures)
-  const { buffer: mixedAudio, duration: actualDuration } = await withRetry(
-    () => mixWithMusic(rawAudio),
-    { label: 'Music mixing', attempts: 2, delayMs: 3000 }
-  ).catch((error) => {
-    console.error('[TTS] Music mixing failed after retries, using narration only:', error);
-    return { buffer: rawAudio, duration: 0 };
-  });
-  const fullAudio = mixedAudio;
+// ──────────────────────────────────────────────
+// GET DURATION FROM BUFFER — write to temp, probe, cleanup
+// ──────────────────────────────────────────────
 
-  // Use actual duration if we got it from ffmpeg, otherwise estimate
-  const estimatedWords = script.length / 5;
-  const estimatedDuration = Math.round((estimatedWords / 150) * 60);
-  const duration = actualDuration || estimatedDuration;
-
-  // Upload to S3/R2 (with retry)
-  const key = `episodes/${episodeId}.mp3`;
-
-  await withRetry(
-    () => s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.S3_BUCKET || 'poddit-audio',
-        Key: key,
-        Body: fullAudio,
-        ContentType: 'audio/mpeg',
-      })
-    ),
-    { label: 'S3 upload', attempts: 3, delayMs: 2000 }
-  );
-
-  const audioUrl = `${process.env.S3_PUBLIC_URL}/${key}`;
-  console.log(`[TTS] Audio uploaded: ${audioUrl} (~${duration}s)`);
-
-  const ttsMs = Date.now() - ttsStart;
-  return { audioUrl, duration, ttsCharacters: script.length, ttsChunks: chunks.length, ttsMs };
+async function getDurationFromBuffer(buffer: Buffer): Promise<number> {
+  const id = randomUUID();
+  const tmpPath = join(tmpdir(), `poddit-probe-${id}.mp3`);
+  try {
+    await writeFile(tmpPath, buffer);
+    return await getAudioDuration(tmpPath);
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -268,6 +334,122 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
   } finally {
     // Cleanup temp files
     await unlink(narrationPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
+
+// ──────────────────────────────────────────────
+// EPILOGUE MIXING — overlay epilogue sound bed
+// ──────────────────────────────────────────────
+
+async function mixEpilogue(narrationBuffer: Buffer): Promise<{ buffer: Buffer }> {
+  const hasEpilogueMusic = await fileExists(EPILOGUE_MUSIC);
+
+  if (!hasEpilogueMusic) {
+    console.log('[TTS] No epilogue music file found, using narration only');
+    return { buffer: narrationBuffer };
+  }
+
+  const id = randomUUID();
+  const narrationPath = join(tmpdir(), `poddit-epilogue-narr-${id}.mp3`);
+  const outputPath = join(tmpdir(), `poddit-epilogue-mixed-${id}.mp3`);
+
+  try {
+    await writeFile(narrationPath, narrationBuffer);
+
+    const narrationDuration = await getAudioDuration(narrationPath);
+    console.log(`[TTS] Epilogue narration duration: ${narrationDuration}s`);
+
+    // Simple mix: narration + sound bed underneath, trim to narration length + 2s tail
+    const totalDuration = narrationDuration + 2;
+
+    const ffmpegArgs: string[] = [
+      '-i', narrationPath,
+      '-i', EPILOGUE_MUSIC,
+      '-filter_complex',
+      `[1:a]volume=${EPILOGUE_MUSIC_VOLUME}[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.3,volume=2[out]`,
+      '-map', '[out]',
+      '-t', String(totalDuration),
+      '-codec:a', 'libmp3lame',
+      '-b:a', '192k',
+      '-y',
+      outputPath,
+    ];
+
+    console.log('[TTS] Mixing epilogue with sound bed');
+
+    await new Promise<void>((resolve, reject) => {
+      execFile('ffmpeg', ffmpegArgs, { timeout: 30000 }, (error, _stdout, stderr) => {
+        if (error) {
+          console.error(`[TTS] ffmpeg epilogue stderr: ${stderr}`);
+          reject(new Error(`ffmpeg epilogue mix failed: ${error.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const mixedBuffer = await readFile(outputPath);
+    console.log(`[TTS] Epilogue mixed: ${mixedBuffer.length} bytes`);
+
+    return { buffer: mixedBuffer };
+  } finally {
+    await unlink(narrationPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
+
+// ──────────────────────────────────────────────
+// CONCATENATION — join main episode + epilogue with gap
+// ──────────────────────────────────────────────
+
+async function concatenateWithGap(mainBuffer: Buffer, epilogueBuffer: Buffer, gapSeconds: number): Promise<Buffer> {
+  const id = randomUUID();
+  const mainPath = join(tmpdir(), `poddit-main-${id}.mp3`);
+  const epiloguePath = join(tmpdir(), `poddit-epi-${id}.mp3`);
+  const outputPath = join(tmpdir(), `poddit-final-${id}.mp3`);
+
+  try {
+    await writeFile(mainPath, mainBuffer);
+    await writeFile(epiloguePath, epilogueBuffer);
+
+    const mainDuration = await getAudioDuration(mainPath);
+    const epilogueDelayMs = Math.round((mainDuration + gapSeconds) * 1000);
+
+    // Use adelay to position epilogue after main + gap, then amix
+    const ffmpegArgs: string[] = [
+      '-i', mainPath,
+      '-i', epiloguePath,
+      '-filter_complex',
+      `[1:a]adelay=${epilogueDelayMs}|${epilogueDelayMs}[epi_delayed];[0:a][epi_delayed]amix=inputs=2:duration=longest:dropout_transition=0:weights=1 1,volume=2[out]`,
+      '-map', '[out]',
+      '-codec:a', 'libmp3lame',
+      '-b:a', '192k',
+      '-y',
+      outputPath,
+    ];
+
+    console.log(`[TTS] Concatenating main (${Math.round(mainDuration)}s) + ${gapSeconds}s gap + epilogue`);
+
+    await new Promise<void>((resolve, reject) => {
+      execFile('ffmpeg', ffmpegArgs, { timeout: 60000 }, (error, _stdout, stderr) => {
+        if (error) {
+          console.error(`[TTS] ffmpeg concat stderr: ${stderr}`);
+          reject(new Error(`ffmpeg concat failed: ${error.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const finalBuffer = await readFile(outputPath);
+    const finalDuration = await getAudioDuration(outputPath).catch(() => 0);
+    console.log(`[TTS] Final audio: ${finalBuffer.length} bytes (~${Math.round(finalDuration)}s)`);
+
+    return finalBuffer;
+  } finally {
+    await unlink(mainPath).catch(() => {});
+    await unlink(epiloguePath).catch(() => {});
     await unlink(outputPath).catch(() => {});
   }
 }

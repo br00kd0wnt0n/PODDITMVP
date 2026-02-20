@@ -558,8 +558,9 @@ export async function generateEpisode(params: {
     const totalSources = episodeData.segments.reduce((sum, s) => sum + s.sources.length, 0);
     console.log(`[Poddit] Source validation: ${validationMs}ms, ${totalSources} kept, ${strippedNoUrl} no-url, ${strippedUnreachable} unreachable, ${strippedUnsafe} unsafe`);
 
-    // 6. Build the full script for TTS (includes epilogue with source attribution)
-    const fullScript = buildFullScript(episodeData, { timezone });
+    // 6. Build the main script + epilogue for TTS (epilogue gets its own sound bed)
+    const { main: mainScript, epilogue: epilogueScript } = buildFullScript(episodeData, { timezone });
+    const fullScript = epilogueScript ? `${mainScript}\n\n${epilogueScript}` : mainScript;
 
     // 7. Create segment records (batch for efficiency)
     if (episodeData.segments.length > 0) {
@@ -574,7 +575,7 @@ export async function generateEpisode(params: {
       });
     }
 
-    // 8. Update episode with script
+    // 8. Update episode with script (stored script includes epilogue for reference)
     await prisma.episode.update({
       where: { id: episode.id },
       data: {
@@ -588,11 +589,12 @@ export async function generateEpisode(params: {
 
     // 9. (signals already marked USED in the transaction above)
 
-    // 10. Generate audio (pass user's voice preference)
-    const ttsScript = sanitizeForTTS(fullScript);
-    console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}...`);
+    // 10. Generate audio (pass user's voice preference + epilogue as separate segment)
+    const ttsScript = sanitizeForTTS(mainScript);
+    const ttsEpilogue = epilogueScript ? sanitizeForTTS(epilogueScript) : undefined;
+    console.log(`[Poddit] Generating audio${voiceKey ? ` (voice: ${voiceKey})` : ''}${ttsEpilogue ? ' + epilogue' : ''}...`);
     console.log(`[Poddit] TTS intro preview: ${ttsScript.split('\n\n')[0].substring(0, 200)}`);
-    const { audioUrl, duration, ttsCharacters, ttsChunks, ttsMs } = await generateAudio(ttsScript, episode.id, voiceKey);
+    const { audioUrl, duration, ttsCharacters, ttsChunks, ttsMs } = await generateAudio(ttsScript, episode.id, voiceKey, ttsEpilogue);
 
     // 11. Build generation metadata for cost tracking
     const inputTokens = synthesisResult.usage.input_tokens;
@@ -668,7 +670,7 @@ function sanitizeForTTS(script: string): string {
     .replace(/,\s*,/g, ',');     // clean up double commas
 }
 
-function buildFullScript(data: EpisodeData, options?: { timezone?: string }): string {
+function buildFullScript(data: EpisodeData, options?: { timezone?: string }): { main: string; epilogue: string } {
   const parts: string[] = [];
 
   // Intro
@@ -691,13 +693,10 @@ function buildFullScript(data: EpisodeData, options?: { timezone?: string }): st
     parts.push(data.outro);
   }
 
-  // Epilogue — fixed template with dynamic date + sources
+  // Epilogue — separate from main script for independent TTS + sound bed
   const epilogue = buildEpilogue(data, options?.timezone);
-  if (epilogue) {
-    parts.push(epilogue);
-  }
 
-  return parts.join('\n\n');
+  return { main: parts.join('\n\n'), epilogue };
 }
 
 /**
