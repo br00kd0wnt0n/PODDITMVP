@@ -73,12 +73,12 @@ export default function HighlightsPanel({
                     {trends && trends.map(t => (
                       <p key={t.topic} className="text-sm text-stone-300 leading-relaxed">
                         <span className="font-semibold text-teal-400">{t.topic}</span>
-                        {' '}signals up <span className="font-semibold text-teal-400">{t.change}×</span> this month
+                        {' '}signals up <span className="font-semibold text-teal-400">{t.change}×</span> this week
                       </p>
                     ))}
                     {newTopics && newTopics.length > 0 && (
                       <p className="text-sm text-stone-300 leading-relaxed">
-                        New this month:{' '}
+                        New this week:{' '}
                         {newTopics.map((topic, i) => (
                           <span key={topic}>
                             {i > 0 && (i === newTopics.length - 1 ? ' and ' : ', ')}

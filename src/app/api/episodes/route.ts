@@ -97,25 +97,30 @@ export async function GET(request: NextRequest) {
     const topicCounts: Record<string, { display: string; count: number }> = {};
     const channelCounts: Record<string, number> = {};
 
-    // Temporal bucketing for Curiosity Patterns
+    // Temporal bucketing for Curiosity Patterns (weekly)
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-    const currentMonthTopics: Record<string, number> = {};
-    const lastMonthTopics: Record<string, number> = {};
-    let currentMonthSignalCount = 0;
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfLastWeek = new Date(startOfWeek);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+    const currentWeekTopics: Record<string, number> = {};
+    const lastWeekTopics: Record<string, number> = {};
+    let currentWeekSignalCount = 0;
 
     highlightSignals.forEach(s => {
       // Channel counts
       channelCounts[s.channel] = (channelCounts[s.channel] || 0) + 1;
 
-      // Monthly bucket
-      const month = `${s.createdAt.getFullYear()}-${String(s.createdAt.getMonth() + 1).padStart(2, '0')}`;
-      if (month === currentMonth) currentMonthSignalCount++;
-      const bucket = month === currentMonth ? currentMonthTopics : month === lastMonth ? lastMonthTopics : null;
+      // Weekly bucket
+      const ts = s.createdAt.getTime();
+      if (ts >= startOfWeek.getTime()) currentWeekSignalCount++;
+      const bucket = ts >= startOfWeek.getTime() ? currentWeekTopics
+        : ts >= startOfLastWeek.getTime() ? lastWeekTopics
+        : null;
 
-      // Topic counts (all-time + monthly)
+      // Topic counts (all-time + weekly)
       s.topics.forEach(t => {
         const key = t.trim().toLowerCase();
         if (!topicCounts[key]) topicCounts[key] = { display: t, count: 0 };
@@ -138,9 +143,9 @@ export async function GET(request: NextRequest) {
     const trends: { topic: string; previous: number; current: number; change: number }[] = [];
     const newTopics: string[] = [];
 
-    if (currentMonthSignalCount >= 5) {
-      for (const [key, current] of Object.entries(currentMonthTopics)) {
-        const previous = lastMonthTopics[key] || 0;
+    if (currentWeekSignalCount >= 3) {
+      for (const [key, current] of Object.entries(currentWeekTopics)) {
+        const previous = lastWeekTopics[key] || 0;
         const display = topicCounts[key]?.display || key;
         if (previous === 0 && current >= 2) {
           newTopics.push(display);

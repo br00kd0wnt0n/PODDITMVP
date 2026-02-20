@@ -1262,16 +1262,7 @@ function Dashboard() {
           generating={generating}
         />
 
-        {/* Chrome extension hint */}
-        <a
-          href="https://chromewebstore.google.com/detail/poddit-%E2%80%94-save-to-your-per/kjjogneapkgcccohhiipgcokghflilnl"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 text-xs text-stone-600 hover:text-stone-400 transition-colors mt-1.5 group"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-stone-600 group-hover:text-teal-400/70 transition-colors"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="21.17" y1="8" x2="12" y2="8" /><line x1="3.95" y1="6.06" x2="8.54" y2="14" /><line x1="10.88" y1="21.94" x2="15.46" y2="14" /></svg>
-          <span>Install the <span className="text-stone-500 group-hover:text-teal-400/80 transition-colors">Poddit Chrome extension</span> to save signals right from your browser</span>
-        </a>
+
       </section>
 
       {/* ══════════════════════════════════════════════════════════════ */}
