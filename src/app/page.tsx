@@ -1179,7 +1179,7 @@ function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── BRANDED WELCOME HERO ─────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      <section className="mb-8 relative z-30">
+      <section className="mb-5 relative z-30">
         {/* Top bar: logo + user menu */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -1261,8 +1261,6 @@ function Dashboard() {
           isEmptyState={isEmptyState}
           generating={generating}
         />
-
-
       </section>
 
       {/* ══════════════════════════════════════════════════════════════ */}
