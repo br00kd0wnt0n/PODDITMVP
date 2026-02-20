@@ -51,12 +51,14 @@ export default function SignInPage() {
         setLoading(false);
         signingInRef.current = false;
       } else if (result?.ok) {
-        // Navigate immediately — no setTimeout delay.
-        // The page-exit CSS animation runs during navigation but we don't wait for it.
-        // Eliminating the 450ms delay prevents race conditions where a delayed
-        // router.replace('/') fires after SessionProvider has already re-rendered.
+        // Use hard navigation (not router.replace) to avoid the soft→hard reload cycle.
+        // The sign-in page has no SessionProvider (excluded in providers.tsx), but the
+        // dashboard does. A client-side router.replace('/') causes the Providers component
+        // to switch from bare children to <SessionProvider>, which changes the React tree
+        // structure and makes Next.js fall back to a hard navigation anyway — resulting in
+        // a visible double-load. By navigating hard from the start, we get one clean load.
         setExiting(true);
-        router.replace('/');
+        window.location.replace('/');
       }
     } catch {
       setError('Something went wrong. Please try again.');

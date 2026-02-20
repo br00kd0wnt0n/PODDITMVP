@@ -72,9 +72,18 @@ function Dashboard() {
   // Must run before any React reconciliation that touches form elements.
   useEffect(() => { patchDomForAutofillSafety(); }, []);
 
-  // Client-side auth guard — redirect if no session
+  // Client-side auth guard — redirect if no session.
+  // Track whether we've ever been authenticated in this mount cycle.
+  // SessionProvider's BroadcastChannel can trigger a second _getSession() call
+  // after login, which briefly flips status to 'loading' → 'unauthenticated'
+  // before re-resolving to 'authenticated'. Without this guard, that transient
+  // blip fires router.replace('/auth/signin'), middleware sees a valid JWT and
+  // bounces back to /, causing a full hard reload.
+  const wasAuthenticated = useRef(false);
+  if (status === 'authenticated') wasAuthenticated.current = true;
+
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'unauthenticated' && !wasAuthenticated.current) {
       router.replace('/auth/signin');
     }
   }, [status, router]);
