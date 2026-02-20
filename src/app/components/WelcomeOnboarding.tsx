@@ -296,8 +296,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
           >
             {/* ══ Card 1: How Poddit Works ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4">
-              <h2 className="text-lg font-bold text-white mb-1.5">How Poddit Works</h2>
-              <p className="text-xs text-stone-400 mb-6 leading-relaxed">Poddit turns the links, ideas, and topics you save into a personalized audio briefing &mdash; a podcast made just for you.</p>
+              <h2 className="text-xl font-bold text-white mb-1.5">How Poddit Works</h2>
+              <p className="text-sm text-stone-400 mb-5 leading-relaxed">Poddit turns the links, ideas, and topics you save into a personalized audio briefing &mdash; a podcast made just for you.</p>
 
               <div className="space-y-0">
                 {/* Step 1: Capture */}
@@ -373,8 +373,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
 
             {/* ══ Card 2: Add to Your Queue ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4">
-              <h2 className="text-lg font-bold text-white mb-1.5">How to Add to Your Queue</h2>
-              <p className="text-xs text-stone-400 mb-5 leading-relaxed">There are lots of ways to send signals to Poddit. Use whichever fits your flow &mdash; they all end up in the same queue.</p>
+              <h2 className="text-xl font-bold text-white mb-1.5">How to Add to Your Queue</h2>
+              <p className="text-sm text-stone-400 mb-4 leading-relaxed">There are lots of ways to send signals to Poddit. Use whichever fits your flow &mdash; they all end up in your personal queue.</p>
 
               <div className="space-y-3.5">
                 {/* Type or paste */}
@@ -469,8 +469,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
 
             {/* ══ Card 3: Make It Yours ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4 overflow-y-auto" style={{ maxHeight: '65vh' }}>
-              <h2 className="text-lg font-bold text-white mb-1.5">Make It Yours</h2>
-              <p className="text-xs text-stone-400 mb-5 leading-relaxed">Set up the basics to get the most out of Poddit. You can always change these later in Settings.</p>
+              <h2 className="text-xl font-bold text-white mb-1.5">Make It Yours</h2>
+              <p className="text-sm text-stone-400 mb-4 leading-relaxed">Set up the basics to get the most out of Poddit. You can always change these later in Settings.</p>
 
               <div className="space-y-5">
                 {/* Phone number */}
