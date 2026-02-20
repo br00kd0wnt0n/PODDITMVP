@@ -59,10 +59,10 @@ export default function RootLayout({
                 &copy; 2026 Heathen Digital LLC. All rights reserved. Poddit&trade;
               </p>
               <div className="flex items-center gap-4">
-                <Link href="/terms" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                <Link href="/terms" prefetch={false} className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
                   Terms
                 </Link>
-                <Link href="/privacy" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
+                <Link href="/privacy" prefetch={false} className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
                   Privacy
                 </Link>
                 <a href="mailto:Hello@poddit.com" className="text-xs text-stone-600 hover:text-stone-400 transition-colors">

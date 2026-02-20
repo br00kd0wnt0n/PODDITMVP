@@ -98,7 +98,6 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
-            autoFocus
             required
             className="w-full px-4 py-3 bg-white/[0.07] border border-white/15 rounded-xl text-sm text-white
                        placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20
