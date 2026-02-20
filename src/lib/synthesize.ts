@@ -290,16 +290,17 @@ export async function generateEpisode(params: {
 
   const since = params.since || getLastWeekStart();
 
-  console.log(`[Poddit] Generating episode for ${userId}${params.signalIds ? ` (${params.signalIds.length} selected signals)` : ` since ${since.toISOString()}`}`);
-
-  // Fetch user preferences for voice + name
+  // Fetch user preferences for voice + name + briefing style
   const user = await prisma.user.findUnique({ where: { id: userId } });
   const preferences = (user?.preferences as Record<string, string>) || {};
   const voiceKey = preferences.voice || undefined;
   const userName = user?.name || undefined;
   const namePronunciation = preferences.namePronunciation || undefined;
   const episodeLength = preferences.episodeLength || undefined;
+  const briefingStyle = preferences.briefingStyle || 'standard';
   const timezone = preferences.timezone || 'America/New_York';
+
+  console.log(`[Poddit] Generating episode for ${userId}${params.signalIds ? ` (${params.signalIds.length} selected signals)` : ` since ${since.toISOString()}`} [style: ${briefingStyle}]`);
 
   // 1. Gather signals and lock them atomically in a transaction
   //    This prevents duplicate episodes from concurrent generate requests.
@@ -379,7 +380,7 @@ export async function generateEpisode(params: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params.manual, userName, namePronunciation, episodeLength, timezone, priorEpisodes }
+      { manual: params.manual, userName, namePronunciation, episodeLength, briefingStyle, timezone, priorEpisodes }
     );
 
     // 4. Call Claude for synthesis with web search
@@ -618,6 +619,7 @@ export async function generateEpisode(params: {
       ttsCharacters,
       ttsChunks,
       ttsMs,
+      briefingStyle,
       costs: calculateGenerationCosts({ inputTokens, outputTokens, webSearches: webSearchCount, ttsCharacters }),
     };
     console.log(`[Poddit] Generation cost: $${generationMeta.costs.total.toFixed(4)} (Claude: $${generationMeta.costs.claude.toFixed(4)}, Search: $${generationMeta.costs.webSearch.toFixed(4)}, TTS: $${generationMeta.costs.tts.toFixed(4)})`);

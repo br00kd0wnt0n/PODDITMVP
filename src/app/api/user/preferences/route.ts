@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { VOICES } from '@/lib/tts';
 
 const VALID_LENGTHS = ['short', 'medium', 'long'];
+const VALID_BRIEFING_STYLES = ['essential', 'standard', 'strategic'];
 
 // E.164 phone format: +1XXXXXXXXXX
 const E164_REGEX = /^\+[1-9]\d{1,14}$/;
@@ -124,6 +125,17 @@ export async function PATCH(request: NextRequest) {
           );
         }
         newPrefs.episodeLength = preferences.episodeLength || 'medium';
+      }
+
+      // Briefing style
+      if (preferences.briefingStyle !== undefined) {
+        if (preferences.briefingStyle && !VALID_BRIEFING_STYLES.includes(preferences.briefingStyle)) {
+          return NextResponse.json(
+            { error: `Invalid briefing style. Options: ${VALID_BRIEFING_STYLES.join(', ')}` },
+            { status: 400 }
+          );
+        }
+        newPrefs.briefingStyle = preferences.briefingStyle || 'standard';
       }
 
       // Name pronunciation guide (optional, stored as-is)

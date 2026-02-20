@@ -115,6 +115,7 @@ export function buildSynthesisPrompt(signals: {
   userName?: string;
   namePronunciation?: string;
   episodeLength?: string;
+  briefingStyle?: string;
   timezone?: string;
   priorEpisodes?: { title: string | null; topicsCovered: string[]; summary: string | null; generatedAt: Date | null }[];
 }): string {
@@ -193,17 +194,69 @@ export function buildSynthesisPrompt(signals: {
     prompt += `\n`;
   }
 
-  // ── LENGTH TARGETS ──
-  const lengthTargets: Record<string, string> = {
-    short: '5-8 minutes of spoken audio (roughly 750-1200 words of script)',
-    medium: '10-15 minutes of spoken audio (roughly 1500-2500 words of script)',
-    long: '15-25 minutes of spoken audio (roughly 2000-3500 words of script)',
-  };
-  const targetLength = lengthTargets[episodeLength] || lengthTargets.medium;
+  // ── BRIEFING STYLE + LENGTH ──
+  const briefingStyle = options?.briefingStyle || 'standard';
 
-  // ── INSTRUCTIONS ──
-  prompt += `## EPISODE GUIDELINES
-- Target length: ${targetLength}
+  if (briefingStyle === 'essential') {
+    prompt += `## BRIEFING STYLE: ESSENTIAL
+This is a concise executive briefing — fast, dense, no filler.
+
+Structure your episode as:
+1. Opening Frame: date + 2-4 key themes in one sentence
+2. Theme segments (2-4): each focused on what's happening (1-2 sentences) and why it matters (1-2 key points)
+3. A final "Watch Signals" segment: 3-6 brief spoken bullets of developments to monitor — frame as "A few things to keep an eye on..." or similar
+4. Closing: one sentence, forward-looking
+
+Keep it tight. Every word earns its place. Skip the connections segment — weave any cross-theme threads into the themes themselves.
+- Target length: 3-5 minutes of spoken audio (roughly 450-750 words of script)
+- Research: 1 search per theme max. Prioritize freshness and facts over counterpoints.
+
+## EPISODE GUIDELINES
+- For link-based topics: discuss the TOPIC using multiple perspectives and 2-3 sources (max 3 per segment), not just the specific article
+- For voice-captured topics: search for and discuss current developments, citing the real sources you find
+- Include a short, natural intro with today's date and signal count
+- Weave brief transitions between segments
+- The episode should feel like one coherent narrative, not a list of disconnected summaries
+- Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
+
+Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields. The "connections" field can be empty for Essential style.`;
+
+  } else if (briefingStyle === 'strategic') {
+    prompt += `## BRIEFING STYLE: STRATEGIC
+This is an in-depth strategic briefing for a senior decision-maker.
+
+Structure your episode as:
+1. Opening Frame: date + themes + a framing observation about what connects them
+2. Theme Deep Dives (3-5 segments): each should cover:
+   - What's happening (the development)
+   - Why it's emerging now (context, driving forces)
+   - Tensions & counterpoints (who disagrees, what could go wrong)
+   - Strategic implications (actions, risks, or opportunities worth considering)
+3. Cross-theme Insight (in the "connections" field): a pattern across themes + second-order effects
+4. A final segment titled "Watch Signals": 5-10 spoken bullets — developments, inflection points, decisions to track
+5. Decision Prompts: weave 1-3 reflective questions into the outro that frame upcoming choices for the listener
+6. Closing: short, forward-looking
+
+Go deep. Multiple perspectives on each theme. Don't shy from complexity or nuance.
+- Target length: 10-15 minutes of spoken audio (roughly 1500-2500 words of script)
+- Research: 2-3 searches per theme. Require at least one counterpoint or alternative perspective per theme.
+
+## EPISODE GUIDELINES
+- For link-based topics: discuss the TOPIC using multiple perspectives and 2-3 sources (max 3 per segment), not just the specific article
+- For voice-captured topics: search for and discuss current developments, citing the real sources you find
+- Include a short, natural intro with today's date and signal count
+- Weave informal transitions between segments (varied, conversational)
+- Include a rich "connections" segment noting patterns and second-order effects
+- End the outro with reflective decision prompts — questions that frame choices, not answers
+- The episode should feel like one coherent narrative, not a list of disconnected summaries
+- Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
+
+Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
+
+  } else {
+    // Standard (default) — preserves current behavior
+    prompt += `## EPISODE GUIDELINES
+- Target length: 7-10 minutes of spoken audio (roughly 1100-1500 words of script)
 - Group related signals into coherent segments (3-6 segments typical)
 - Use web search to research each topic segment — find real sources, verify facts, and discover recent developments. Aim for 1-2 searches per segment.
 - For link-based topics: discuss the TOPIC using multiple perspectives and 2-3 sources (max 3 per segment), not just the specific article
@@ -216,6 +269,7 @@ export function buildSynthesisPrompt(signals: {
 - Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
 
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
+  }
 
   return prompt;
 }

@@ -210,7 +210,7 @@ export default function WelcomePage() {
         <section className="p-4 bg-poddit-900/40 border border-stone-800/40 rounded-xl">
           <h2 className="text-sm font-semibold text-stone-300 uppercase tracking-wider mb-2">Customize</h2>
           <p className="text-xs text-stone-500 mb-3">
-            Choose your narrator voice and preferred episode length.
+            Choose your narrator voice and briefing style &mdash; from concise executive summaries to in-depth strategic analysis.
           </p>
           <Link
             href="/settings"

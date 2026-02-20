@@ -403,6 +403,14 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Extension packaged** — v1.2.0 zip ready for Chrome Web Store upload (poddit-extension-v1.2.0.zip)
 - [x] **Chrome extension input hint** — subtle prompt below CaptureInput: "Install the Poddit Chrome extension to save signals right from your browser" with Chrome icon, links to Web Store
 
+### Sprint: Briefing Style Preference ✅
+- [x] **Briefing Style setting** — three modes (Essential 3-5 min, Standard 7-10 min, Strategic 10-15 min) that change episode structure, depth, and length via prompt instructions. Replaces old Episode Length setting. Prompt-driven (same JSON schema), backward compatible (missing value defaults to standard).
+- [x] **Preferences API** — `briefingStyle` enum validation (`essential | standard | strategic`) in PATCH route
+- [x] **Settings UI** — replaced Episode Length section with Briefing Style cards (label, duration, description)
+- [x] **Prompt integration** — style-specific `## BRIEFING STYLE` sections in buildSynthesisPrompt with structure, length targets, and research strategy per style
+- [x] **Generation pipeline** — briefingStyle read from preferences, passed to prompt builder, stored in generationMeta
+- [x] **Welcome page** — updated customize description to reference briefing styles
+
 ### Needs Assessment — Prioritize Before Action
 - [ ] **Image signal uploads** — new signal type: user uploads an image (screenshot, photo, chart, infographic) which gets assessed by GPT-4 Vision as a signal. Needs: new `IMAGE` InputType enum value, capture API accepting image uploads (multipart/form), GPT-4V analysis to extract topics/context/description, storage (R2 or inline base64), dashboard UI for image capture, synthesis prompt integration for image-derived signals. Consider: file size limits, supported formats, cost per image analysis, privacy implications of image content.
 - [x] **Episode source narration (epilogue)** — implemented as a fixed-template epilogue with separate sound bed, not LLM-generated. TTS'd independently, mixed with `Poddit_Epilogue.mp3`, concatenated after outro with 1.5s gap. Uses publication names (not domains), top 3 deduplicated from segment sources. See Pre-Phase 1 in `plan.md`.

@@ -122,6 +122,28 @@
 
 ---
 
+## Pre-Phase 1: Briefing Style Preference — Size: S (~1 day) ✅
+
+**What:** Three briefing styles — Essential (3-5 min), Standard (7-10 min), Strategic (10-15 min) — that change episode structure, depth, and length via prompt instructions. Replaces the old Episode Length setting.
+
+**Key decisions:**
+- **Prompt-driven, not schema-driven** — keeps existing JSON schema (title, intro, segments, summary, connections, outro) unchanged. No migration, no player rewrite, no pipeline changes.
+- **Essential:** Fewer segments (2-4), bullet-heavy, skip connections, tight outro, fewer searches
+- **Standard:** Current behavior (3-6 segments, moderate depth) — zero change for existing users
+- **Strategic:** More segments (3-5), counterpoints + implications per theme, richer connections, decision prompts in outro, more searches
+- **Backward compatible:** Missing `briefingStyle` defaults to `standard`. Old `episodeLength` values ignored when `briefingStyle` is set.
+
+**Files:**
+- `src/app/api/user/preferences/route.ts` — validation for `briefingStyle` enum
+- `src/app/settings/page.tsx` — replaced Episode Length with Briefing Style cards
+- `src/app/welcome/page.tsx` — updated customize description
+- `src/lib/prompts.ts` — style-specific prompt sections per briefing style
+- `src/lib/synthesize.ts` — reads + passes briefingStyle, stores in generationMeta
+
+**Status:** COMPLETE
+
+---
+
 ## Phase 1: "The Conversation" (Weeks 1-3)
 
 **Goal:** Episodes feel like an ongoing conversation, not isolated briefings. Highest value-to-effort ratio.

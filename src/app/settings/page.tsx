@@ -12,10 +12,10 @@ interface Voice {
   isDefault: boolean;
 }
 
-const EPISODE_LENGTHS = [
-  { key: 'short', label: 'Short', description: '~5 min' },
-  { key: 'medium', label: 'Medium', description: '~10 min' },
-  { key: 'long', label: 'Long', description: '~15 min' },
+const BRIEFING_STYLES = [
+  { key: 'essential', label: 'Essential', duration: '3-5 min', description: 'Concise executive briefing. Key themes, what matters, what to watch.' },
+  { key: 'standard', label: 'Standard', duration: '7-10 min', description: 'Balanced deep dives with cross-theme insights. The full Poddit experience.' },
+  { key: 'strategic', label: 'Strategic', duration: '10-15 min', description: 'In-depth analysis with counterpoints, implications, and decision prompts.' },
 ];
 
 export default function SettingsPage() {
@@ -26,7 +26,7 @@ export default function SettingsPage() {
   const [namePronunciation, setNamePronunciation] = useState('');
   const [phone, setPhone] = useState('');
   const [voice, setVoice] = useState('gandalf');
-  const [episodeLength, setEpisodeLength] = useState('medium');
+  const [briefingStyle, setBriefingStyle] = useState('standard');
   const [timezone, setTimezone] = useState('America/New_York');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -71,7 +71,7 @@ export default function SettingsPage() {
       const p = prefs.preferences || {};
       setNamePronunciation(p.namePronunciation || '');
       setVoice(p.voice || 'gandalf');
-      setEpisodeLength(p.episodeLength || 'medium');
+      setBriefingStyle(p.briefingStyle || 'standard');
       setTimezone(p.timezone || 'America/New_York');
       setNotificationsEnabled(!!prefs.consentedAt);
       setVoices(voiceData.voices || []);
@@ -178,7 +178,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name,
           phone: phone || null,
-          preferences: { voice, episodeLength, namePronunciation: namePronunciation || undefined, timezone },
+          preferences: { voice, briefingStyle, namePronunciation: namePronunciation || undefined, timezone },
           consent: notificationsEnabled,
         }),
       });
@@ -355,31 +355,39 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* ── Section 3: Episode Length ── */}
+        {/* ── Section 3: Briefing Style ── */}
         <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
-            Episode Length
+            Briefing Style
           </label>
           <p className="text-xs text-stone-500 mb-3">
-            Target duration for generated episodes
+            Controls the depth, structure, and length of your episodes
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {EPISODE_LENGTHS.map((len) => (
-              <button
-                key={len.key}
-                onClick={() => setEpisodeLength(len.key)}
-                className={`p-3 rounded-xl border text-center transition-all ${
-                  episodeLength === len.key
-                    ? 'border-teal-500/50 bg-teal-500/5 shadow-[0_0_12px_rgba(20,184,166,0.15)] lens-flare-edge'
-                    : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
-                }`}
-              >
-                <p className={`text-sm font-semibold ${episodeLength === len.key ? 'text-teal-300' : 'text-white'}`}>
-                  {len.label}
-                </p>
-                <p className="text-xs text-stone-500 mt-0.5">{len.description}</p>
-              </button>
-            ))}
+          <div className="grid grid-cols-1 gap-2">
+            {BRIEFING_STYLES.map((style) => {
+              const isSelected = briefingStyle === style.key;
+              return (
+                <button
+                  key={style.key}
+                  onClick={() => setBriefingStyle(style.key)}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? 'border-teal-500/50 bg-teal-500/5 shadow-[0_0_12px_rgba(20,184,166,0.15)] lens-flare-edge'
+                      : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-sm font-semibold ${isSelected ? 'text-teal-300' : 'text-white'}`}>
+                      {style.label}
+                    </p>
+                    <span className={`text-xs font-mono ${isSelected ? 'text-teal-400/70' : 'text-stone-600'}`}>
+                      {style.duration}
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed">{style.description}</p>
+                </button>
+              );
+            })}
           </div>
         </section>
 
