@@ -357,7 +357,18 @@ export async function generateEpisode(params: {
   console.log(`[Poddit] Processing ${signals.length} signals (locked to episode ${episode.id})`);
 
   try {
-    // 3. Build the synthesis prompt (pass user prefs for personalization)
+    // 3a. Query prior episodes for continuity callbacks
+    const priorEpisodes = await prisma.episode.findMany({
+      where: { userId, status: 'READY' },
+      orderBy: { generatedAt: 'desc' },
+      take: 3,
+      select: { title: true, topicsCovered: true, summary: true, generatedAt: true },
+    });
+    if (priorEpisodes.length > 0) {
+      console.log(`[Poddit] Found ${priorEpisodes.length} prior episode(s) for continuity context`);
+    }
+
+    // 3b. Build the synthesis prompt (pass user prefs + prior episodes for personalization)
     const synthesisPrompt = buildSynthesisPrompt(
       signals.map(s => ({
         inputType: s.inputType,
@@ -368,7 +379,7 @@ export async function generateEpisode(params: {
         fetchedContent: s.fetchedContent,
         topics: s.topics,
       })),
-      { manual: params.manual, userName, namePronunciation, episodeLength, timezone }
+      { manual: params.manual, userName, namePronunciation, episodeLength, timezone, priorEpisodes }
     );
 
     // 4. Call Claude for synthesis with web search

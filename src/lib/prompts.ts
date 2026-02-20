@@ -53,6 +53,9 @@ DO NOT:
 
 ## EPISODE STRUCTURE
 
+### Continuity
+When PREVIOUS EPISODES context is provided and today's signals naturally connect to a topic from a recent episode, weave a brief callback into the intro or the relevant segment opening — e.g. "Last week we explored X — and there's been a development." Frame as "Last week" for weekly episodes, "Last time" for Poddit Now. Keep callbacks to one sentence — acknowledge, don't recap. Only reference when genuinely relevant. If nothing connects, don't force it.
+
 ### Intro (required)
 Write a short, warm one-liner to open the episode. It should feel natural and varied — never the same twice. Include the date and number of sources/signals naturally. The EPISODE CONTEXT section will tell you whether this is a "Poddit Now" (on-demand) or a weekly episode — match the energy and framing accordingly. Examples of weekly tone:
 - "Hey, it's Friday the fourteenth. You dropped five signals this week — let's see what they add up to."
@@ -107,7 +110,14 @@ export function buildSynthesisPrompt(signals: {
   source: string | null;
   fetchedContent: string | null;
   topics: string[];
-}[], options?: { manual?: boolean; userName?: string; namePronunciation?: string; episodeLength?: string; timezone?: string }): string {
+}[], options?: {
+  manual?: boolean;
+  userName?: string;
+  namePronunciation?: string;
+  episodeLength?: string;
+  timezone?: string;
+  priorEpisodes?: { title: string | null; topicsCovered: string[]; summary: string | null; generatedAt: Date | null }[];
+}): string {
   const linkSignals = signals.filter(s => s.inputType === 'LINK');
   const topicSignals = signals.filter(s => s.inputType === 'TOPIC' || s.inputType === 'VOICE');
   const emailSignals = signals.filter(s => s.inputType === 'FORWARDED_EMAIL');
@@ -131,6 +141,25 @@ export function buildSynthesisPrompt(signals: {
     : '';
 
   let prompt = `Generate this Poddit episode. Today is ${today}. The user captured ${signals.length} signals.\n\n## EPISODE CONTEXT\n${episodeType}${nameContext}\n\n`;
+
+  // ── PREVIOUS EPISODES (for continuity callbacks) ──
+  const priorEpisodes = options?.priorEpisodes;
+  if (priorEpisodes && priorEpisodes.length > 0) {
+    prompt += `## PREVIOUS EPISODES (for continuity)\nYou have covered these topics recently for this listener. If any of today's signals naturally connect to a previous episode, weave a brief callback into the intro or the relevant segment opening — e.g. "Last week we explored X — and there's been a development." Reference only when genuinely relevant. Do NOT force callbacks or recap old content.\n\n`;
+    for (const ep of priorEpisodes) {
+      const epDate = ep.generatedAt
+        ? new Date(ep.generatedAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: timezone })
+        : 'recent';
+      prompt += `Episode: "${ep.title || 'Untitled'}" (${epDate})\n`;
+      if (ep.topicsCovered.length > 0) {
+        prompt += `Topics: ${ep.topicsCovered.join(', ')}\n`;
+      }
+      if (ep.summary) {
+        prompt += `Summary: ${ep.summary}\n`;
+      }
+      prompt += `\n`;
+    }
+  }
 
   // ── LINKS ──
   if (linkSignals.length > 0) {

@@ -126,22 +126,25 @@
 
 **Goal:** Episodes feel like an ongoing conversation, not isolated briefings. Highest value-to-effort ratio.
 
-### 1a. Episode Callbacks — Size: S (~2-3 days)
+### 1a. Episode Callbacks — Size: S (~2-3 days) ✅
 **What:** If a user captures a signal about topic X and the last episode covered X, the next episode opens with a callback: "Last week we talked about the EU AI Act — well, there's been a development."
 
 **Dependencies:** None — `Episode.topicsCovered[]` and `Episode.summary` already exist.
 
 **Implementation:**
 - Query last 3 episodes: `prisma.episode.findMany({ where: { userId, status: 'READY' }, take: 3, orderBy: { generatedAt: 'desc' }, select: { title, topicsCovered, summary } })`
-- Add "PREVIOUS EPISODE CONTEXT" section to `buildSynthesisPrompt` in `src/lib/prompts.ts`
-- Instruct Claude to reference when naturally relevant; frame as "Last week" for weekly, "Last time" for Poddit Now
-- Prompt guidance: "reference only when genuinely relevant" to prevent forced callbacks
+- Added "PREVIOUS EPISODES" context section to `buildSynthesisPrompt` in `src/lib/prompts.ts` — formatted with episode title, date, topics, and summary
+- Added "Continuity" guidance to `SYSTEM_PROMPT` — instructs Claude to weave callbacks naturally, keep to one sentence, frame as "Last week" / "Last time"
+- Prompt guardrails: "reference only when genuinely relevant", "do NOT force callbacks or recap old content"
+- Graceful degradation: section omitted entirely for new users with no prior episodes
 
 **Token impact:** ~450 tokens (3 summaries × ~150 words). At $3/MTok = ~$0.0014 extra per episode. Negligible.
 
 **Files:** `src/lib/prompts.ts`, `src/lib/synthesize.ts`
 
-**Risk:** Claude might over-reference. Mitigate with clear prompt guardrails.
+**Risk:** Claude might over-reference. Mitigated with clear prompt guardrails.
+
+**Status:** COMPLETE
 
 ### 1b. Curiosity Patterns — Size: S/M (~1 week)
 **What:** Server-side aggregation of signal topics over time. Surface temporal insights in the Highlights panel: "AI signals up 4x this month", "New interest: quantum computing."
@@ -330,7 +333,7 @@ Strongly defer. Post-PMF feature. Building now risks diluting Poddit's identity 
 
 | # | Feature | Size | Phase | Dependencies | Status |
 |---|---------|------|-------|--------------|--------|
-| 6 | Episode Callbacks | S | 1 | None | **NEXT — highest ROI** |
+| 6 | Episode Callbacks | S | 1 | None | ✅ Complete |
 | 1 | Curiosity Patterns | S/M | 1 | None | Ready to build |
 | 8 | Signal Friction | S | 1 | None | Ready (parallel) |
 | 3 | Research Planning | M | 2 | 1, 6 | After Phase 1 |
