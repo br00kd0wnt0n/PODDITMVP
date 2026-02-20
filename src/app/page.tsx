@@ -9,6 +9,7 @@ import { patchDomForAutofillSafety } from '@/lib/dom-safety';
 import HighlightsPanel from '@/app/components/HighlightsPanel';
 import EpisodeList from '@/app/components/EpisodeList';
 import CaptureInput from '@/app/components/CaptureInput';
+import WelcomeOnboarding from '@/app/components/WelcomeOnboarding';
 
 const STATUS_PHRASES = [
   'Connecting the dots...',
@@ -140,12 +141,8 @@ function Dashboard() {
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Welcome banner (first-load only, persisted in localStorage)
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
-
-  // Setup card (first-load, persisted in localStorage)
-  const [showSetupCard, setShowSetupCard] = useState(false);
-  const [setupPhoneSaved, setSetupPhoneSaved] = useState(false);
+  // Onboarding overlay (first-load only, persisted in localStorage)
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Feedback panel (opened from account dropdown)
   const [showFeedbackPanel, setShowFeedbackPanel] = useState(false);
@@ -153,63 +150,29 @@ function Dashboard() {
   useEffect(() => {
     if (status === 'authenticated' && !loading) {
       try {
-        const seen = localStorage.getItem('poddit-welcome-seen');
-        if (!seen) setShowWelcomeBanner(true);
-        const setupDone = localStorage.getItem('poddit-setup-dismissed');
-        if (!setupDone) setShowSetupCard(true);
+        const onboarded = localStorage.getItem('poddit-onboarding-complete');
+        if (onboarded) return;
+        // Migrate: if both old keys exist, skip new onboarding
+        const welcomeSeen = localStorage.getItem('poddit-welcome-seen');
+        const setupDismissed = localStorage.getItem('poddit-setup-dismissed');
+        if (welcomeSeen && setupDismissed) {
+          localStorage.setItem('poddit-onboarding-complete', '1');
+          return;
+        }
+        setShowOnboarding(true);
       } catch {
-        // localStorage unavailable (private browsing) — show defaults
-        setShowWelcomeBanner(true);
-        setShowSetupCard(true);
+        // localStorage unavailable (private browsing) — show onboarding
+        setShowOnboarding(true);
       }
     }
   }, [status, loading]);
 
-  const dismissWelcomeBanner = () => {
-    setShowWelcomeBanner(false);
-    try { localStorage.setItem('poddit-welcome-seen', '1'); } catch {}
-  };
-
-  const dismissSetupCard = () => {
-    setShowSetupCard(false);
-    try { localStorage.setItem('poddit-setup-dismissed', '1'); } catch {}
+  const completeOnboarding = () => {
+    setShowOnboarding(false);
+    try { localStorage.setItem('poddit-onboarding-complete', '1'); } catch {}
   };
 
   // Save phone from setup card (no SMS redirect)
-  const savePhoneSetup = async () => {
-    setPhoneError(null);
-    let formatted = phoneInput.trim().replace(/[\s\-\(\)\.]/g, '');
-    // Auto-prepend +1 for bare 10-digit US numbers
-    if (/^\d{10}$/.test(formatted)) formatted = `+1${formatted}`;
-    if (/^1\d{10}$/.test(formatted)) formatted = `+${formatted}`;
-    // Auto-prepend +44 for UK numbers starting with 0 (e.g. 07911123456)
-    if (/^0\d{10}$/.test(formatted)) formatted = `+44${formatted.slice(1)}`;
-    if (/^44\d{10}$/.test(formatted)) formatted = `+${formatted}`;
-    if (!/^\+[1-9]\d{1,14}$/.test(formatted)) {
-      setPhoneError('Include your country code (e.g. +1 for US, +44 for UK)');
-      return;
-    }
-    setPhoneSaving(true);
-    try {
-      const res = await fetch('/api/user/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formatted }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save');
-      }
-      setUserPhone(formatted);
-      setPhoneInput('');
-      setSetupPhoneSaved(true);
-    } catch (err: any) {
-      setPhoneError(err.message || 'Failed to save phone');
-    } finally {
-      setPhoneSaving(false);
-    }
-  };
-
   // Save phone number (flexible input — auto-prepends +1 for US, +44 for UK)
   const savePhone = async () => {
     setPhoneError(null);
@@ -1252,51 +1215,13 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* ── Welcome banner (first visit only, top of page) ── */}
-        {showWelcomeBanner && (
-          <div className="mb-5 p-5 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl animate-fade-in-up relative" style={{ animationFillMode: 'forwards' }}>
-            <button onClick={dismissWelcomeBanner} className="absolute top-4 right-4 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Dismiss">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-sm font-bold text-white">Welcome to <span className="font-display">Poddit</span></h2>
-              <span className="text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20">BETA</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
-              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-500/15 text-teal-400 text-[10px] font-bold flex items-center justify-center">1</span>
-                <div>
-                  <p className="text-xs font-medium text-stone-200">Capture</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Save links, topics, or voice notes as they catch your eye.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-400/15 text-violet-400 text-[10px] font-bold flex items-center justify-center">2</span>
-                <div>
-                  <p className="text-xs font-medium text-stone-200">Generate</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Hit <span className="text-teal-400/80 font-medium">Generate My Episode</span> or wait for your weekly roundup.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-poddit-950/40 border border-stone-800/20">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold flex items-center justify-center">3</span>
-                <div>
-                  <p className="text-xs font-medium text-stone-200">Listen</p>
-                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">Get a personalized audio episode that explains everything you saved.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-xs text-stone-500">Your feedback shapes Poddit — tap <span className="text-amber-300/70 font-medium">Feedback</span> in the account menu anytime.</p>
-              <Link href="/welcome" onClick={dismissWelcomeBanner} className="text-xs text-teal-400 hover:text-teal-300 font-medium transition-colors whitespace-nowrap">
-                View capture channels →
-              </Link>
-            </div>
-          </div>
+        {/* ── Onboarding overlay (first visit only) ── */}
+        {showOnboarding && (
+          <WelcomeOnboarding
+            onComplete={completeOnboarding}
+            userPhone={userPhone}
+            onPhoneSaved={(phone) => setUserPhone(phone)}
+          />
         )}
 
         {/* Hero greeting panel — light background with inner bokeh */}
@@ -1315,81 +1240,6 @@ function Dashboard() {
             <p className="text-sm text-stone-400 leading-relaxed max-w-xl">{getHeroSubtitle()}</p>
           </div>
         </div>
-
-        {/* ── Setup card (first visit — phone + settings nudge) ── */}
-        {showSetupCard && (
-          <div className="mb-5 p-5 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl animate-fade-in-up relative" style={{ animationFillMode: 'forwards' }}>
-            <button onClick={dismissSetupCard} className="absolute top-4 right-4 text-stone-600 hover:text-stone-400 transition-colors" aria-label="Dismiss">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            <h2 className="text-sm font-bold text-white mb-4">Complete Your Setup</h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              {/* Phone number section */}
-              <div className="p-4 rounded-xl bg-poddit-950/40 border border-stone-800/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
-                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
-                  </svg>
-                  <p className="text-xs font-medium text-stone-200">Add your phone number</p>
-                </div>
-                <p className="text-[11px] text-stone-500 leading-relaxed mb-3">Text links and voice memos straight to Poddit — the fastest way to capture on the go.</p>
-                {/* Both states always mounted — toggled via display */}
-                <div style={{ display: setupPhoneSaved || userPhone ? 'flex' : 'none' }} className="items-center gap-2 text-xs text-teal-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  Phone saved
-                </div>
-                <div style={{ display: !(setupPhoneSaved || userPhone) ? 'block' : 'none' }}>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      value={phoneInput}
-                      onChange={(e) => { setPhoneInput(e.target.value); setPhoneError(null); }}
-                      placeholder="(555) 123-4567"
-                      autoComplete="off"
-                      className={`flex-1 px-3 py-2 bg-white/[0.07] border rounded-lg text-sm text-white placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all ${phoneError ? 'border-red-500/40' : 'border-white/15'}`}
-                    />
-                    <button
-                      onClick={savePhoneSetup}
-                      disabled={phoneSaving || !phoneInput.trim()}
-                      className="px-4 py-2 bg-teal-500 text-white text-xs font-bold rounded-lg hover:bg-teal-400 disabled:bg-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed transition-all"
-                    >
-                      {phoneSaving ? '...' : 'Save'}
-                    </button>
-                  </div>
-                  {phoneError && <p className="text-[11px] text-red-400 mt-1.5">{phoneError}</p>}
-                </div>
-              </div>
-
-              {/* Settings nudge section */}
-              <div className="p-4 rounded-xl bg-poddit-950/40 border border-stone-800/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-violet-400">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-                  </svg>
-                  <p className="text-xs font-medium text-stone-200">Personalise your podcast</p>
-                </div>
-                <p className="text-[11px] text-stone-500 leading-relaxed mb-3">Choose your narrator voice and set your preferred episode length to make Poddit feel like yours.</p>
-                <Link
-                  href="/settings"
-                  onClick={dismissSetupCard}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-400 hover:text-teal-300 transition-colors"
-                >
-                  Open Settings
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
-                </Link>
-              </div>
-            </div>
-
-            <button onClick={dismissSetupCard} className="text-xs text-stone-600 hover:text-stone-400 transition-colors">
-              Skip for now
-            </button>
-          </div>
-        )}
 
         {/* Capture input */}
         <CaptureInput
