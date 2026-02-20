@@ -412,7 +412,7 @@ curl -X POST http://localhost:3000/api/generate \
 ### Upcoming — P1 (Early Access → Pre-Launch)
 - [ ] **Email / SMS strategy + sequence** — implement full engagement system: onboarding sequence (5 emails), weekly episode notification, mid-week queue nudge, queue-empty nudge, re-engagement (7/21/45 day). SendGrid now integrated for transactional email.
 - [ ] **Subscription tier comparison component** — build frontend tier comparison table (Curious / Informed / Focused) for marketing site or in-app settings. Pricing: Free / $9/mo / $19/mo with annual −20%. Feature differentiation: episode limits, on-demand, voice options, platform sync. See `documents/Poddit Monetization Model.docx` §2.1
-- [ ] **Cost & revenue tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode, projected revenue vs actual by tier. This is the operational heartbeat. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
+- [x] **Cost tracker in Mission Control** — admin dashboard showing per-episode cost breakdown (TTS, Claude API, infra), episodes generated per user, blended cost per episode. Revenue tracking deferred to post-launch. See `documents/Poddit Monetization Model.docx` §1.1 for unit economics
 - [x] **Player page design pass** — frosted glass panels, bokeh orbs, lens flares, glow effects across all player sections
 - [x] **Settings page design pass** — frosted glass sections, inner bokeh on voice selector, glass inputs, glow save button
 

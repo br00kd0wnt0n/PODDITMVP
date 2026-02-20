@@ -558,8 +558,8 @@ export async function generateEpisode(params: {
     const totalSources = episodeData.segments.reduce((sum, s) => sum + s.sources.length, 0);
     console.log(`[Poddit] Source validation: ${validationMs}ms, ${totalSources} kept, ${strippedNoUrl} no-url, ${strippedUnreachable} unreachable, ${strippedUnsafe} unsafe`);
 
-    // 6. Build the full script for TTS
-    const fullScript = buildFullScript(episodeData);
+    // 6. Build the full script for TTS (includes epilogue with source attribution)
+    const fullScript = buildFullScript(episodeData, { timezone });
 
     // 7. Create segment records (batch for efficiency)
     if (episodeData.segments.length > 0) {
@@ -668,7 +668,7 @@ function sanitizeForTTS(script: string): string {
     .replace(/,\s*,/g, ',');     // clean up double commas
 }
 
-function buildFullScript(data: EpisodeData): string {
+function buildFullScript(data: EpisodeData, options?: { timezone?: string }): string {
   const parts: string[] = [];
 
   // Intro
@@ -691,7 +691,58 @@ function buildFullScript(data: EpisodeData): string {
     parts.push(data.outro);
   }
 
+  // Epilogue — fixed template with dynamic date + sources
+  const epilogue = buildEpilogue(data, options?.timezone);
+  if (epilogue) {
+    parts.push(epilogue);
+  }
+
   return parts.join('\n\n');
+}
+
+/**
+ * Build the episode epilogue — a fixed-format spoken attribution.
+ * Not LLM-generated: consistent tone, zero extra tokens.
+ * Reinforces trust, differentiation, and source transparency.
+ */
+function buildEpilogue(data: EpisodeData, timezone?: string): string {
+  const tz = timezone || 'America/New_York';
+  const date = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: tz,
+  });
+
+  // Collect unique source publication names across all segments
+  const sourceNames = new Set<string>();
+  for (const segment of data.segments) {
+    for (const source of segment.sources) {
+      if (source.name && source.name.trim()) {
+        sourceNames.add(source.name.trim());
+      }
+    }
+  }
+
+  // Pick up to 3 unique source names
+  const topSources = Array.from(sourceNames).slice(0, 3);
+
+  let epilogue = `This episode was created for you on ${date}. Poddit analyzed the signals you captured and conducted independent research across multiple perspectives.`;
+
+  if (topSources.length > 0) {
+    const sourceList = topSources.length === 1
+      ? topSources[0]
+      : topSources.length === 2
+        ? `${topSources[0]} and ${topSources[1]}`
+        : `${topSources.slice(0, -1).join(', ')}, and ${topSources[topSources.length - 1]}`;
+
+    epilogue += ` Sources referenced in this briefing include reporting from ${sourceList}.`;
+  }
+
+  epilogue += ' You can explore the complete list of sources on your episode page.';
+
+  return epilogue;
 }
 
 export function getLastWeekStart(): Date {
