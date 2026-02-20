@@ -267,14 +267,6 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
           <div className="absolute bottom-[-10%] right-[-5%] w-40 h-40 rounded-full bg-violet-400/[0.08] blur-3xl" />
         </div>
 
-        {/* Skip button */}
-        <button
-          onClick={handleSkip}
-          className="absolute top-4 right-4 z-20 text-xs text-stone-600 hover:text-stone-400 transition-colors"
-        >
-          Skip
-        </button>
-
         {/* Progress bars */}
         <div className="relative z-10 flex items-center gap-1.5 px-6 pt-5 pb-2">
           {[0, 1, 2].map((i) => (
@@ -304,8 +296,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
           >
             {/* ══ Card 1: How Poddit Works ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4">
-              <h2 className="text-lg font-bold text-white mb-1">How Poddit Works</h2>
-              <p className="text-xs text-stone-500 mb-6">Your curiosity, compressed into audio.</p>
+              <h2 className="text-lg font-bold text-white mb-1.5">How Poddit Works</h2>
+              <p className="text-xs text-stone-400 mb-6 leading-relaxed">Poddit turns the links, ideas, and topics you save into a personalized audio briefing &mdash; a podcast made just for you.</p>
 
               <div className="space-y-0">
                 {/* Step 1: Capture */}
@@ -381,8 +373,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
 
             {/* ══ Card 2: Add to Your Queue ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4">
-              <h2 className="text-lg font-bold text-white mb-1">Add to Your Queue</h2>
-              <p className="text-xs text-stone-500 mb-5">Capture signals from anywhere.</p>
+              <h2 className="text-lg font-bold text-white mb-1.5">How to Add to Your Queue</h2>
+              <p className="text-xs text-stone-400 mb-5 leading-relaxed">There are lots of ways to send signals to Poddit. Use whichever fits your flow &mdash; they all end up in the same queue.</p>
 
               <div className="space-y-3.5">
                 {/* Type or paste */}
@@ -477,8 +469,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
 
             {/* ══ Card 3: Make It Yours ══ */}
             <div className="w-full flex-shrink-0 px-6 py-4 overflow-y-auto" style={{ maxHeight: '65vh' }}>
-              <h2 className="text-lg font-bold text-white mb-1">Make It Yours</h2>
-              <p className="text-xs text-stone-500 mb-5">You can always change these in Settings.</p>
+              <h2 className="text-lg font-bold text-white mb-1.5">Make It Yours</h2>
+              <p className="text-xs text-stone-400 mb-5 leading-relaxed">Set up the basics to get the most out of Poddit. You can always change these later in Settings.</p>
 
               <div className="space-y-5">
                 {/* Phone number */}
@@ -645,6 +637,12 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
             <div />
           )}
           <div className="flex-1" />
+          <button
+            onClick={handleSkip}
+            className="text-sm text-stone-600 hover:text-stone-400 transition-colors"
+          >
+            Skip
+          </button>
           {currentCard < 2 ? (
             <button
               onClick={goNext}
