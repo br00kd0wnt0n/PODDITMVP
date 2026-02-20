@@ -411,6 +411,30 @@ curl -X POST http://localhost:3000/api/generate \
 - [x] **Generation pipeline** — briefingStyle read from preferences, passed to prompt builder, stored in generationMeta
 - [x] **Welcome page** — updated customize description to reference briefing styles
 
+### Sprint: Welcome Onboarding Flow ✅
+- [x] **Swipeable overlay** — full-screen 3-card onboarding for first-time users, replaces inline welcome banner + setup card (~175 lines removed from page.tsx)
+- [x] **Card 1: How Poddit Works** — 4-step vertical flow (Capture → Collect → Generate → Listen) with color-coded icons and connector lines
+- [x] **Card 2: How to Add to Your Queue** — 6 capture channels with icons (type/paste, voice, SMS, email, Chrome extension, share sheet)
+- [x] **Card 3: Make It Yours** — actionable inline settings: phone input with save, voice selection with tap-to-preview (2×2 grid), briefing style picker (3 options). Saves via PATCH on "Get Started"
+- [x] **Swipe mechanics** — pure CSS `translateX()` + touch handlers, rubber banding at edges, vertical/horizontal intent detection, input focus disables swipe
+- [x] **localStorage migration** — new key `poddit-onboarding-complete`, auto-migrates users with both old keys
+- [x] **Voice reorder** — Jon > Ivy > Harper > Gandalf in tts.ts VOICES object (affects API response order for both onboarding and settings)
+- [x] **Self-contained component** — `src/app/components/WelcomeOnboarding.tsx` with own state, API calls, voice preview
+
+### Sprint: Curiosity Patterns + Server-Side Highlights ✅
+- [x] **Server-side highlights aggregation** — moved topic/channel aggregation from client useMemo to server-side in `/api/episodes`. Returns pre-computed `{display, count}` objects instead of raw signal arrays. Reduces bandwidth on 30s polling
+- [x] **Weekly topic bucketing** — current week vs last week temporal analysis for trend detection. Thresholds: ≥3 signals/week, ≥2x change, ≥2 occurrences for new topics
+- [x] **Curiosity Patterns card** — renders in HighlightsPanel: trending topics (teal accents) and new interests (violet accents). Only shows when data meets thresholds
+- [x] **Clipboard error handling** — fixed silent `.catch(() => {})` on SMS button with fallback toast message showing phone number
+- [x] **Chrome extension hint removed** — removed install link from below capture input (kept in info panel only)
+
+### Sprint: Research Planning ✅
+- [x] **Topic profile generation** — server-side `buildTopicProfile()` in synthesize.ts queries USED signals (500) + READY episodes (50) to classify current signal topics as familiar (3+ episodes), growing (2x week-over-week), or new (never in past episodes). Bounded indexed queries, ~10-30ms overhead
+- [x] **Prompt integration** — `## LISTENER TOPIC PROFILE` section in buildSynthesisPrompt() with per-category depth instructions. Familiar = skip basics, go deep. Growing = note trajectory. New = provide broader context. ~250 tokens
+- [x] **Style-specific depth tuning** — essential (advisory only), standard (balanced), strategic (full depth calibration with counterpoints and structured intros for new topics)
+- [x] **Research Depth setting** — 3-option preference (Explain More / Auto / Go Deeper) in settings page. Stored as `researchDepth` in User.preferences JSON. Validated in preferences API
+- [x] **Graceful degradation** — new users with no history get no profile section. Auto mode with empty profile produces identical behavior to pre-feature
+
 ### Needs Assessment — Prioritize Before Action
 - [ ] **Image signal uploads** — new signal type: user uploads an image (screenshot, photo, chart, infographic) which gets assessed by GPT-4 Vision as a signal. Needs: new `IMAGE` InputType enum value, capture API accepting image uploads (multipart/form), GPT-4V analysis to extract topics/context/description, storage (R2 or inline base64), dashboard UI for image capture, synthesis prompt integration for image-derived signals. Consider: file size limits, supported formats, cost per image analysis, privacy implications of image content.
 - [x] **Episode source narration (epilogue)** — implemented as a fixed-template epilogue with separate sound bed, not LLM-generated. TTS'd independently, mixed with `Poddit_Epilogue.mp3`, concatenated after outro with 1.5s gap. Uses publication names (not domains), top 3 deduplicated from segment sources. See Pre-Phase 1 in `plan.md`.

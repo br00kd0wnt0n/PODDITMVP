@@ -19,14 +19,15 @@
 
 ### page.tsx Decomposition Status
 
-**Extracted (3 of 4 HIGH priority):**
+**Extracted (4 components):**
 
 | Component | Lines removed | State hooks moved |
 |-----------|--------------|-------------------|
 | CaptureInput.tsx | ~270 lines | 10 + 5 refs (text input, recording, typewriter) |
 | EpisodeList.tsx | ~130 lines | 1 (expandedEpisodeId) |
 | HighlightsPanel.tsx | ~84 lines | 0 (presentational) |
-| **Total** | **~484 lines** | **11 hooks, 5 refs** |
+| WelcomeOnboarding.tsx | ~175 lines (replaced WelcomeBanner + SetupCard) | 15 + 4 refs (swipe, voice preview, settings) |
+| **Total** | **~659 lines** | **26 hooks, 9 refs** |
 
 **Remaining HIGH priority:**
 - **SignalQueue** — deferred. Too tightly coupled to parent state (generating, selectedIds, progress, signalsCollapsing, phone prompt, generate button). Needs 15+ props or Context provider. Better to extract when a feature touches the queue (Phase 1 or 2).
@@ -35,8 +36,6 @@
 - QuestionnaireModal (~300 lines) — most isolated, minimal prop deps
 - FeedbackModal (~110 lines) — standalone modal with recording flow
 - Header (~50 lines) — account dropdown, navigation
-- WelcomeBanner (~45 lines) — first-visit guidance
-- SetupCard (~75 lines) — phone input, first-visit onboarding
 
 ---
 
@@ -144,6 +143,23 @@
 
 ---
 
+## Pre-Phase 1: Swipeable Welcome Onboarding — Size: S (~1 day) ✅
+
+**What:** Full-screen swipeable overlay for first-time users replacing the old inline welcome banner + setup card. Three cards: (1) How Poddit Works, (2) How to Add to Your Queue, (3) Make It Yours (actionable settings).
+
+**Key decisions:**
+- **Self-contained component** (`WelcomeOnboarding.tsx`) — reduces page.tsx by ~175 lines (removed WelcomeBanner + SetupCard + savePhoneSetup)
+- **Pure CSS swipe** — `translateX()` + touch handlers, no external library. Rubber banding at edges, vertical/horizontal intent detection for Card 3 scrolling
+- **Actionable Card 3** — phone input, voice selection with tap-to-preview, briefing style picker. Saves via `PATCH /api/user/preferences` on "Get Started"
+- **localStorage migration** — new key `poddit-onboarding-complete`. Auto-migrates existing users with both old keys (`poddit-welcome-seen` + `poddit-setup-dismissed`)
+- **Voice order** — reordered to Jon > Ivy > Harper > Gandalf (in `tts.ts` VOICES object, affects both onboarding and settings)
+
+**Files:** New `src/app/components/WelcomeOnboarding.tsx`, `src/app/page.tsx` (removed ~175 lines), `src/lib/tts.ts` (voice reorder)
+
+**Status:** COMPLETE
+
+---
+
 ## Phase 1: "The Conversation" (Weeks 1-3)
 
 **Goal:** Episodes feel like an ongoing conversation, not isolated briefings. Highest value-to-effort ratio.
@@ -168,26 +184,22 @@
 
 **Status:** COMPLETE
 
-### 1b. Curiosity Patterns — Size: S/M (~1 week)
-**What:** Server-side aggregation of signal topics over time. Surface temporal insights in the Highlights panel: "AI signals up 4x this month", "New interest: quantum computing."
+### 1b. Curiosity Patterns — Size: S/M (~1 week) ✅
+**What:** Server-side aggregation of signal topics over time. Surface temporal insights in the Highlights panel: "AI signals up 3x this week", "New this week: quantum computing."
 
 **Dependencies:** None — builds on existing `Signal.topics[]` and `Signal.createdAt`.
 
 **Implementation:**
-- New endpoint: `GET /api/user/insights` — computes topic frequency by month, channel trends, volume changes
-- Monthly buckets, top 3 trending topics, signal volume trend
-- Update HighlightsPanel component (already extracted) with temporal insights
-- Topic normalization: lowercase + alias mapping (existing client-side `t.trim().toLowerCase()` pattern needs to move server-side)
+- Extended existing `/api/episodes` highlights response with server-side aggregation (no new endpoint — avoids extra polling request)
+- Weekly bucketing (current week vs last week) for trend detection. Thresholds: ≥3 signals/week for trends to appear, ≥2x change, ≥2 occurrences for new topics
+- Pre-computed `{ topics: [{display, count}], channels: [{name, count}], trends, newTopics }` replaces raw signal arrays — reduces bandwidth on 30s polling
+- Topic normalization: `t.trim().toLowerCase()` moved server-side
+- "Curiosity Patterns" card in HighlightsPanel with teal accents for trends, violet for new topics
+- Also fixed clipboard `.catch()` on SMS button (P0)
 
-**Data layer options:**
-- Start simple: computed queries, no new models needed
-- Later: `UserInsight` model with monthly snapshots for performance
+**Files:** `src/app/api/episodes/route.ts`, `src/app/components/HighlightsPanel.tsx`, `src/app/page.tsx`
 
-**Files:** New `src/app/api/user/insights/route.ts`, `src/app/components/HighlightsPanel.tsx`, `src/lib/prompts.ts` (feed insights into synthesis context)
-
-**Risks:**
-- Topic tags from Haiku not normalized ("AI" vs "artificial intelligence"). Need normalization step.
-- Small signal counts make trends unreliable. Need minimum thresholds (5+ signals before showing trends).
+**Status:** COMPLETE
 
 ### 1c. Signal Friction Reduction — Size: S (~3-5 days, parallel)
 **What:** Make it easier to capture signals. Fix share sheet, create Apple Shortcuts.
@@ -210,22 +222,24 @@
 
 **Goal:** Synthesis gets smarter. Email infrastructure gets built. The product becomes proactive.
 
-### 2a. Research Planning — Size: M (~1 week)
-**What:** Claude examines interest history before synthesizing — knows what's new vs. background, merges related signals.
+### 2a. Research Planning — Size: M (~1 week) ✅
+**What:** Claude examines interest history before synthesizing — knows what's new vs. background, calibrates depth per topic.
 
 **Dependencies:** Feature 1a (Episode Callbacks context mechanism) + Feature 1b (topic history).
 
 **Implementation:**
-- Add user topic profile to synthesis prompt: "This user has been tracking AI for 3 months (47 signals). They're familiar with the basics — go deeper, focus on what's new."
-- Signal deduplication: if two signals point to the same topic, merge into one richer segment
-- Use `Episode.topicsCovered` history + signal topic frequency as context
+- `buildTopicProfile()` in synthesize.ts queries USED signals (500) + READY episodes (50) to classify current signal topics as familiar (3+ episodes), growing (2x week-over-week), or new (never covered). Bounded indexed queries, ~10-30ms overhead
+- `## LISTENER TOPIC PROFILE` section in buildSynthesisPrompt() with per-category depth instructions. Familiar = skip basics, go deep. Growing = note trajectory. New = provide broader context. ~250 tokens
+- Style-specific depth tuning: essential (advisory only), standard (balanced), strategic (full depth calibration with counterpoints/structured intros)
+- Tunable Research Depth setting (Explain More / Auto / Go Deeper) in settings page. Stored as `researchDepth` in User.preferences JSON. Validated in preferences API
+- Graceful degradation: new users with no history get no profile section. Auto mode with empty profile = identical to pre-feature
+- `researchDepth` stored in generationMeta for cost tracking
 
-**Files:** `src/lib/prompts.ts`, `src/lib/synthesize.ts`
+**Files:** `src/lib/synthesize.ts`, `src/lib/prompts.ts`, `src/app/settings/page.tsx`, `src/app/api/user/preferences/route.ts`
 
-**Risks:**
-- Prompt bloat: system (~1,800) + synthesis (~750) + episode context (~450) + topic profile (~200) = ~3,200 tokens input. Still within budget but monitor.
-- Regression risk: changing synthesis prompt affects every episode. Need rollback plan.
-- Over-optimization: with 3-10 signals per episode, merging may reduce segment count below useful thresholds.
+**Token impact:** ~250 tokens. At ~3,250 total input (system + synthesis + episodes + profile) of 12,000 max — well within budget.
+
+**Status:** COMPLETE
 
 ### 2b. Email/SMS Strategy — Size: M/L (~2 weeks)
 **What:** Three sequences: onboarding (5 emails), weekly rhythm (episode notification, mid-week preview, quiet encouragement), re-engagement (7/21/45 day).
@@ -356,11 +370,11 @@ Strongly defer. Post-PMF feature. Building now risks diluting Poddit's identity 
 | # | Feature | Size | Phase | Dependencies | Status |
 |---|---------|------|-------|--------------|--------|
 | 6 | Episode Callbacks | S | 1 | None | ✅ Complete |
-| 1 | Curiosity Patterns | S/M | 1 | None | Ready to build |
+| 1 | Curiosity Patterns | S/M | 1 | None | ✅ Complete |
 | 8 | Signal Friction | S | 1 | None | Ready (parallel) |
-| 3 | Research Planning | M | 2 | 1, 6 | After Phase 1 |
-| 9 | Email/SMS Strategy | M/L | 2 | None | After Phase 1 |
-| 4 | Adaptive Depth | S/M | 2 | 3 | After Research Planning |
+| 3 | Research Planning | M | 2 | 1, 6 | ✅ Complete |
+| 9 | Email/SMS Strategy | M/L | 2 | None | Ready to build |
+| 4 | Adaptive Depth | S/M | 2 | 3 | Ready to build |
 | 7 | Mid-Week Nudge | M | 3 | 1, 9 | After email infra |
 | 10 | Sharing | M | 3 | None | After core is solid |
 | — | Subscription Tiers | S | 3 | None | Marketing component |
@@ -373,8 +387,8 @@ Strongly defer. Post-PMF feature. Building now risks diluting Poddit's identity 
 ## Infrastructure Fixes (Before/During Phase 1)
 
 ### P0 — Immediate
-- [ ] **Highlights query limit** — re-add bounded query to `/api/episodes` highlights aggregation, or create lightweight `/api/episodes/highlights` endpoint
-- [ ] **Clipboard writeText error handling** — add `.catch()` with fallback message (dashboard page.tsx)
+- [x] **Server-side highlights aggregation** — moved topic/channel aggregation to server-side in `/api/episodes`, bounded to 500 signals. Returns pre-computed counts instead of raw arrays
+- [x] **Clipboard writeText error handling** — added `.catch()` with fallback toast message (dashboard page.tsx)
 
 ### P1 — Before 100 users
 - [ ] **Redis rate limiter** — replace in-memory `Map` with Redis-backed limiter
@@ -394,7 +408,8 @@ Strongly defer. Post-PMF feature. Building now risks diluting Poddit's identity 
 - [x] CaptureInput.tsx extracted (318 lines, 10 hooks + 5 refs)
 - [x] EpisodeList.tsx extracted (177 lines, 1 hook)
 - [x] HighlightsPanel.tsx extracted (104 lines, presentational)
-- page.tsx reduced from ~2,230 → ~1,762 lines (22% reduction)
+- [x] WelcomeOnboarding.tsx extracted (~175 lines removed from page.tsx, 15 hooks + 4 refs)
+- page.tsx reduced from ~2,230 → ~1,590 lines (29% reduction)
 
 ### Auth Stability
 - [x] Sign-in: `window.location.replace('/')` (prevents soft→hard reload cycle)
