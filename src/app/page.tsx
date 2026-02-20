@@ -68,13 +68,59 @@ function Dashboard() {
   const heroTagline = useMemo(() => HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)], []);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  // ── TEMPORARY DIAGNOSTIC: Catch what triggers the hard reload ──
+  useEffect(() => {
+    // Intercept window.location.href assignments
+    const origDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+    // Track navigation via Performance API
+    const navType = performance?.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
+    console.log('[Diag] Dashboard mounted. navigation type:', navType?.type, 'session status:', status);
+
+    // Listen for beforeunload — fires on any full page navigation/reload
+    const handleBeforeUnload = () => {
+      console.log('[Diag] beforeunload fired! Stack:', new Error().stack);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Monkey-patch window.location.reload to capture caller
+    const origReload = window.location.reload.bind(window.location);
+    window.location.reload = (...args: Parameters<typeof origReload>) => {
+      console.error('[Diag] window.location.reload() called! Stack:', new Error().stack);
+      return origReload(...args);
+    };
+
+    // Monkey-patch window.location.assign
+    const origAssign = window.location.assign.bind(window.location);
+    window.location.assign = (url: string) => {
+      console.error('[Diag] window.location.assign() called with:', url, 'Stack:', new Error().stack);
+      return origAssign(url);
+    };
+
+    // Monkey-patch window.location.replace
+    const origReplace = window.location.replace.bind(window.location);
+    window.location.replace = (url: string) => {
+      console.error('[Diag] window.location.replace() called with:', url, 'Stack:', new Error().stack);
+      return origReplace(url);
+    };
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.location.reload = origReload;
+      window.location.assign = origAssign;
+      window.location.replace = origReplace;
+    };
+  }, [status]);
+  // ── END DIAGNOSTIC ──
+
   // Patch DOM methods to prevent Chrome autofill from crashing React reconciler.
   // Must run before any React reconciliation that touches form elements.
   useEffect(() => { patchDomForAutofillSafety(); }, []);
 
   // Client-side auth guard — redirect if no session
   useEffect(() => {
+    console.log('[Diag] Auth guard effect: status =', status);
     if (status === 'unauthenticated') {
+      console.log('[Diag] Redirecting to /auth/signin (status = unauthenticated)');
       router.replace('/auth/signin');
     }
   }, [status, router]);
@@ -856,6 +902,7 @@ function Dashboard() {
   // Without `loading` check, returning users with a cached JWT cookie skip the skeleton
   // (status goes straight to 'authenticated') and the full heavy UI renders with empty state,
   // which overwhelms mobile GPU/CPU and crashes Chrome on iOS/Android.
+  console.log('[Diag] Render gate: status =', status, 'loading =', loading, 'episodes =', episodes.length, 'signals =', signals.length);
   if (status === 'loading' || status === 'unauthenticated' || loading) {
     return (
       <main className="max-w-5xl mx-auto px-4 py-8">
