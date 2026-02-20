@@ -51,13 +51,12 @@ export default function SignInPage() {
         setLoading(false);
         signingInRef.current = false;
       } else if (result?.ok) {
-        // Trigger fade-out, then client-side navigate after animation.
-        // Use relative '/' (not result.url which is absolute and forces a full page reload).
-        // Use replace() so sign-in page doesn't stay in browser history.
+        // Navigate immediately — no setTimeout delay.
+        // The page-exit CSS animation runs during navigation but we don't wait for it.
+        // Eliminating the 450ms delay prevents race conditions where a delayed
+        // router.replace('/') fires after SessionProvider has already re-rendered.
         setExiting(true);
-        setTimeout(() => {
-          router.replace('/');
-        }, 450);
+        router.replace('/');
       }
     } catch {
       setError('Something went wrong. Please try again.');
