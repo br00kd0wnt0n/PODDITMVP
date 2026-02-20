@@ -12,8 +12,6 @@ const NO_SESSION_PROVIDER = ['/auth/'];
 export default function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  console.log('[Diag][Providers] pathname =', pathname, 'SessionProvider =', !NO_SESSION_PROVIDER.some(p => pathname.startsWith(p)));
-
   if (NO_SESSION_PROVIDER.some(p => pathname.startsWith(p))) {
     return <>{children}</>;
   }
