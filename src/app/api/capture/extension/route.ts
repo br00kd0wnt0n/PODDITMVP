@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSignal } from '@/lib/capture';
 import prisma from '@/lib/db';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Build CORS headers dynamically — only allow chrome-extension:// origins
 function getCorsHeaders(request: NextRequest) {
@@ -96,6 +97,15 @@ export async function POST(request: NextRequest) {
       }
 
       resolvedUserId = user.id;
+    }
+
+    // Rate limit: 10 per minute per user
+    const { allowed } = rateLimit(`capture-ext:${resolvedUserId}`, 10, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment.' },
+        { status: 429, headers: getCorsHeaders(request) }
+      );
     }
 
     // Build raw content from what the extension sends

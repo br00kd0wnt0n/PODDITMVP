@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
-    // Increment play count + update last activity (for engagement tracking)
-    await Promise.all([
+    // Increment play count + update last activity (independent — don't let one block the other)
+    const results = await Promise.allSettled([
       prisma.episode.update({
         where: { id: episodeId },
         data: { playCount: { increment: 1 } },
@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
         data: { lastActiveAt: new Date() },
       }),
     ]);
+
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        console.error('[Play] Partial failure:', r.reason);
+      }
+    }
 
     return NextResponse.json({ status: 'counted' });
   } catch (error) {

@@ -398,6 +398,13 @@ function parseSynthesisResponse(
     throw new Error('Claude response missing required fields (title, segments)');
   }
 
+  // Cap segment count to prevent runaway TTS costs
+  const MAX_SEGMENTS = 8;
+  if (episodeData.segments.length > MAX_SEGMENTS) {
+    console.warn(`[Poddit] Claude returned ${episodeData.segments.length} segments, capping to ${MAX_SEGMENTS}`);
+    episodeData.segments = episodeData.segments.slice(0, MAX_SEGMENTS);
+  }
+
   return { episodeData, citations, searchCount };
 }
 

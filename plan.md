@@ -6,15 +6,20 @@
 
 **Architecture:** Next.js 15 + PostgreSQL/Prisma + Claude API + ElevenLabs TTS + Twilio SMS + SendGrid + Cloudflare R2. Hosted on Railway.
 
-### Technical Health Summary
+### Technical Health Summary (Updated Feb 2026)
 
 | Area | Status | Risk |
 |------|--------|------|
-| Prompt token budget | ~4,500 of 12,000 used (~60% headroom) | LOW — room for Episode Callbacks + Research Planning |
-| page.tsx monolith | 1,762 lines, ~41 useState, ~70 hooks | HIGH — every Phase 1-3 feature touches this file |
-| Episodes API | Highlights query unbounded (all USED signals, every 30s poll) | MEDIUM — bloats for power users |
+| Prompt token budget | ~4,500 of 12,000 used (~60% headroom) | LOW — room for future features |
+| Briefing length | Hard word caps enforced (Essential 650, Standard 1400, Strategic 2100) | LOW — tuned Feb 2026 |
+| Audio mix | loudnorm (I=-16 LUFS) replaces crude volume multiplier | LOW — broadcast standard |
+| page.tsx monolith | ~1,642 lines, ~41 useState | MEDIUM — partially decomposed, queue still inline |
+| Episodes API | Highlights aggregated server-side, bounded to 500 signals | LOW — fixed |
 | Rate limiter | In-memory, single-instance, bypassed during Railway deploys | MEDIUM — needs Redis before autoscaling |
-| Database indexes | Good primary coverage, missing `Episode[userId, status]` composite | LOW — slow after 100k episodes |
+| Extension capture | No rate limiting | HIGH — only unprotected capture route |
+| Segment count | No code-level cap from Claude output | HIGH — potential TTS cost runaway |
+| Prompt injection | User content concatenated directly into synthesis prompt | HIGH — needs delimiters |
+| Database indexes | Good coverage: Signal, Episode, Segment composites all present | LOW |
 | Polling load | 30s interval, 3 parallel requests, 8,640 calls/user/day | LOW — fine for <50 users |
 
 ### page.tsx Decomposition Status
@@ -384,21 +389,59 @@ Strongly defer. Post-PMF feature. Building now risks diluting Poddit's identity 
 
 ---
 
-## Infrastructure Fixes (Before/During Phase 1)
+## Stability Review (Feb 2026)
 
-### P0 — Immediate
-- [x] **Server-side highlights aggregation** — moved topic/channel aggregation to server-side in `/api/episodes`, bounded to 500 signals. Returns pre-computed counts instead of raw arrays
-- [x] **Clipboard writeText error handling** — added `.catch()` with fallback toast message (dashboard page.tsx)
+Full codebase review across API routes, core libraries, frontend, and schema.
 
-### P1 — Before 100 users
-- [ ] **Redis rate limiter** — replace in-memory `Map` with Redis-backed limiter
+### P0 — Critical (fix before next user-facing release)
+
+- [ ] **Extension capture rate limiting** — only capture route without rate limiting. DOS vector. Add `rateLimit('capture-ext:${userId}', 10, 60_000)`. File: `src/app/api/capture/extension/route.ts`
+- [ ] **Segment count cap** — Claude can return unlimited segments, each hitting ElevenLabs TTS. Add `segments.slice(0, 8)` after parsing. File: `src/lib/synthesize.ts`
+- [ ] **Prompt injection protection** — `fetchedContent` and `rawContent` concatenated directly into synthesis prompt. Wrap in `<user_content>` delimiters + add system prompt instruction to ignore embedded instructions. File: `src/lib/prompts.ts`
+- [ ] **Episodes play error handling** — `Promise.all()` for playCount + lastActiveAt has no try/catch. Switch to `Promise.allSettled()`. File: `src/app/api/episodes/play/route.ts`
+- [x] **Server-side highlights aggregation** — bounded to 500 signals, pre-computed counts
+- [x] **Clipboard writeText error handling** — `.catch()` with fallback toast
+- [x] **Briefing length caps** — hard word limits on all 3 styles (650/1400/2100)
+- [x] **Audio mix loudnorm** — replaced crude `volume=${mixCount}` with `loudnorm=I=-16:TP=-1.5:LRA=11`
+- [x] **Voice sample normalization** — loudnorm + R2 cache version bump
+
+### P1 — High (next stability sprint)
+
+- [ ] **SMS delivery retry** — no retry on Twilio failures = users never notified. Wrap in `withRetry()`. File: `src/lib/deliver.ts`
+- [ ] **SendGrid email retry** — no retry = users may not receive invite codes. Admin sees success with `emailSent: false` buried in response. File: `src/lib/email.ts`
+- [ ] **Audio download size limit** — no Content-Length check before downloading Twilio media in transcribe.ts. Could download multi-GB. Reject >25MB. File: `src/lib/transcribe.ts`
+- [ ] **SMS formData parsing guard** — if Twilio sends malformed data, `request.formData()` throws uncaught. Wrap in try/catch. File: `src/app/api/capture/sms/route.ts`
+- [ ] **Atomic signal delete** — find-then-delete race condition. Use `deleteMany({ where: { id, userId } })`. File: `src/app/api/signals/route.ts`
+- [ ] **Dashboard generatePollRef cleanup** — interval not cleared on unmount, stale polling after navigation. File: `src/app/page.tsx`
+- [ ] **Redis rate limiter** — replace in-memory `Map` with Redis-backed limiter (required before autoscaling)
+
+### P2 — Medium (code health / polish)
+
+- [ ] **Duplicate phone validation (3 copies)** — page.tsx, WelcomeOnboarding.tsx, settings. Extract to `src/lib/phone.ts`
+- [ ] **Duplicate voice preview (2 copies)** — settings + onboarding. Extract to `src/hooks/useVoicePreview.ts`
+- [ ] **Inconsistent error response formats** — some routes return `{error}`, others `{error, message}`. Standardize
+- [ ] **Admin stats query unbounded** — 30+ concurrent Prisma queries, no pagination. Timeout risk at scale
+- [ ] **prefers-reduced-motion CSS** — 10+ concurrent animations with no accessibility fallback. File: `globals.css`
+- [ ] **Player rAF stacking** — multiple requestAnimationFrame loops on rapid play/pause. File: `player/[id]/page.tsx`
+- [ ] **Settings unsaved changes warning** — user can navigate away losing edits silently
+- [ ] **Timing-unsafe secret comparison** — `===` instead of `crypto.timingSafeEqual()`. File: `src/lib/auth.ts`
+- [ ] **Retry utility retries auth errors** — 401/403 should not retry. File: `src/lib/retry.ts`
+- [ ] **Content truncation marker** — truncated fetchedContent has no indicator for Claude. File: `src/lib/capture.ts`
 - [ ] **SignalQueue extraction** — deferred from initial refactor. Needs Context provider or 15+ props
-- [ ] **Episode `[userId, status]` composite index** — episode count query does full scan
 - [ ] **QuestionnaireModal extraction** (~300 lines) — most isolated remaining component
 
-### P2 — Scale beyond 100 users
+### P3 — Low (backlog)
+
+- [ ] **page.tsx monolith** — still ~1,642 lines with 41 useState calls. Extract HeroSection, QueueSection, FeedbackModal
+- [ ] **Voice sample R2 cache TTL** — HeadObjectCommand swallows all errors (S3 outage = expensive TTS fallback)
+- [ ] **Revocation cache max size** — auth.ts Map grows unbounded. Add LRU or size cap
+- [ ] **Rate limiter max Map size** — cleanup only removes old entries, no size cap
+- [ ] **Per-segment schema validation** — malformed Claude segment (missing `content`) causes Prisma error
+- [ ] **Topic profile unbounded** — 100+ familiar topics grows prompt. Cap at top 10 per category
+- [ ] **DNS resolution caching** — SSRF check does DNS lookup per URL fetch. Cache with short TTL
 - [ ] **Server-sent events** — replace 30s polling with SSE for real-time updates
 - [ ] **Cursor-based episode pagination** — frontend currently loads up to 50 episodes
+- [ ] **Orphaned schema elements** — SignalStatus.PENDING never written, Account/Session models unused, logo_loop.mp4 unreferenced
 
 ---
 
