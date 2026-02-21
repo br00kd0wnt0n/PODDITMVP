@@ -158,6 +158,8 @@ export default function PlayerPage() {
     if (audio.paused) {
       audio.play();
       setIsPlaying(true);
+      // Cancel any existing rAF before starting a new loop (prevents stacking on rapid play/pause)
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = requestAnimationFrame(trackProgress);
 
       // Track first play (fire-and-forget — never block playback)

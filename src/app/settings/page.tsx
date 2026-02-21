@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -49,6 +49,13 @@ export default function SettingsPage() {
   // Voice preview (shared hook)
   const { playingVoice, loadingVoice, voiceProgress, playPreview, stopPreview } = useVoicePreview();
 
+  // Track saved state for unsaved changes warning
+  const savedState = useRef<string>('');
+  const getCurrentState = useCallback(() =>
+    JSON.stringify({ name, namePronunciation, phone, voice, briefingStyle, researchDepth, timezone, notificationsEnabled }),
+  [name, namePronunciation, phone, voice, briefingStyle, researchDepth, timezone, notificationsEnabled]);
+  const isDirty = !loading && savedState.current !== '' && savedState.current !== getCurrentState();
+
   // Load preferences + voices
   useEffect(() => {
     Promise.all([
@@ -65,12 +72,32 @@ export default function SettingsPage() {
       setTimezone(p.timezone || 'America/New_York');
       setNotificationsEnabled(!!prefs.consentedAt);
       setVoices(voiceData.voices || []);
+      // Snapshot saved state (use setTimeout to ensure all setState calls have flushed)
+      setTimeout(() => {
+        savedState.current = JSON.stringify({
+          name: prefs.name || '', namePronunciation: p.namePronunciation || '', phone: prefs.phone || '',
+          voice: p.voice || 'gandalf', briefingStyle: p.briefingStyle || 'standard',
+          researchDepth: p.researchDepth || 'auto', timezone: p.timezone || 'America/New_York',
+          notificationsEnabled: !!prefs.consentedAt,
+        });
+      }, 0);
     }).catch(() => {
       setError('Failed to load settings');
     }).finally(() => {
       setLoading(false);
     });
   }, []);
+
+  // Warn on page close/refresh with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (savedState.current && savedState.current !== getCurrentState()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [getCurrentState]);
 
   // Wrap playPreview to also select the voice
   const handleVoicePreview = useCallback((voiceKey: string) => {
@@ -99,6 +126,7 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save');
 
+      savedState.current = getCurrentState();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
@@ -473,13 +501,19 @@ export default function SettingsPage() {
 
         {/* ── Save Button + inline confirmation ── */}
         <div className="space-y-3">
+          {isDirty && (
+            <p className="text-xs text-amber-400/80 text-center">You have unsaved changes</p>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-3 bg-teal-500 text-poddit-950 text-sm font-bold rounded-xl
-                       hover:bg-teal-400 disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed
+            className={`w-full py-3 text-sm font-bold rounded-xl
                        transition-colors flex items-center justify-center gap-2
-                       shadow-[0_0_12px_rgba(20,184,166,0.2)]"
+                       ${isDirty
+                         ? 'bg-teal-500 text-poddit-950 hover:bg-teal-400 shadow-[0_0_16px_rgba(20,184,166,0.3)]'
+                         : 'bg-teal-500/60 text-poddit-950/80 hover:bg-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.2)]'
+                       }
+                       disabled:bg-poddit-700 disabled:text-poddit-500 disabled:cursor-not-allowed`}
           >
             {saving ? (
               <>

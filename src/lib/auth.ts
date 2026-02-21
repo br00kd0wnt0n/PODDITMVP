@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { auth } from './auth-config';
 import prisma from './db';
+
+/**
+ * Timing-safe string comparison to prevent timing attacks on secret validation.
+ * Returns false if either value is undefined/empty.
+ */
+function safeCompare(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 // ──────────────────────────────────────────────
 // SESSION AUTH (NextAuth.js)
@@ -71,7 +84,8 @@ export function clearRevocationCache(userId: string): void {
  */
 export function requireAuth(request: NextRequest): NextResponse | null {
   const authHeader = request.headers.get('authorization');
-  if (authHeader === `Bearer ${process.env.API_SECRET}`) {
+  const expected = process.env.API_SECRET ? `Bearer ${process.env.API_SECRET}` : undefined;
+  if (safeCompare(authHeader ?? undefined, expected)) {
     return null;
   }
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -85,7 +99,8 @@ export function requireAuth(request: NextRequest): NextResponse | null {
 export function requireAdminAuth(request: NextRequest): NextResponse | null {
   const authHeader = request.headers.get('authorization');
   const adminSecret = process.env.ADMIN_SECRET || process.env.API_SECRET;
-  if (adminSecret && authHeader === `Bearer ${adminSecret}`) {
+  const expected = adminSecret ? `Bearer ${adminSecret}` : undefined;
+  if (safeCompare(authHeader ?? undefined, expected)) {
     return null;
   }
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -97,7 +112,8 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
  */
 export function requireCronAuth(request: NextRequest): NextResponse | null {
   const authHeader = request.headers.get('authorization');
-  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : undefined;
+  if (safeCompare(authHeader ?? undefined, expected)) {
     return null;
   }
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
