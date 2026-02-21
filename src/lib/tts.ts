@@ -296,7 +296,7 @@ async function mixWithMusic(narrationBuffer: Buffer): Promise<{ buffer: Buffer; 
     const weights = ['1', ...Array(mixCount - 1).fill('0.3')].join(' ');
     const filterComplex = [
       ...filterParts,
-      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=longest:dropout_transition=2:weights=${weights},volume=${mixCount}[out]`
+      `${mixInputs.join('')}amix=inputs=${mixCount}:duration=longest:dropout_transition=2:weights=${weights},loudnorm=I=-16:TP=-1.5:LRA=11[out]`
     ].join(';');
 
     const ffmpegArgs: string[] = [
@@ -367,7 +367,7 @@ async function mixEpilogue(narrationBuffer: Buffer): Promise<{ buffer: Buffer }>
       '-i', narrationPath,
       '-i', EPILOGUE_MUSIC,
       '-filter_complex',
-      `[1:a]volume=${EPILOGUE_MUSIC_VOLUME}[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.3,volume=2[out]`,
+      `[1:a]volume=${EPILOGUE_MUSIC_VOLUME}[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.3,loudnorm=I=-16:TP=-1.5:LRA=11[out]`,
       '-map', '[out]',
       '-t', String(totalDuration),
       '-codec:a', 'libmp3lame',

@@ -3,6 +3,37 @@ import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s
 import { VOICES } from '@/lib/tts';
 import { requireSession } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
+import { execFile } from 'child_process';
+import { writeFile, readFile, unlink } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
+
+// ──────────────────────────────────────────────
+// Normalize audio loudness via ffmpeg loudnorm
+// ──────────────────────────────────────────────
+async function normalizeLoudness(buffer: Buffer): Promise<Buffer> {
+  const id = randomUUID();
+  const inputPath = join(tmpdir(), `poddit-sample-in-${id}.mp3`);
+  const outputPath = join(tmpdir(), `poddit-sample-out-${id}.mp3`);
+  try {
+    await writeFile(inputPath, buffer);
+    await new Promise<void>((resolve, reject) => {
+      execFile('ffmpeg', [
+        '-i', inputPath,
+        '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
+        '-codec:a', 'libmp3lame', '-b:a', '192k',
+        '-y', outputPath,
+      ], { timeout: 15000 }, (error) => {
+        if (error) reject(error); else resolve();
+      });
+    });
+    return await readFile(outputPath);
+  } finally {
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
@@ -40,7 +71,7 @@ export async function GET(request: NextRequest) {
   }
 
   const voice = VOICES[voiceKey];
-  const s3Key = `voice-samples/${voiceKey}.mp3`;
+  const s3Key = `voice-samples/v2/${voiceKey}.mp3`;
   const publicUrl = `${process.env.S3_PUBLIC_URL}/${s3Key}`;
 
   // Check if sample already exists in R2
@@ -94,11 +125,21 @@ export async function GET(request: NextRequest) {
 
     const audioBuffer = await response.arrayBuffer();
 
+    // Normalize loudness so all voices have consistent volume
+    let finalBuffer: Buffer;
+    try {
+      finalBuffer = await normalizeLoudness(Buffer.from(audioBuffer));
+      console.log(`[VoiceSample] Normalized loudness for ${voiceKey}`);
+    } catch (normError) {
+      console.warn(`[VoiceSample] Loudness normalization failed, using raw audio:`, normError);
+      finalBuffer = Buffer.from(audioBuffer);
+    }
+
     // Upload to R2 for caching
     await s3.send(new PutObjectCommand({
       Bucket: process.env.S3_BUCKET || 'poddit-audio',
       Key: s3Key,
-      Body: Buffer.from(audioBuffer),
+      Body: finalBuffer,
       ContentType: 'audio/mpeg',
       CacheControl: 'public, max-age=31536000', // Cache for 1 year
     }));

@@ -257,7 +257,7 @@ Structure your episode as:
 4. Closing: one sentence, forward-looking
 
 Keep it tight. Every word earns its place. Skip the connections segment — weave any cross-theme threads into the themes themselves.
-- Target length: 3-5 minutes of spoken audio (roughly 450-750 words of script)
+- HARD LIMIT: 650 words of script maximum. Target 3-5 minutes of spoken audio (roughly 400-650 words). Do NOT exceed 650 words — cut depth, not topics.
 - Research: 1 search per theme max. Prioritize freshness and facts over counterpoints.
 
 ## EPISODE GUIDELINES
@@ -278,7 +278,7 @@ This is an in-depth strategic briefing for a senior decision-maker.
 
 Structure your episode as:
 1. Opening Frame: date + themes + a framing observation about what connects them
-2. Theme Deep Dives (3-5 segments): each should cover:
+2. Theme Deep Dives (3-5 segments, MAX 5): each should cover:
    - What's happening (the development)
    - Why it's emerging now (context, driving forces)
    - Tensions & counterpoints (who disagrees, what could go wrong)
@@ -289,7 +289,7 @@ Structure your episode as:
 6. Closing: short, forward-looking
 
 Go deep. Multiple perspectives on each theme. Don't shy from complexity or nuance.
-- Target length: 10-15 minutes of spoken audio (roughly 1500-2500 words of script)
+- HARD LIMIT: 2100 words of script maximum. Target 10-15 minutes of spoken audio (roughly 1500-2100 words). Do NOT exceed 2100 words — depth comes from insight density, not word count.
 - Research: 2-3 searches per theme. Require at least one counterpoint or alternative perspective per theme.
 
 ## EPISODE GUIDELINES
@@ -302,14 +302,14 @@ Go deep. Multiple perspectives on each theme. Don't shy from complexity or nuanc
 - The episode should feel like one coherent narrative, not a list of disconnected summaries
 - Every source in your sources arrays MUST have a real, clickable url field. Use URLs from your search results. No exceptions. Sources without URLs are removed.
 
-TOPIC DEPTH: For Strategic style, use the topic profile fully. For familiar topics, skip all background and focus on what's changed, competing interpretations, and strategic implications. For growing interests, explicitly note the acceleration and explore why. For new topics, provide a structured introduction: what it is, why it matters now, and the key tensions.
+TOPIC DEPTH: For Strategic style, use the topic profile fully. For familiar topics, skip all background and focus on what's changed, competing interpretations, and strategic implications. For growing interests, explicitly note the acceleration and explore why. For new topics, provide a structured introduction: what it is, why it matters now, and the key tensions. ECONOMY: Each segment should be 300-400 words max. Make every sentence earn its place.
 
 Remember: Output valid JSON matching the specified structure. Include the "intro" and "outro" fields.`;
 
   } else {
     // Standard (default) — preserves current behavior
     prompt += `## EPISODE GUIDELINES
-- Target length: 7-10 minutes of spoken audio (roughly 1100-1500 words of script)
+- HARD LIMIT: 1400 words of script maximum. Target 7-10 minutes of spoken audio (roughly 1000-1400 words). Do NOT exceed 1400 words — tighten segments rather than cutting topics.
 - Group related signals into coherent segments (3-6 segments typical)
 - Use web search to research each topic segment — find real sources, verify facts, and discover recent developments. Aim for 1-2 searches per segment.
 - For link-based topics: discuss the TOPIC using multiple perspectives and 2-3 sources (max 3 per segment), not just the specific article
