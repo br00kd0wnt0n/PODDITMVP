@@ -21,6 +21,8 @@ export interface SendEmailOptions {
   unsubscribeToken?: string;
   /** Category for targeted unsubscribe */
   unsubscribeCategory?: string;
+  /** Reply-to address (defaults to FROM_EMAIL) */
+  replyTo?: string;
   /** Label for logging */
   label?: string;
 }
@@ -30,11 +32,12 @@ export interface SendEmailOptions {
  * All engagement emails should use this function.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
-  const { to, subject, html, text, unsubscribeToken, unsubscribeCategory, label } = options;
+  const { to, subject, html, text, unsubscribeToken, unsubscribeCategory, replyTo, label } = options;
 
   const msg: MailDataRequired = {
     to,
     from: { email: FROM_EMAIL, name: 'Poddit' },
+    replyTo: replyTo ? { email: replyTo, name: 'Poddit' } : undefined,
     subject,
     html,
     text,

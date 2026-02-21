@@ -533,18 +533,29 @@ export async function sendQuietWeekEmail(userId: string): Promise<boolean> {
 
   const subject = 'Your Poddit is ready when you are';
 
+  // Adapt copy based on usage level
+  const isActive = stats.episodeCount >= 3;
+  const statsLine = `So far you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`;
+  const nudgeLine = isActive
+    ? 'It\u2019s been a quiet week. Drop in whatever\u2019s on your mind \u2014 Poddit\u2019s ready when you are.'
+    : 'No pressure \u2014 even 2\u20133 signals make a great episode.';
+
   const bodyHtml = [
     greeting(user.name),
-    p(`So far you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`),
-    p('No pressure \u2014 even 2\u20133 signals make a great episode.'),
+    p(statsLine),
+    p(nudgeLine),
     ctaButton('Open Poddit', APP_URL),
   ].join('');
+
+  const nudgeText = isActive
+    ? 'It\u2019s been a quiet week. Drop in whatever\u2019s on your mind \u2014 Poddit\u2019s ready when you are.'
+    : 'No pressure \u2014 even 2\u20133 signals make a great episode.';
 
   const bodyText = `${user.name ? `Hi ${user.name}` : 'Hi there'},
 
 So far you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.
 
-No pressure — even 2-3 signals make a great episode.
+${nudgeText}
 
 ${APP_URL}`;
 
@@ -706,6 +717,7 @@ Reply if you want — we read every one.`;
   const result = await sendEmail({
     to: user.email,
     subject, html, text,
+    replyTo: 'hello@poddit.com',
     unsubscribeToken: prefs.unsubscribeToken,
     unsubscribeCategory: 'discovery',
     label: `Curiosity reflection to ${user.email}`,
@@ -742,18 +754,29 @@ export async function sendReEngage21Email(userId: string): Promise<boolean> {
 
   const subject = 'Still finding it useful?';
 
+  // Adapt copy based on usage level
+  const isActive = stats.episodeCount >= 3;
+  const statsLine = `Since you joined, you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`;
+  const promptLine = isActive
+    ? 'It\u2019s been a few weeks since your last episode. Anything we could do better?'
+    : 'If Poddit isn\u2019t fitting into your week, we\u2019d genuinely like to know why.';
+
   const bodyHtml = [
     greeting(user.name),
-    p(`Since you joined, you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`),
-    p('If Poddit isn\u2019t fitting into your week, we\u2019d genuinely like to know why.'),
+    p(statsLine),
+    p(promptLine),
     pLast('Reply to this email \u2014 we read every one.'),
   ].join('');
+
+  const promptText = isActive
+    ? 'It\'s been a few weeks since your last episode. Anything we could do better?'
+    : 'If Poddit isn\'t fitting into your week, we\'d genuinely like to know why.';
 
   const bodyText = `${user.name ? `Hi ${user.name}` : 'Hi there'},
 
 Since you joined, you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.
 
-If Poddit isn't fitting into your week, we'd genuinely like to know why.
+${promptText}
 
 Reply to this email — we read every one.`;
 
@@ -773,6 +796,7 @@ Reply to this email — we read every one.`;
   const result = await sendEmail({
     to: user.email,
     subject, html, text,
+    replyTo: 'hello@poddit.com',
     unsubscribeToken: prefs.unsubscribeToken,
     unsubscribeCategory: 'reengagement',
     label: `Re-engage 21d to ${user.email}`,
@@ -839,6 +863,7 @@ Your account is still here whenever you're ready.`;
   const result = await sendEmail({
     to: user.email,
     subject, html, text,
+    replyTo: 'hello@poddit.com',
     unsubscribeToken: prefs.unsubscribeToken,
     unsubscribeCategory: 'reengagement',
     label: `Re-engage 45d to ${user.email}`,

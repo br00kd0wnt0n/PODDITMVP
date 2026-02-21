@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
 
     const latestEpisode = episodes[0];
     const signals = allSignals.slice(0, 5);
-    const firstSignal = signals[signals.length - 1] || { rawContent: 'AI agents in enterprise', title: 'AI agents in enterprise', channel: 'API', topics: ['artificial intelligence', 'enterprise'] };
+    // Pick most recent signal with a clean single-item title for the "first signal" email
+    const firstSignal = signals.find(s => s.title && !s.title.includes(',')) || signals[0] || { rawContent: 'AI agents in enterprise', title: 'AI agents in enterprise', channel: 'API', topics: ['artificial intelligence', 'enterprise'] };
     // Use actual signal topics, not episode segment titles
     const topTopics = Array.from(new Set(allSignals.flatMap(s => s.topics))).slice(0, 5);
     const stats = { signalCount: allSignals.length || 12, episodeCount: episodes.length || 6 };
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
       bodyText: string,
       category?: string,
       categoryLabel?: string,
+      replyTo?: string,
     ) => {
       const html = buildEmailHtml({
         name: user!.name, subject, bodyHtml, bodyText,
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
         subject: `[TEST] ${subject}`,
         html,
         text,
+        replyTo,
         unsubscribeToken: prefs.unsubscribeToken,
         unsubscribeCategory: category || 'all',
         label: `Test ${emailType} to ${targetEmail}`,
@@ -228,16 +231,20 @@ export async function POST(request: NextRequest) {
     );
 
     // ── 6. Quiet Week ──
+    const isActive = stats.episodeCount >= 3;
+    const quietNudge = isActive
+      ? 'It\u2019s been a quiet week. Drop in whatever\u2019s on your mind \u2014 Poddit\u2019s ready when you are.'
+      : 'No pressure \u2014 even 2\u20133 signals make a great episode.';
     await sendTest(
       'quiet_week',
       'Your Poddit is ready when you are',
       [
         greeting(user.name),
         p(`So far you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`),
-        p('No pressure \u2014 even 2\u20133 signals make a great episode.'),
+        p(quietNudge),
         ctaButton('Open Poddit', APP_URL),
       ].join(''),
-      `So far you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.\n\nNo pressure — even 2-3 signals make a great episode.`,
+      `So far you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.\n\n${quietNudge}`,
       'nudges', 'weekly nudges',
     );
 
@@ -272,20 +279,25 @@ export async function POST(request: NextRequest) {
       ].join(''),
       `Over your last ${stats.episodeCount} episodes, you keep coming back to ${topicStr}.\n\nWhat patterns are you noticing in what you're drawn to?\n\nReply if you want — we read every one.`,
       'discovery', 'feature discovery tips',
+      'hello@poddit.com',
     );
 
     // ── 9. Re-engage 21d ──
+    const reengagePrompt = isActive
+      ? 'It\u2019s been a few weeks since your last episode. Anything we could do better?'
+      : 'If Poddit isn\u2019t fitting into your week, we\u2019d genuinely like to know why.';
     await sendTest(
       're_engage_21',
       'Still finding it useful?',
       [
         greeting(user.name),
         p(`Since you joined, you\u2019ve captured ${statLine(stats.signalCount, 'signals')} and generated ${statLine(stats.episodeCount, 'episodes')}.`),
-        p('If Poddit isn\u2019t fitting into your week, we\u2019d genuinely like to know why.'),
+        p(reengagePrompt),
         pLast('Reply to this email \u2014 we read every one.'),
       ].join(''),
-      `Since you joined, you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.\n\nIf Poddit isn't fitting into your week, we'd genuinely like to know why.\n\nReply to this email — we read every one.`,
+      `Since you joined, you've captured ${stats.signalCount} signals and generated ${stats.episodeCount} episodes.\n\n${reengagePrompt}\n\nReply to this email — we read every one.`,
       'reengagement', 're-engagement emails',
+      'hello@poddit.com',
     );
 
     // ── 10. Re-engage 45d ──
@@ -300,6 +312,7 @@ export async function POST(request: NextRequest) {
       ].join(''),
       'It\'s been a while since you last used Poddit.\n\nIf something isn\'t clicking, reply and tell us — we read every one.\n\nYour account is still here whenever you\'re ready.',
       'reengagement', 're-engagement emails',
+      'hello@poddit.com',
     );
 
     const sent = results.filter(r => r.success).length;

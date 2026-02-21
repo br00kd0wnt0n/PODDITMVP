@@ -188,7 +188,7 @@ export function topicPills(topics: string[]): string {
   if (!topics.length) return '';
   const pills = topics.map(t =>
     `<span style="display:inline-block;background-color:#2dd4bf15;color:${STYLES.accent};font-size:12px;padding:4px 10px;border-radius:12px;margin:2px 4px 2px 0;">${t}</span>`
-  ).join('');
+  ).join(' ');
   return `<div style="margin:12px 0;">${pills}</div>`;
 }
 
