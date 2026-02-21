@@ -10,7 +10,7 @@ export default auth((req) => {
   // API routes handle their own auth
   if (pathname.startsWith('/api')) return;
 
-  // Legal pages are public
+  // Legal pages + unsubscribe are public
   if (pathname === '/privacy' || pathname === '/terms') return;
 
   // Everything else requires login

@@ -47,6 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Create user if they don't exist (global code flow)
+          let isFirstSignIn = false;
           if (!user) {
             user = await prisma.user.create({
               data: {
@@ -56,6 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 consentChannel: 'signin',
               },
             });
+            isFirstSignIn = true;
             console.log(`[Auth] New user created: ${email} (${user.id})`);
           } else {
             // Mark email verified + consent on first sign-in if invited via admin
@@ -64,11 +66,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (!user.consentedAt) {
               updates.consentedAt = new Date();
               updates.consentChannel = 'signin';
+              isFirstSignIn = true;
             }
             if (Object.keys(updates).length > 0) {
               await prisma.user.update({ where: { id: user.id }, data: updates });
             }
             console.log(`[Auth] Existing user signed in: ${email} (${user.id})`);
+          }
+
+          // Ensure EmailPreferences exist + fire welcome email on first sign-in
+          if (isFirstSignIn) {
+            // Create email preferences (fire-and-forget)
+            prisma.emailPreferences.upsert({
+              where: { userId: user.id },
+              create: { userId: user.id },
+              update: {},
+            }).catch(err => console.error('[Auth] Failed to create email preferences:', err));
+
+            // Fire welcome email (fire-and-forget, gated by ENGAGEMENT_ENABLED)
+            import('./engagement/flags').then(({ isEngagementEnabled }) => {
+              if (!isEngagementEnabled()) return;
+              import('./engagement/sequences').then(({ sendWelcomeEmail }) => {
+                sendWelcomeEmail(user!.id).catch(err =>
+                  console.error('[Auth] Failed to send welcome email:', err)
+                );
+              });
+            }).catch(err => console.error('[Auth] Failed to check engagement flag:', err));
           }
 
           return { id: user.id, email: user.email, name: user.name };

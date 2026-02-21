@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEpisode, getLastWeekStart } from '@/lib/synthesize';
 import { notifyEpisodeReady } from '@/lib/deliver';
+import { sendEpisodeReadyEmail } from '@/lib/engagement/sequences';
+import { isEngagementEnabled } from '@/lib/engagement/flags';
 import prisma from '@/lib/db';
 
 // Allow up to 10 minutes for multi-user generation
@@ -87,6 +89,7 @@ export async function GET(request: NextRequest) {
         if (episode && episode.status === 'READY') {
           // Look up user's phone for notification
           const user = await prisma.user.findUnique({ where: { id: userId } });
+          // SMS notification
           await notifyEpisodeReady({
             episodeId: episode.id,
             title: episode.title || 'Your Poddit Episode',
@@ -94,6 +97,12 @@ export async function GET(request: NextRequest) {
             duration: episode.audioDuration || undefined,
             userPhone: user?.phone || undefined,
           });
+          // Email notification (fire-and-forget, gated by ENGAGEMENT_ENABLED)
+          if (isEngagementEnabled()) {
+            sendEpisodeReadyEmail(userId, episode.id).catch(err =>
+              console.error(`[Cron] Episode ready email failed for ${userId}:`, err)
+            );
+          }
         }
 
         results.push({

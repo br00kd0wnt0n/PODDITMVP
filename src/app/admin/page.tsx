@@ -181,6 +181,34 @@ interface AdminStats {
     };
     totalMonthly: number;
   };
+  engagement: {
+    totalSent: number;
+    sentThisWeek: number;
+    byType: Array<{ emailType: string; count: number }>;
+    recentEmails: Array<{
+      id: string;
+      userId: string;
+      emailType: string;
+      subject: string;
+      status: string;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+    bounced: Array<{
+      id: string;
+      userId: string;
+      emailType: string;
+      subject: string;
+      createdAt: string;
+      user: { name: string | null; email: string | null };
+    }>;
+    optOuts: {
+      unsubscribedAll: number;
+      nudges: number;
+      discovery: number;
+      reengagement: number;
+    };
+  };
   generatedAt: string;
 }
 
@@ -1330,6 +1358,111 @@ function AdminDashboard() {
               </div>
             )}
           </>
+        )}
+      </div>
+
+      {/* ── Engagement ── */}
+      <div className="p-5 bg-poddit-900/40 border border-stone-800/40 rounded-xl mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider">Engagement</h2>
+        </div>
+
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="p-3 bg-poddit-950/50 rounded-lg border border-stone-800/30">
+            <p className="text-xs text-stone-500">Emails Sent</p>
+            <p className="text-lg font-bold text-white">{stats.engagement?.totalSent ?? 0}</p>
+            <p className="text-xs text-stone-600">{stats.engagement?.sentThisWeek ?? 0} this week</p>
+          </div>
+          <div className="p-3 bg-poddit-950/50 rounded-lg border border-stone-800/30">
+            <p className="text-xs text-stone-500">Bounced</p>
+            <p className="text-lg font-bold text-rose-400">{stats.engagement?.bounced?.length ?? 0}</p>
+            <p className="text-xs text-stone-600">last 7 days</p>
+          </div>
+          <div className="p-3 bg-poddit-950/50 rounded-lg border border-stone-800/30">
+            <p className="text-xs text-stone-500">Unsubscribed</p>
+            <p className="text-lg font-bold text-white">{stats.engagement?.optOuts?.unsubscribedAll ?? 0}</p>
+            <p className="text-xs text-stone-600">from all emails</p>
+          </div>
+          <div className="p-3 bg-poddit-950/50 rounded-lg border border-stone-800/30">
+            <p className="text-xs text-stone-500">Opt-Outs</p>
+            <p className="text-lg font-bold text-white">
+              {(stats.engagement?.optOuts?.nudges ?? 0) + (stats.engagement?.optOuts?.discovery ?? 0) + (stats.engagement?.optOuts?.reengagement ?? 0)}
+            </p>
+            <p className="text-xs text-stone-600">category-level</p>
+          </div>
+        </div>
+
+        {/* Sequence breakdown */}
+        {stats.engagement?.byType?.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs text-stone-500 mb-2">By Type</h3>
+            <div className="space-y-1.5">
+              {stats.engagement.byType
+                .sort((a: any, b: any) => b.count - a.count)
+                .map((t: any) => {
+                  const maxCount = Math.max(...stats.engagement.byType.map((x: any) => x.count));
+                  return (
+                    <div key={t.emailType} className="flex items-center gap-2">
+                      <span className="text-xs text-stone-400 w-36 truncate">{t.emailType.replace(/_/g, ' ')}</span>
+                      <div className="flex-1 h-2 bg-poddit-950/50 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-500/40 rounded-full" style={{ width: `${(t.count / maxCount) * 100}%` }} />
+                      </div>
+                      <span className="text-xs text-stone-500 w-8 text-right">{t.count}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* Recent emails table */}
+        {stats.engagement?.recentEmails?.length > 0 && (
+          <div>
+            <h3 className="text-xs text-stone-500 mb-2">Recent Emails</h3>
+            <div className="max-h-64 overflow-y-auto scrollbar-thin">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-stone-500 border-b border-stone-800/30">
+                    <th className="text-left py-1.5 pr-2">User</th>
+                    <th className="text-left py-1.5 pr-2">Type</th>
+                    <th className="text-left py-1.5 pr-2">Subject</th>
+                    <th className="text-left py-1.5 pr-2">Status</th>
+                    <th className="text-right py-1.5">Sent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.engagement.recentEmails.map((e: any) => (
+                    <tr key={e.id} className="border-b border-stone-800/20 text-stone-400">
+                      <td className="py-1.5 pr-2 truncate max-w-[100px]">{e.user?.name || e.user?.email || 'Unknown'}</td>
+                      <td className="py-1.5 pr-2">
+                        <span className="px-1.5 py-0.5 bg-stone-800/40 rounded text-stone-400">{e.emailType.replace(/_/g, ' ')}</span>
+                      </td>
+                      <td className="py-1.5 pr-2 truncate max-w-[180px]">{e.subject}</td>
+                      <td className="py-1.5 pr-2">
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          e.status === 'sent' ? 'bg-teal-500/15 text-teal-400' :
+                          e.status === 'bounced' ? 'bg-rose-500/15 text-rose-400' :
+                          'bg-stone-800/40 text-stone-400'
+                        }`}>{e.status}</span>
+                      </td>
+                      <td className="py-1.5 text-right text-stone-500">{new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Bounced alert */}
+        {stats.engagement?.bounced?.length > 0 && (
+          <div className="mt-3 p-3 bg-rose-500/5 border border-rose-500/20 rounded-lg">
+            <h3 className="text-xs font-medium text-rose-400 mb-1">Bounced ({stats.engagement.bounced.length})</h3>
+            {stats.engagement.bounced.slice(0, 5).map((b: any) => (
+              <p key={b.id} className="text-xs text-stone-500">{b.user?.email} — {b.emailType.replace(/_/g, ' ')} ({new Date(b.createdAt).toLocaleDateString()})</p>
+            ))}
+          </div>
         )}
       </div>
 

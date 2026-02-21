@@ -36,6 +36,8 @@ model User {
   feedback Feedback[]
   episodeRatings EpisodeRating[]
   questionnaireResponses QuestionnaireResponse[]
+  emailLogs EmailLog[]
+  emailPreferences EmailPreferences?
 
   // Bonus episodes granted via questionnaire completion
   episodeBonusGranted Int       @default(0)
@@ -296,6 +298,37 @@ model QuestionnaireResponse {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ──────────────────────────────────────────
+// Email Engagement — logs + preferences
+// ──────────────────────────────────────────
+model EmailLog {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailType   String    // invite_reminder | welcome | first_signal | first_episode | episode_ready | mid_week_nudge | quiet_week | did_you_know | curiosity_reflection | re_engage_21 | re_engage_45
+  subject     String
+  status      String    @default("sent")  // sent | delivered | opened | bounced
+  metadata    Json?     // { episodeId, featureKey, etc. }
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, emailType])
+  @@index([userId, createdAt])
+}
+
+model EmailPreferences {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactional    Boolean  @default(true)   // episode ready, milestones
+  nudges           Boolean  @default(true)   // mid-week, quiet week
+  discovery        Boolean  @default(true)   // did-you-know, curiosity reflection
+  reengagement     Boolean  @default(true)   // 21d, 45d
+  unsubscribedAll  Boolean  @default(false)
+  unsubscribeToken String   @unique @default(uuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 // ──────────────────────────────────────────

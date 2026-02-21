@@ -115,6 +115,15 @@ export async function GET(request: NextRequest) {
       users,
       episodesWithCosts,
       activeFixedCosts,
+      totalEmailsSent,
+      emailsSentThisWeek,
+      emailsByType,
+      recentEmails,
+      bouncedEmails,
+      unsubscribedAllCount,
+      nudgesOptOutCount,
+      discoveryOptOutCount,
+      reengagementOptOutCount,
     ] = await Promise.all([
       prisma.signal.count(),
       prisma.episode.count(),
@@ -294,6 +303,33 @@ export async function GET(request: NextRequest) {
         where: { active: true },
         orderBy: { name: 'asc' },
       }),
+      // Engagement metrics
+      prisma.emailLog.count(),
+      prisma.emailLog.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.emailLog.groupBy({ by: ['emailType'], _count: true }),
+      prisma.emailLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        select: {
+          id: true,
+          userId: true,
+          emailType: true,
+          subject: true,
+          status: true,
+          createdAt: true,
+          user: { select: { name: true, email: true } },
+        },
+      }),
+      prisma.emailLog.findMany({
+        where: { status: 'bounced', createdAt: { gte: weekAgo } },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: { id: true, userId: true, emailType: true, subject: true, createdAt: true, user: { select: { name: true, email: true } } },
+      }),
+      prisma.emailPreferences.count({ where: { unsubscribedAll: true } }),
+      prisma.emailPreferences.count({ where: { nudges: false } }),
+      prisma.emailPreferences.count({ where: { discovery: false } }),
+      prisma.emailPreferences.count({ where: { reengagement: false } }),
     ]);
 
     // Fetch access requests from PODDIT-CONCEPT server (server-side, no CORS issues)
@@ -451,6 +487,19 @@ export async function GET(request: NextRequest) {
           items: activeFixedCosts,
         },
         totalMonthly: Math.round((fixedMonthlyTotal + generationCostThisWeek * (30 / 7)) * 100) / 100,
+      },
+      engagement: {
+        totalSent: totalEmailsSent,
+        sentThisWeek: emailsSentThisWeek,
+        byType: emailsByType.map(e => ({ emailType: e.emailType, count: e._count })),
+        recentEmails,
+        bounced: bouncedEmails,
+        optOuts: {
+          unsubscribedAll: unsubscribedAllCount,
+          nudges: nudgesOptOutCount,
+          discovery: discoveryOptOutCount,
+          reengagement: reengagementOptOutCount,
+        },
       },
       generatedAt: now.toISOString(),
     });

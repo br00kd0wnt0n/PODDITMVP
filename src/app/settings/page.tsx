@@ -482,6 +482,9 @@ export default function SettingsPage() {
           </label>
         </section>
 
+        {/* ── Section 5b: Email Notification Preferences ── */}
+        <EmailPreferencesSection />
+
         {/* ── Email (read-only) ── */}
         <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
           <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
@@ -543,5 +546,105 @@ export default function SettingsPage() {
       </div>
     </main>
     </>
+  );
+}
+
+// ──────────────────────────────────────────────
+// Email Notification Preferences (self-contained)
+// ──────────────────────────────────────────────
+
+const EMAIL_PREF_TOGGLES = [
+  { key: 'transactional', label: 'Episode notifications', description: 'New episodes, first signal, milestones' },
+  { key: 'nudges', label: 'Weekly nudges', description: 'Mid-week check-ins, quiet week reminders' },
+  { key: 'discovery', label: 'Tips & insights', description: 'Feature tips, curiosity reflections' },
+  { key: 'reengagement', label: 'Re-engagement', description: 'Check-ins if you\'ve been away' },
+] as const;
+
+function EmailPreferencesSection() {
+  const [prefs, setPrefs] = useState<Record<string, boolean> | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/user/email-preferences')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setPrefs(data); })
+      .catch(() => {}); // Silently fail — section just won't show
+  }, []);
+
+  const togglePref = async (key: string) => {
+    if (!prefs || saving) return;
+    const newValue = !prefs[key];
+    const newPrefs = { ...prefs, [key]: newValue };
+
+    // If turning any category back on, ensure unsubscribedAll is cleared
+    if (newValue && prefs.unsubscribedAll) {
+      newPrefs.unsubscribedAll = false;
+    }
+
+    setPrefs(newPrefs);
+    setSaving(true);
+
+    try {
+      const res = await fetch('/api/user/email-preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: newValue, ...(newValue && prefs.unsubscribedAll ? { unsubscribedAll: false } : {}) }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPrefs(updated);
+      }
+    } catch {
+      // Revert on failure
+      setPrefs(prefs);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!prefs) return null;
+
+  return (
+    <section className="p-4 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-transparent border border-white/[0.08] rounded-2xl">
+      <label className="block text-xs text-stone-400 uppercase tracking-wider mb-2 font-semibold">
+        Email Notifications
+      </label>
+      <p className="text-xs text-stone-500 mb-3">
+        Choose which emails you receive from Poddit
+      </p>
+
+      {prefs.unsubscribedAll && (
+        <div className="mb-3 p-2.5 bg-amber-500/5 border border-amber-500/15 rounded-xl">
+          <p className="text-xs text-amber-400">You've unsubscribed from all emails. Toggle a category below to re-enable.</p>
+        </div>
+      )}
+
+      <div className="space-y-2.5">
+        {EMAIL_PREF_TOGGLES.map(toggle => (
+          <label key={toggle.key} className="flex items-center justify-between gap-3 cursor-pointer group">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-stone-300 group-hover:text-white transition-colors">{toggle.label}</p>
+              <p className="text-xs text-stone-600">{toggle.description}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!prefs[toggle.key]}
+              onClick={() => togglePref(toggle.key)}
+              disabled={saving}
+              className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                prefs[toggle.key] ? 'bg-teal-500' : 'bg-stone-700'
+              } ${saving ? 'opacity-50' : ''}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                  prefs[toggle.key] ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </label>
+        ))}
+      </div>
+    </section>
   );
 }

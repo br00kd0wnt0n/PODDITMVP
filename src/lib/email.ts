@@ -1,4 +1,4 @@
-import sgMail from '@sendgrid/mail';
+import sgMail, { MailDataRequired } from '@sendgrid/mail';
 import { withRetry } from './retry';
 
 if (process.env.SENDGRID_API_KEY) {
@@ -7,6 +7,60 @@ if (process.env.SENDGRID_API_KEY) {
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@poddit.com';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.poddit.com';
+
+// ──────────────────────────────────────────────
+// SHARED EMAIL SENDER (with List-Unsubscribe headers)
+// ──────────────────────────────────────────────
+
+export interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  /** Unsubscribe token for List-Unsubscribe header */
+  unsubscribeToken?: string;
+  /** Category for targeted unsubscribe */
+  unsubscribeCategory?: string;
+  /** Label for logging */
+  label?: string;
+}
+
+/**
+ * Send an email via SendGrid with List-Unsubscribe headers.
+ * All engagement emails should use this function.
+ */
+export async function sendEmail(options: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
+  const { to, subject, html, text, unsubscribeToken, unsubscribeCategory, label } = options;
+
+  const msg: MailDataRequired = {
+    to,
+    from: { email: FROM_EMAIL, name: 'Poddit' },
+    subject,
+    html,
+    text,
+  };
+
+  // Add List-Unsubscribe headers for one-click unsubscribe (CAN-SPAM / RFC 8058)
+  if (unsubscribeToken) {
+    const unsubUrl = `${APP_URL}/api/unsubscribe?token=${unsubscribeToken}&category=${unsubscribeCategory || 'all'}`;
+    msg.headers = {
+      'List-Unsubscribe': `<${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    };
+  }
+
+  try {
+    await withRetry(
+      () => sgMail.send(msg),
+      { attempts: 3, delayMs: 2000, label: label || `Email to ${to}` }
+    );
+    console.log(`[Email] Sent: ${label || subject} → ${to}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Email] Failed: ${label || subject} → ${to}:`, error?.response?.body || error);
+    return { success: false, error: error?.message || 'Failed to send email' };
+  }
+}
 
 // ──────────────────────────────────────────────
 // SEND INVITE EMAIL

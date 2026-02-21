@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateEpisode } from '@/lib/synthesize';
 import { requireSession } from '@/lib/auth';
 import { rateLimit, clearRateLimit } from '@/lib/rate-limit';
+import { sendEpisodeReadyEmail } from '@/lib/engagement/sequences';
+import { isEngagementEnabled } from '@/lib/engagement/flags';
 import prisma from '@/lib/db';
 
 // Allow up to 5 minutes for generation (Claude + TTS + ffmpeg + upload)
@@ -79,6 +81,13 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[GenerateNow] Complete: ${episode?.title}`);
+
+    // Send episode ready email (fire-and-forget, gated by ENGAGEMENT_ENABLED)
+    if (episode?.status === 'READY' && isEngagementEnabled()) {
+      sendEpisodeReadyEmail(userId, episodeId).catch(err =>
+        console.error(`[GenerateNow] Episode ready email failed:`, err)
+      );
+    }
 
     return NextResponse.json({
       status: 'generated',
