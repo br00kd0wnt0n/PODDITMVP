@@ -42,6 +42,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'email is required' }, { status: 400 });
     }
 
+    // Clear previous test email logs if requested
+    if (body.clearPrevious) {
+      const deleted = await prisma.emailLog.deleteMany({
+        where: { emailType: { startsWith: 'test_' } },
+      });
+      console.log(`[Admin] Cleared ${deleted.count} test email logs`);
+    }
+
     // Find a user to pull data from (prefer provided userId, then match by email, then first MASTER)
     let user = body.userId
       ? await prisma.user.findUnique({ where: { id: body.userId } })
