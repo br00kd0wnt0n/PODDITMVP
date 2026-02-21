@@ -16,9 +16,10 @@
 | page.tsx monolith | ~1,642 lines, ~41 useState | MEDIUM — partially decomposed, queue still inline |
 | Episodes API | Highlights aggregated server-side, bounded to 500 signals | LOW — fixed |
 | Rate limiter | In-memory, single-instance, bypassed during Railway deploys | MEDIUM — needs Redis before autoscaling |
-| Extension capture | No rate limiting | HIGH — only unprotected capture route |
-| Segment count | No code-level cap from Claude output | HIGH — potential TTS cost runaway |
-| Prompt injection | User content concatenated directly into synthesis prompt | HIGH — needs delimiters |
+| Extension capture | Rate limited 10/min per user | LOW — fixed Feb 2026 |
+| Segment count | MAX_SEGMENTS=8 enforced after Claude parsing | LOW — fixed Feb 2026 |
+| Prompt injection | `<signal_content>` delimiters + INPUT SAFETY instruction | LOW — fixed Feb 2026 |
+| Admin episode visibility | Briefing style + research depth pills in Episode Overview | LOW — added Feb 2026 |
 | Database indexes | Good coverage: Signal, Episode, Segment composites all present | LOW |
 | Polling load | 30s interval, 3 parallel requests, 8,640 calls/user/day | LOW — fine for <50 users |
 
@@ -458,6 +459,18 @@ Full codebase review across API routes, core libraries, frontend, and schema.
 - [x] Sign-in: `window.location.replace('/')` (prevents soft→hard reload cycle)
 - [x] Dashboard auth guard: `wasAuthenticated` ref prevents BroadcastChannel echo redirect
 - [x] SessionProvider excluded from `/auth/*` routes
+
+### Session: Feb 21 2026
+- [x] Briefing length caps — hard word limits (Essential 650, Standard 1400, Strategic 2100) + per-segment economy (300-400 words) + MAX 5 segments in prompt
+- [x] Audio mix loudnorm — replaced `volume=${mixCount}` with `loudnorm=I=-16:TP=-1.5:LRA=11` on main + epilogue mix
+- [x] Voice sample normalization — loudnorm on generation + R2 path bumped to v2/
+- [x] P0 stability fixes — extension rate limiting, segment cap (8), prompt injection delimiters, play route Promise.allSettled
+- [x] Production verification — all endpoints tested, no 500s
+- [x] Admin episode pills — briefing style (teal/violet/amber) + research depth in Episode Overview
+- [x] Concept page: briefing style + depth names colored (teal/violet/amber) in feature cards
+- [x] Concept page: intro rewrite as problem/solution ("Too many tabs, too many threads")
+- [x] Concept page: `.accent` CSS selector fix for paragraph spans
+- [x] Concept page: access language refresh ("Limited Access", "Let's get you in", "Get Access")
 
 ### Previously Completed (from CLAUDE.md)
 - [x] Cost tracker in Mission Control (revenue tracking deferred)
