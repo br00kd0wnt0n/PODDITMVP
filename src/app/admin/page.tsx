@@ -1457,6 +1457,22 @@ function AdminDashboard() {
                   {ep.voiceKey && (
                     <span className="text-xs text-stone-500 flex-shrink-0">{VOICE_NAMES[ep.voiceKey] || ep.voiceKey}</span>
                   )}
+                  {/* Briefing style */}
+                  {ep.generationMeta?.briefingStyle && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                      ep.generationMeta.briefingStyle === 'essential' ? 'bg-teal-500/15 text-teal-400'
+                      : ep.generationMeta.briefingStyle === 'strategic' ? 'bg-amber-500/15 text-amber-400'
+                      : 'bg-violet-500/15 text-violet-400'
+                    }`}>
+                      {ep.generationMeta.briefingStyle}
+                    </span>
+                  )}
+                  {/* Research depth (only show non-default) */}
+                  {ep.generationMeta?.researchDepth && ep.generationMeta.researchDepth !== 'auto' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-stone-800 text-stone-400 flex-shrink-0">
+                      {ep.generationMeta.researchDepth === 'explain-more' ? 'explain' : 'deeper'}
+                    </span>
+                  )}
                   {/* Play count */}
                   <span className="text-xs font-mono text-stone-500 flex-shrink-0" title="Play count">
                     {ep.playCount || 0} ▶
