@@ -395,10 +395,10 @@ Full codebase review across API routes, core libraries, frontend, and schema.
 
 ### P0 — Critical (fix before next user-facing release)
 
-- [ ] **Extension capture rate limiting** — only capture route without rate limiting. DOS vector. Add `rateLimit('capture-ext:${userId}', 10, 60_000)`. File: `src/app/api/capture/extension/route.ts`
-- [ ] **Segment count cap** — Claude can return unlimited segments, each hitting ElevenLabs TTS. Add `segments.slice(0, 8)` after parsing. File: `src/lib/synthesize.ts`
-- [ ] **Prompt injection protection** — `fetchedContent` and `rawContent` concatenated directly into synthesis prompt. Wrap in `<user_content>` delimiters + add system prompt instruction to ignore embedded instructions. File: `src/lib/prompts.ts`
-- [ ] **Episodes play error handling** — `Promise.all()` for playCount + lastActiveAt has no try/catch. Switch to `Promise.allSettled()`. File: `src/app/api/episodes/play/route.ts`
+- [x] **Extension capture rate limiting** — added 10/min per user after auth resolution
+- [x] **Segment count cap** — MAX_SEGMENTS=8 enforced after Claude response parsing in synthesize.ts
+- [x] **Prompt injection protection** — `<signal_content>` delimiters on all user content + INPUT SAFETY section in system prompt
+- [x] **Episodes play error handling** — switched to Promise.allSettled(), partial failures logged independently
 - [x] **Server-side highlights aggregation** — bounded to 500 signals, pre-computed counts
 - [x] **Clipboard writeText error handling** — `.catch()` with fallback toast
 - [x] **Briefing length caps** — hard word limits on all 3 styles (650/1400/2100)
