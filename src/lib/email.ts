@@ -1,4 +1,5 @@
 import sgMail from '@sendgrid/mail';
+import { withRetry } from './retry';
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -92,17 +93,20 @@ Enter your email and the access code above to get started.
 Questions? Reply to this email or reach us at hello@poddit.com`;
 
   try {
-    await sgMail.send({
-      to,
-      from: { email: FROM_EMAIL, name: 'Poddit' },
-      subject: 'Your Poddit early access code',
-      html,
-      text,
-    });
+    await withRetry(
+      () => sgMail.send({
+        to,
+        from: { email: FROM_EMAIL, name: 'Poddit' },
+        subject: 'Your Poddit early access code',
+        html,
+        text,
+      }),
+      { attempts: 3, delayMs: 2000, label: `Email invite to ${to}` }
+    );
     console.log(`[Email] Invite sent to ${to}`);
     return { success: true };
   } catch (error: any) {
-    console.error('[Email] Failed to send invite:', error?.response?.body || error);
+    console.error('[Email] Failed to send invite after retries:', error?.response?.body || error);
     return { success: false, error: error?.message || 'Failed to send email' };
   }
 }
@@ -144,17 +148,20 @@ export async function sendRevokeEmail(params: {
   const text = `${greeting},\n\nYour early access to Poddit has been paused. If you believe this is a mistake, please reach out to us at hello@poddit.com.`;
 
   try {
-    await sgMail.send({
-      to,
-      from: { email: FROM_EMAIL, name: 'Poddit' },
-      subject: 'Poddit access update',
-      html,
-      text,
-    });
+    await withRetry(
+      () => sgMail.send({
+        to,
+        from: { email: FROM_EMAIL, name: 'Poddit' },
+        subject: 'Poddit access update',
+        html,
+        text,
+      }),
+      { attempts: 3, delayMs: 2000, label: `Email revoke to ${to}` }
+    );
     console.log(`[Email] Revoke notice sent to ${to}`);
     return { success: true };
   } catch (error: any) {
-    console.error('[Email] Failed to send revoke notice:', error?.response?.body || error);
+    console.error('[Email] Failed to send revoke notice after retries:', error?.response?.body || error);
     return { success: false, error: error?.message || 'Failed to send email' };
   }
 }

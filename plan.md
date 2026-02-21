@@ -15,6 +15,9 @@
 | Audio mix | loudnorm (I=-16 LUFS) replaces crude volume multiplier | LOW — broadcast standard |
 | page.tsx monolith | ~1,642 lines, ~41 useState | MEDIUM — partially decomposed, queue still inline |
 | Episodes API | Highlights aggregated server-side, bounded to 500 signals | LOW — fixed |
+| SMS/Email delivery | Retry with exponential backoff on Twilio + SendGrid | LOW — fixed |
+| Audio download | 25MB size limit on Twilio media downloads | LOW — fixed |
+| Signal delete | Atomic deleteMany (no find-then-delete race) | LOW — fixed |
 | Rate limiter | In-memory, single-instance, bypassed during Railway deploys | MEDIUM — needs Redis before autoscaling |
 | Extension capture | Rate limited 10/min per user | LOW — fixed Feb 2026 |
 | Segment count | MAX_SEGMENTS=8 enforced after Claude parsing | LOW — fixed Feb 2026 |
@@ -408,12 +411,12 @@ Full codebase review across API routes, core libraries, frontend, and schema.
 
 ### P1 — High (next stability sprint)
 
-- [ ] **SMS delivery retry** — no retry on Twilio failures = users never notified. Wrap in `withRetry()`. File: `src/lib/deliver.ts`
-- [ ] **SendGrid email retry** — no retry = users may not receive invite codes. Admin sees success with `emailSent: false` buried in response. File: `src/lib/email.ts`
-- [ ] **Audio download size limit** — no Content-Length check before downloading Twilio media in transcribe.ts. Could download multi-GB. Reject >25MB. File: `src/lib/transcribe.ts`
-- [ ] **SMS formData parsing guard** — if Twilio sends malformed data, `request.formData()` throws uncaught. Wrap in try/catch. File: `src/app/api/capture/sms/route.ts`
-- [ ] **Atomic signal delete** — find-then-delete race condition. Use `deleteMany({ where: { id, userId } })`. File: `src/app/api/signals/route.ts`
-- [ ] **Dashboard generatePollRef cleanup** — interval not cleared on unmount, stale polling after navigation. File: `src/app/page.tsx`
+- [x] **SMS delivery retry** — both `notifyEpisodeReady` and `confirmCapture` wrapped in `withRetry()` (3 attempts, 2s/1s delay). File: `src/lib/deliver.ts`
+- [x] **SendGrid email retry** — both `sendInviteEmail` and `sendRevokeEmail` wrapped in `withRetry()` (3 attempts, 2s delay). File: `src/lib/email.ts`
+- [x] **Audio download size limit** — Content-Length pre-check + post-download check, rejects >25MB. File: `src/lib/transcribe.ts`
+- [x] **SMS formData parsing guard** — `request.formData()` wrapped in try/catch, returns TwiML error on malformed data. File: `src/app/api/capture/sms/route.ts`
+- [x] **Atomic signal delete** — replaced find-then-delete with `deleteMany({ where: { id, userId } })`. File: `src/app/api/signals/route.ts`
+- [x] **Dashboard generatePollRef cleanup** — already handled in `[status]` useEffect teardown (line 424). No change needed.
 - [ ] **Redis rate limiter** — replace in-memory `Map` with Redis-backed limiter (required before autoscaling)
 
 ### P2 — Medium (code health / polish)
@@ -471,6 +474,14 @@ Full codebase review across API routes, core libraries, frontend, and schema.
 - [x] Concept page: intro rewrite as problem/solution ("Too many tabs, too many threads")
 - [x] Concept page: `.accent` CSS selector fix for paragraph spans
 - [x] Concept page: access language refresh ("Limited Access", "Let's get you in", "Get Access")
+
+### Session: Feb 21 2026 (P1 stability sprint)
+- [x] SMS delivery retry — `withRetry()` on both `notifyEpisodeReady` and `confirmCapture` (3 attempts, exponential backoff)
+- [x] SendGrid email retry — `withRetry()` on invite + revoke emails (3 attempts, 2s base delay)
+- [x] Audio download size limit — 25MB cap with Content-Length pre-check + post-download validation
+- [x] SMS formData parsing guard — try/catch on `request.formData()`, returns TwiML error on malformed data
+- [x] Atomic signal delete — `deleteMany({ where: { id, userId } })` replaces find-then-delete race condition
+- [x] generatePollRef cleanup — verified already handled in `[status]` useEffect teardown (no change needed)
 
 ### Previously Completed (from CLAUDE.md)
 - [x] Cost tracker in Mission Control (revenue tracking deferred)

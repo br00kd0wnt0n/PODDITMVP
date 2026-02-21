@@ -41,7 +41,13 @@ export async function POST(request: NextRequest) {
       console.warn('[SMS] TWILIO_AUTH_TOKEN not set — skipping signature verification');
     }
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (parseError) {
+      console.error('[SMS] Failed to parse formData:', parseError);
+      return twimlResponse('Invalid request format.');
+    }
 
     const body = (formData.get('Body') as string) || '';
     const from = formData.get('From') as string;

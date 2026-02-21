@@ -1,5 +1,6 @@
 import twilio from 'twilio';
 import prisma from './db';
+import { withRetry } from './retry';
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -52,14 +53,13 @@ export async function notifyEpisodeReady(params: {
   const message = `🎧 Your Poddit is ready!\n\n"${title}"\n${signalCount} signals → ${durationStr}\n\n${playerUrl}`;
 
   try {
-    await client.messages.create({
-      body: message,
-      from: senderFor(phone),
-      to: phone,
-    });
+    await withRetry(
+      () => client.messages.create({ body: message, from: senderFor(phone), to: phone }),
+      { attempts: 3, delayMs: 2000, label: `SMS notify ${episodeId}` }
+    );
     console.log(`[Deliver] SMS sent for episode ${episodeId} to ${phone}`);
   } catch (error) {
-    console.error('[Deliver] SMS failed:', error);
+    console.error('[Deliver] SMS failed after retries:', error);
   }
 }
 
@@ -73,12 +73,15 @@ export async function confirmCapture(params: {
   preview: string;
 }) {
   try {
-    await client.messages.create({
-      body: `✓ Poddit captured: "${params.preview.slice(0, 60)}${params.preview.length > 60 ? '...' : ''}"`,
-      from: senderFor(params.to),
-      to: params.to,
-    });
+    await withRetry(
+      () => client.messages.create({
+        body: `✓ Poddit captured: "${params.preview.slice(0, 60)}${params.preview.length > 60 ? '...' : ''}"`,
+        from: senderFor(params.to),
+        to: params.to,
+      }),
+      { attempts: 3, delayMs: 1000, label: 'SMS confirm' }
+    );
   } catch (error) {
-    console.error('[Deliver] Confirmation SMS failed:', error);
+    console.error('[Deliver] Confirmation SMS failed after retries:', error);
   }
 }

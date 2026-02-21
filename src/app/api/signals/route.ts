@@ -86,15 +86,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    // Verify ownership before deleting
-    const signal = await prisma.signal.findFirst({
+    // Atomic ownership-verified delete (no find-then-delete race condition)
+    const result = await prisma.signal.deleteMany({
       where: { id, userId },
     });
-    if (!signal) {
+
+    if (result.count === 0) {
       return NextResponse.json({ error: 'Signal not found' }, { status: 404 });
     }
 
-    await prisma.signal.delete({ where: { id } });
     return NextResponse.json({ status: 'deleted' });
   } catch (error: any) {
     console.error('[Signals] Delete error:', error);

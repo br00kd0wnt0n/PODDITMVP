@@ -107,7 +107,19 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
     throw new Error(`Failed to download audio: HTTP ${response.status} ${response.statusText}`);
   }
 
+  // Reject oversized files before buffering (25MB limit)
+  const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_AUDIO_BYTES) {
+    throw new Error(`Audio file too large (${contentLength} bytes, max ${MAX_AUDIO_BYTES})`);
+  }
+
   const audioBuffer = await response.arrayBuffer();
+
+  if (audioBuffer.byteLength > MAX_AUDIO_BYTES) {
+    throw new Error(`Audio file too large (${audioBuffer.byteLength} bytes, max ${MAX_AUDIO_BYTES})`);
+  }
+
   const contentType = response.headers.get('content-type') || 'audio/ogg';
 
   const ext = EXT_MAP[contentType] || 'ogg';
