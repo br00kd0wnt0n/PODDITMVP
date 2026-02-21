@@ -76,13 +76,17 @@ export function buildEmailHtml(options: EmailTemplateOptions): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap');
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:${STYLES.bg};font-family:${STYLES.fontStack};">
   <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
 
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:32px;">
-      <h1 style="color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;margin:0;">PODDIT</h1>
+      <img src="${APP_URL}/logo.png" alt="Poddit" width="48" height="48" style="display:block;margin:0 auto 12px;border-radius:12px;" />
+      <h1 style="color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;margin:0;font-family:'Syne',${STYLES.fontStack};">PODDIT</h1>
       <p style="color:${STYLES.textMuted};font-size:12px;letter-spacing:3px;text-transform:uppercase;margin:4px 0 0;">Your world, explained</p>
     </div>
 
@@ -209,7 +213,7 @@ export function greeting(name?: string | null): string {
   return p(`${name ? `Hi ${name}` : 'Hi there'},`);
 }
 
-/** Link styled with accent colour */
+/** Link styled with accent color */
 export function link(text: string, url: string): string {
   return `<a href="${url}" style="color:${STYLES.accent};text-decoration:none;">${text}</a>`;
 }

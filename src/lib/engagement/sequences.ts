@@ -139,7 +139,7 @@ export async function sendWelcomeEmail(userId: string): Promise<boolean> {
     greeting(user.name),
     p('Welcome to Poddit. Three steps to get started:'),
     p(`<strong>1. Capture</strong> \u2014 Drop in a link, topic, or voice note. Anything you\u2019re curious about. ${link('Try it now', APP_URL)}.`),
-    p(`<strong>2. Generate</strong> \u2014 When you\u2019re ready, tap Generate My Episode. Poddit synthesises your signals into a personal audio briefing.`),
+    p(`<strong>2. Generate</strong> \u2014 When you\u2019re ready, tap Generate My Episode. Poddit synthesizes your signals into a personal audio briefing.`),
     p(`<strong>3. Listen</strong> \u2014 Play your episode anywhere. Rate it after to help Poddit learn what resonates.`),
     pLast(`Make this a daily habit \u2014 drop in anything you\u2019re curious about throughout the day. Even 2\u20133 signals make a great episode.`),
   ].join('');
@@ -290,9 +290,12 @@ export async function sendFirstEpisodeEmail(userId: string, episodeId: string): 
 
   const episode = await prisma.episode.findUnique({
     where: { id: episodeId },
-    select: { title: true, audioDuration: true, topicsCovered: true, signalCount: true },
+    select: { title: true, audioDuration: true, signalCount: true, signals: { select: { topics: true } } },
   });
   if (!episode?.title) return false;
+
+  // Use actual signal topics (not episode segment titles)
+  const episodeTopics = Array.from(new Set(episode.signals.flatMap(s => s.topics))).slice(0, 5);
 
   const prefs = await getOrCreatePreferences(userId);
 
@@ -304,7 +307,7 @@ export async function sendFirstEpisodeEmail(userId: string, episodeId: string): 
     episodeCard({
       title: episode.title,
       duration: episode.audioDuration,
-      topics: episode.topicsCovered,
+      topics: episodeTopics,
       id: episodeId,
     }),
     pLast('Rate it after listening \u2014 it takes 10 seconds and helps Poddit learn what resonates with you.'),
@@ -362,7 +365,7 @@ export async function sendEpisodeReadyEmail(userId: string, episodeId: string): 
 
   const episode = await prisma.episode.findUnique({
     where: { id: episodeId },
-    select: { title: true, audioDuration: true, topicsCovered: true, signalCount: true },
+    select: { title: true, audioDuration: true, signalCount: true, signals: { select: { topics: true } } },
   });
   if (!episode?.title) return false;
 
@@ -374,6 +377,9 @@ export async function sendEpisodeReadyEmail(userId: string, episodeId: string): 
     return sendFirstEpisodeEmail(userId, episodeId);
   }
 
+  // Use actual signal topics (not episode segment titles)
+  const episodeTopics = Array.from(new Set(episode.signals.flatMap(s => s.topics))).slice(0, 5);
+
   const prefs = await getOrCreatePreferences(userId);
   const subject = `New episode: ${episode.title}`;
 
@@ -383,7 +389,7 @@ export async function sendEpisodeReadyEmail(userId: string, episodeId: string): 
     episodeCard({
       title: episode.title,
       duration: episode.audioDuration,
-      topics: episode.topicsCovered,
+      topics: episodeTopics,
       id: episodeId,
     }),
   ].join('');
@@ -444,12 +450,14 @@ export async function sendMidWeekNudge(userId: string): Promise<boolean> {
   });
   if (!user?.email) return false;
 
-  // Get last episode topics for context
-  const lastEpisode = await prisma.episode.findFirst({
-    where: { userId, status: 'READY' },
-    orderBy: { generatedAt: 'desc' },
-    select: { topicsCovered: true },
+  // Get recent signal topics for context (not episode titles)
+  const recentSignals = await prisma.signal.findMany({
+    where: { userId, status: 'USED' },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: { topics: true },
   });
+  const recentTopics = Array.from(new Set(recentSignals.flatMap(s => s.topics))).slice(0, 3);
 
   const prefs = await getOrCreatePreferences(userId);
 
@@ -459,8 +467,8 @@ export async function sendMidWeekNudge(userId: string): Promise<boolean> {
   });
   const subject = MID_WEEK_SUBJECTS[sentCount % MID_WEEK_SUBJECTS.length];
 
-  const topicsRef = lastEpisode?.topicsCovered?.length
-    ? `Last time, you were exploring ${lastEpisode.topicsCovered.slice(0, 3).join(', ')}. `
+  const topicsRef = recentTopics.length
+    ? `Last time, you were exploring ${recentTopics.join(', ')}. `
     : '';
 
   const bodyHtml = [

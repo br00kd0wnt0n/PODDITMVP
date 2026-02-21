@@ -118,25 +118,26 @@ export async function usedChannels(userId: string): Promise<string[]> {
 // ──────────────────────────────────────────────
 
 /**
- * Get the most frequent topics from a user's READY episodes.
+ * Get the most frequent topics from a user's signals.
+ * Uses signal.topics[] (actual topic tags), not episode.topicsCovered (segment titles).
  * Returns sorted by frequency descending.
  */
 export async function topicHighlights(
   userId: string,
   limit: number = 5,
 ): Promise<{ topic: string; count: number }[]> {
-  const episodes = await prisma.episode.findMany({
-    where: { userId, status: 'READY' },
-    select: { topicsCovered: true },
-    orderBy: { generatedAt: 'desc' },
-    take: 50,
+  const signals = await prisma.signal.findMany({
+    where: { userId },
+    select: { topics: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
   });
 
   const counts = new Map<string, number>();
-  for (const ep of episodes) {
-    for (const topic of ep.topicsCovered) {
-      const normalised = topic.toLowerCase().trim();
-      counts.set(normalised, (counts.get(normalised) || 0) + 1);
+  for (const sig of signals) {
+    for (const topic of sig.topics) {
+      const normalized = topic.toLowerCase().trim();
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
     }
   }
 
@@ -148,28 +149,36 @@ export async function topicHighlights(
 
 /**
  * Build curiosity clusters for the Curiosity Reflection email.
- * Returns top recurring topics with enough signal to be meaningful (≥2 occurrences).
+ * Uses signal.topics[] (actual topic tags) across signals that have been used in episodes.
+ * Returns top recurring topics with enough signals to be meaningful (≥2 occurrences).
  */
 export async function curiosityClusters(userId: string): Promise<{
   topics: { topic: string; count: number }[];
   episodeCount: number;
 } | null> {
-  const episodes = await prisma.episode.findMany({
+  const episodeCount = await prisma.episode.count({
     where: { userId, status: 'READY' },
-    select: { topicsCovered: true },
   });
 
-  if (episodes.length < 3) return null; // Not enough data
+  if (episodeCount < 3) return null; // Not enough data
+
+  // Pull topics from signals (the real topic tags)
+  const signals = await prisma.signal.findMany({
+    where: { userId },
+    select: { topics: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
 
   const counts = new Map<string, number>();
-  for (const ep of episodes) {
-    for (const topic of ep.topicsCovered) {
-      const normalised = topic.toLowerCase().trim();
-      counts.set(normalised, (counts.get(normalised) || 0) + 1);
+  for (const sig of signals) {
+    for (const topic of sig.topics) {
+      const normalized = topic.toLowerCase().trim();
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
     }
   }
 
-  // Only include topics that appear in ≥2 episodes (recurring)
+  // Only include topics that appear ≥2 times (recurring interests)
   const recurring = Array.from(counts.entries())
     .filter(([, count]) => count >= 2)
     .sort((a, b) => b[1] - a[1])
@@ -178,7 +187,7 @@ export async function curiosityClusters(userId: string): Promise<{
 
   if (recurring.length < 2) return null; // Not enough recurring topics
 
-  return { topics: recurring, episodeCount: episodes.length };
+  return { topics: recurring, episodeCount };
 }
 
 // ──────────────────────────────────────────────

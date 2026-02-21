@@ -56,26 +56,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Get real data for the test user
-    const [episodes, signals, prefs] = await Promise.all([
+    const [episodes, allSignals, prefs] = await Promise.all([
       prisma.episode.findMany({
         where: { userId: user.id, status: 'READY' },
         orderBy: { generatedAt: 'desc' },
         take: 5,
-        select: { id: true, title: true, audioDuration: true, topicsCovered: true, signalCount: true },
+        select: { id: true, title: true, audioDuration: true, signalCount: true, signals: { select: { topics: true } } },
       }),
       prisma.signal.findMany({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 50,
         select: { rawContent: true, title: true, channel: true, topics: true },
       }),
       getOrCreatePreferences(user.id),
     ]);
 
     const latestEpisode = episodes[0];
+    const signals = allSignals.slice(0, 5);
     const firstSignal = signals[signals.length - 1] || { rawContent: 'AI agents in enterprise', title: 'AI agents in enterprise', channel: 'API', topics: ['artificial intelligence', 'enterprise'] };
-    const topTopics = Array.from(new Set(episodes.flatMap(e => e.topicsCovered))).slice(0, 5);
-    const stats = { signalCount: signals.length || 12, episodeCount: episodes.length || 6 };
+    // Use actual signal topics, not episode segment titles
+    const topTopics = Array.from(new Set(allSignals.flatMap(s => s.topics))).slice(0, 5);
+    const stats = { signalCount: allSignals.length || 12, episodeCount: episodes.length || 6 };
 
     const results: { emailType: string; success: boolean; error?: string }[] = [];
 
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
         greeting(user.name),
         p('Welcome to Poddit. Three steps to get started:'),
         p(`<strong>1. Capture</strong> \u2014 Drop in a link, topic, or voice note. Anything you\u2019re curious about. ${link('Try it now', APP_URL)}.`),
-        p('<strong>2. Generate</strong> \u2014 When you\u2019re ready, tap Generate My Episode. Poddit synthesises your signals into a personal audio briefing.'),
+        p('<strong>2. Generate</strong> \u2014 When you\u2019re ready, tap Generate My Episode. Poddit synthesizes your signals into a personal audio briefing.'),
         p('<strong>3. Listen</strong> \u2014 Play your episode anywhere. Rate it after to help Poddit learn what resonates.'),
         pLast('Make this a daily habit \u2014 drop in anything you\u2019re curious about throughout the day. Even 2\u20133 signals make a great episode.'),
       ].join(''),
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
         [
           greeting(user.name),
           p('Your first episode is ready to listen.'),
-          episodeCard({ title: latestEpisode.title || 'Your Poddit Episode', duration: latestEpisode.audioDuration, topics: latestEpisode.topicsCovered, id: latestEpisode.id }),
+          episodeCard({ title: latestEpisode.title || 'Your Poddit Episode', duration: latestEpisode.audioDuration, topics: Array.from(new Set(latestEpisode.signals.flatMap(s => s.topics))).slice(0, 5), id: latestEpisode.id }),
           pLast('Rate it after listening \u2014 it takes 10 seconds and helps Poddit learn what resonates with you.'),
         ].join(''),
         `Your first episode is ready: ${latestEpisode.title}\n\nListen: ${APP_URL}/player/${latestEpisode.id}`,
@@ -203,7 +205,7 @@ export async function POST(request: NextRequest) {
         [
           greeting(user.name),
           p('Your new episode is ready.'),
-          episodeCard({ title: latestEpisode.title || 'Your Poddit Episode', duration: latestEpisode.audioDuration, topics: latestEpisode.topicsCovered, id: latestEpisode.id }),
+          episodeCard({ title: latestEpisode.title || 'Your Poddit Episode', duration: latestEpisode.audioDuration, topics: Array.from(new Set(latestEpisode.signals.flatMap(s => s.topics))).slice(0, 5), id: latestEpisode.id }),
         ].join(''),
         `New episode: ${latestEpisode.title}\n\nListen: ${APP_URL}/player/${latestEpisode.id}`,
         'transactional', 'episode notifications',
