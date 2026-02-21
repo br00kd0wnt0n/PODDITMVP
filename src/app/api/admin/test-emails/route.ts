@@ -42,10 +42,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'email is required' }, { status: 400 });
     }
 
-    // Find a user to pull data from (prefer the provided userId, else first MASTER)
+    // Find a user to pull data from (prefer provided userId, then match by email, then first MASTER)
     let user = body.userId
       ? await prisma.user.findUnique({ where: { id: body.userId } })
-      : await prisma.user.findFirst({ where: { userType: 'MASTER' } });
+      : await prisma.user.findFirst({ where: { email: targetEmail } })
+        ?? await prisma.user.findFirst({ where: { userType: 'MASTER' } });
 
     if (!user) {
       user = await prisma.user.findFirst({ orderBy: { createdAt: 'asc' } });
