@@ -13,8 +13,9 @@ export async function withRetry<T>(
       return await fn();
     } catch (error: any) {
       const isLast = i === attempts - 1;
-      const status = error?.status || error?.statusCode;
-      const isRetryable = !status || status === 429 || status >= 500;
+      const status = error?.status || error?.statusCode || error?.response?.status;
+      const isAuthError = status === 401 || status === 403;
+      const isRetryable = !isAuthError && (!status || status === 429 || status >= 500);
 
       if (isLast || !isRetryable) throw error;
 

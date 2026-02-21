@@ -361,9 +361,11 @@ export async function fetchAndExtract(url: string): Promise<{
     const content = articleText || bodyText;
 
     // Truncate to ~4000 words to stay within LLM context limits
-    const truncated = content.split(/\s+/).slice(0, 4000).join(' ');
+    const words = content.split(/\s+/);
+    const truncated = words.slice(0, 4000).join(' ');
+    const wasTruncated = words.length > 4000;
 
-    return { title, source: ogSource || source, content: truncated || null };
+    return { title, source: ogSource || source, content: truncated ? (wasTruncated ? truncated + '\n\n[content truncated]' : truncated) : null };
   } catch (error) {
     console.error(`[Capture] Failed to fetch ${url}:`, error);
     const source = safeHostname(url);

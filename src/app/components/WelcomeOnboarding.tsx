@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { normalizePhone } from '@/lib/phone';
+import { useVoicePreview } from '@/hooks/useVoicePreview';
 
 interface Voice {
   key: string;
@@ -46,13 +48,8 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
   const [phoneSaved, setPhoneSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Voice preview
-  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
-  const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
-  const [voiceProgress, setVoiceProgress] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animFrameRef = useRef<number | null>(null);
-  const sampleUrlCache = useRef<Record<string, string>>({});
+  // Voice preview (shared hook)
+  const { playingVoice, loadingVoice, voiceProgress, playPreview: _playPreview, stopPreview } = useVoicePreview();
 
   // Fetch voices + current preferences on mount
   useEffect(() => {
@@ -72,77 +69,21 @@ export default function WelcomeOnboarding({ onComplete, userPhone, onPhoneSaved 
     if (userPhone) setPhoneSaved(true);
   }, [userPhone]);
 
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-  }, []);
-
-  // ── Voice preview ──
-  const stopPreview = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    setPlayingVoice(null);
-    setVoiceProgress(0);
-  }, []);
-
-  const trackProgress = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) return;
-    if (audio.duration && audio.duration > 0) {
-      setVoiceProgress((audio.currentTime / audio.duration) * 100);
-    }
-    animFrameRef.current = requestAnimationFrame(trackProgress);
-  }, []);
-
-  const playPreview = useCallback(async (voiceKey: string) => {
-    if (playingVoice === voiceKey) { stopPreview(); return; }
-    stopPreview();
+  // Wrap playPreview to also select the voice
+  const playPreview = useCallback((voiceKey: string) => {
     setSelectedVoice(voiceKey);
-    setLoadingVoice(voiceKey);
-    try {
-      let url = sampleUrlCache.current[voiceKey];
-      if (!url) {
-        const res = await fetch(`/api/voices/sample?voice=${voiceKey}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load sample');
-        url = data.url;
-        sampleUrlCache.current[voiceKey] = url;
-      }
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.addEventListener('ended', () => { setPlayingVoice(null); setVoiceProgress(0); if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); });
-      audio.addEventListener('canplaythrough', () => { setLoadingVoice(null); setPlayingVoice(voiceKey); audio.play(); animFrameRef.current = requestAnimationFrame(trackProgress); }, { once: true });
-      audio.addEventListener('error', () => { setLoadingVoice(null); setPlayingVoice(null); });
-      audio.load();
-    } catch { setLoadingVoice(null); }
-  }, [playingVoice, stopPreview, trackProgress]);
+    _playPreview(voiceKey);
+  }, [_playPreview]);
 
   // ── Phone save ──
   const savePhone = async () => {
     setPhoneError(null);
-    let formatted = phoneInput.trim().replace(/[\s\-\(\)\.]/g, '');
-    if (/^\d{10}$/.test(formatted)) formatted = `+1${formatted}`;
-    if (/^1\d{10}$/.test(formatted)) formatted = `+${formatted}`;
-    if (/^0\d{10}$/.test(formatted)) formatted = `+44${formatted.slice(1)}`;
-    if (/^44\d{10}$/.test(formatted)) formatted = `+${formatted}`;
-    if (!/^\+[1-9]\d{1,14}$/.test(formatted)) {
-      setPhoneError('Include country code (e.g. +1 for US, +44 for UK)');
+    const result = normalizePhone(phoneInput);
+    if ('error' in result) {
+      setPhoneError(result.error);
       return;
     }
+    const formatted = result.formatted;
     setPhoneSaving(true);
     try {
       const res = await fetch('/api/user/preferences', {

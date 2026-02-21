@@ -277,9 +277,11 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      // Cost tracking: all READY episodes with generation metadata
+      // Cost tracking: last 200 READY episodes with generation metadata
       prisma.episode.findMany({
         where: { status: 'READY', generationMeta: { not: Prisma.JsonNull } },
+        orderBy: { generatedAt: 'desc' },
+        take: 200,
         select: {
           id: true,
           userId: true,

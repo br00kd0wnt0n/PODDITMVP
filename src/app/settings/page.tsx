@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { isValidPhone } from '@/lib/phone';
+import { useVoicePreview } from '@/hooks/useVoicePreview';
 
 interface Voice {
   key: string;
@@ -44,28 +46,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Voice preview state
-  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
-  const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
-  const [voiceProgress, setVoiceProgress] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animFrameRef = useRef<number | null>(null);
-
-  // Cache sample URLs so we don't refetch the endpoint
-  const sampleUrlCache = useRef<Record<string, string>>({});
-
-  // Clean up audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-  }, []);
+  // Voice preview (shared hook)
+  const { playingVoice, loadingVoice, voiceProgress, playPreview, stopPreview } = useVoicePreview();
 
   // Load preferences + voices
   useEffect(() => {
@@ -90,88 +72,11 @@ export default function SettingsPage() {
     });
   }, []);
 
-  const stopPreview = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    setPlayingVoice(null);
-    setVoiceProgress(0);
-  }, []);
-
-  const trackProgress = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) return;
-
-    if (audio.duration && audio.duration > 0) {
-      setVoiceProgress((audio.currentTime / audio.duration) * 100);
-    }
-    animFrameRef.current = requestAnimationFrame(trackProgress);
-  }, []);
-
-  const playPreview = useCallback(async (voiceKey: string) => {
-    // If already playing this voice, stop it
-    if (playingVoice === voiceKey) {
-      stopPreview();
-      return;
-    }
-
-    // Stop any current playback
-    stopPreview();
-
-    // Select the voice
+  // Wrap playPreview to also select the voice
+  const handleVoicePreview = useCallback((voiceKey: string) => {
     setVoice(voiceKey);
-    setLoadingVoice(voiceKey);
-
-    try {
-      // Check cache first
-      let url = sampleUrlCache.current[voiceKey];
-
-      if (!url) {
-        const res = await fetch(`/api/voices/sample?voice=${voiceKey}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load sample');
-        url = data.url;
-        sampleUrlCache.current[voiceKey] = url;
-      }
-
-      // Create and play audio
-      const audio = new Audio(url);
-      audioRef.current = audio;
-
-      audio.addEventListener('ended', () => {
-        setPlayingVoice(null);
-        setVoiceProgress(0);
-        if (animFrameRef.current) {
-          cancelAnimationFrame(animFrameRef.current);
-          animFrameRef.current = null;
-        }
-      });
-
-      audio.addEventListener('canplaythrough', () => {
-        setLoadingVoice(null);
-        setPlayingVoice(voiceKey);
-        audio.play();
-        animFrameRef.current = requestAnimationFrame(trackProgress);
-      }, { once: true });
-
-      audio.addEventListener('error', () => {
-        setLoadingVoice(null);
-        setPlayingVoice(null);
-        console.error(`[Settings] Failed to play sample for ${voiceKey}`);
-      });
-
-      audio.load();
-    } catch (err) {
-      console.error('[Settings] Voice preview error:', err);
-      setLoadingVoice(null);
-    }
-  }, [playingVoice, stopPreview, trackProgress]);
+    playPreview(voiceKey);
+  }, [playPreview]);
 
   const handleSave = async () => {
     stopPreview();
@@ -309,7 +214,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={v.key}
-                  onClick={() => playPreview(v.key)}
+                  onClick={() => handleVoicePreview(v.key)}
                   disabled={isLoading}
                   className={`relative p-3 rounded-xl border text-left transition-all overflow-hidden ${
                     isSelected
@@ -512,9 +417,9 @@ export default function SettingsPage() {
             autoComplete="tel"
             className={`w-full px-4 py-2.5 bg-white/[0.07] border rounded-xl text-sm text-white
                        placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 focus:bg-white/[0.10]
-                       transition-colors font-mono ${phone && !/^\+[1-9]\d{6,14}$/.test(phone) ? 'border-red-500/40' : 'border-white/15'}`}
+                       transition-colors font-mono ${phone && !isValidPhone(phone) ? 'border-red-500/40' : 'border-white/15'}`}
           />
-          {phone && !/^\+[1-9]\d{6,14}$/.test(phone) && (
+          {phone && !isValidPhone(phone) && (
             <p className="text-xs text-red-400/80 mt-1.5">Must start with + followed by country code and number (e.g., +15551234567)</p>
           )}
         </section>
