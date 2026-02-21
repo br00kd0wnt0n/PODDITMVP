@@ -53,7 +53,12 @@ export default function EpisodeList({
         <h2 className="text-lg font-bold text-white">Your Episodes</h2>
         {episodes.filter(e => e.status === 'READY' || !e.status).length > 0 && (
           <span className="text-xs text-stone-500">
-            {(() => { const readyCount = episodes.filter(e => e.status === 'READY' || !e.status).length; return episodeLimit > 0 ? `${readyCount} of ${episodeLimit}` : `${readyCount}`; })()}
+            {(() => {
+              const readyCount = episodes.filter(e => e.status === 'READY' || !e.status).length;
+              if (episodeLimit <= 0) return `${readyCount} episode${readyCount !== 1 ? 's' : ''}`;
+              const remaining = Math.max(0, episodeLimit - readyCount);
+              return `${readyCount} episode${readyCount !== 1 ? 's' : ''} · ${remaining} remaining`;
+            })()}
           </span>
         )}
       </div>
